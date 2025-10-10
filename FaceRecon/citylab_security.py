@@ -17,28 +17,32 @@ known_face_encodings = []
 known_face_names = []
 
 for filename in os.listdir(DIR_ALUNOS):
-    if filename.endswith((".jpg", ".png", ".jpeg")):
+    if filename.lower().endswith((".jpg", ".png", ".jpeg")):
         path = os.path.join(DIR_ALUNOS, filename)
         img = face_recognition.load_image_file(path)
-        encoding = face_recognition.face_encodings(img)[0]
-        known_face_encodings.append(encoding)
-        name = os.path.splitext(filename)[0]
-        known_face_names.append(name)
+        encodings = face_recognition.face_encodings(img)
 
-print(f"[INFO] {len(known_face_encodings)} alunos cadastrados carregados.")
+        if encodings:
+            encoding = encodings[0]
+            known_face_encodings.append(encoding)
+            # Nome da pessoa = nome do arquivo sem extensão
+            name = os.path.splitext(filename)[0]
+            known_face_names.append(name)
+
+print(f"[INFO] {len(known_face_encodings)} rostos de alunos carregados.")
 
 # ================================
-# Carregar modelo YOLO para gestos
-# (treinado com dataset de gestos suspeitos)
+# Carregar modelo YOLO (gestos suspeitos)
 # ================================
-model = YOLO("yolov8n.pt")  # depois substituir pelo modelo customizado
+model = YOLO("yolov8n.pt")  # modelo base ou customizado depois
 
 # ================================
 # Inicializar câmera
 # ================================
-cap = cv2.VideoCapture(0)  # Logitech C925e
-cap.set(3, 1920)
-cap.set(4, 1080)
+cap = cv2.VideoCapture(1)
+cap.set(cv2.CAP_PROP_FPS, 30)
+cap.set(3, 1280)  # largura
+cap.set(4, 720)   # altura
 
 print("🔒 CityLab Security rodando... Pressione 'q' para sair.")
 
@@ -55,13 +59,14 @@ while True:
     face_encodings = face_recognition.face_encodings(rgb_frame, face_locations)
 
     for (top, right, bottom, left), face_encoding in zip(face_locations, face_encodings):
-        matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.5)
-        name = "NÃO ALUNO"
+        # Tolerância aumentada para melhorar reconhecimento com variações
+        matches = face_recognition.compare_faces(known_face_encodings, face_encoding, tolerance=0.6)
+        name = "NAO ALUNO"
         color = (0, 0, 255)  # vermelho
 
         if True in matches:
-            first_match_index = matches.index(True)
-            name = "ALUNO"
+            match_index = matches.index(True)
+            name = known_face_names[match_index]  # mostra o nome real
             color = (0, 255, 0)  # verde
 
         cv2.rectangle(frame, (left, top), (right, bottom), color, 2)
@@ -75,11 +80,9 @@ while True:
     for r in results:
         for box in r.boxes:
             x1, y1, x2, y2 = box.xyxy[0].numpy().astype(int)
-            conf = float(box.conf[0])
 
-            # Aqui entraria a lógica de "classificação de gesto suspeito"
-            # (precisa de treinamento customizado com dataset)
-            is_suspect = False  # <-- substituir por verificação real
+            # Placeholder: lógica real virá com modelo treinado
+            is_suspect = False  
 
             if is_suspect:
                 cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 140, 255), 3)
