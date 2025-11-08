@@ -211,7 +211,6 @@ __marimo__/
 *.jpg
 *.jpeg
 *.yaml
-*.pt
 
 # Folders
 citylab_security_venv_windows/
