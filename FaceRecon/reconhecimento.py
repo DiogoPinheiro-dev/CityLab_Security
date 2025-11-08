@@ -112,7 +112,7 @@ is_running = True
 def process_frames_insightface(logger_alunos, logger_alertas, image_log_directory):
     global latest_frame, last_known_faces, last_known_persons, is_running
     
-    SIMILARITY_THRESHOLD = 0.52 
+    SIMILARITY_THRESHOLD = 0.52
     app = insightface.app.FaceAnalysis(providers=['CPUExecutionProvider'])
     app.prepare(ctx_id=0, det_size=(640, 640))
 
@@ -153,6 +153,7 @@ def process_frames_insightface(logger_alunos, logger_alertas, image_log_director
                         recently_logged[name] = current_time
                         
                         if name == "NAO ALUNO":
+                            # Mantém o timestamp completo para o nome do arquivo (para exclusividade e ordenação)
                             timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
                             timestamp_ms = f"{timestamp}_{int(current_time * 1000) % 1000}"
                             img_name = f"ALERTA_NAO_ALUNO_{timestamp_ms}.jpg"
@@ -169,40 +170,33 @@ def process_frames_insightface(logger_alunos, logger_alertas, image_log_director
                             cropped_face = frame_to_process[orig_y1:orig_y2, orig_x1:orig_x2].copy() 
                             
                             if cropped_face.size > 0:
-                                # --- INÍCIO DAS ALTERAÇÕES PARA TEXTO DINÂMICO E NA PARTE INFERIOR ---
                                 h, w, _ = cropped_face.shape
 
-                                # Formata o texto para a imagem
-                                time_only = time.strftime("%H:%M:%S")
-                                text_on_image = f"ALERTA NAO ALUNO {time_only}" 
+                                # --- ALTERAÇÃO: Incluindo a data na formatação do texto da imagem ---
+                                current_date_time_formatted = time.strftime("%d/%m/%Y %H:%M:%S")
+                                text_on_image = f"ALERTA NAO ALUNO {current_date_time_formatted}" 
+                                # --- FIM DA ALTERAÇÃO ---
                                 
                                 font = cv2.FONT_HERSHEY_SIMPLEX
                                 font_thickness = 1
                                 text_color = (0, 255, 255) # Ciano (BGR)
                                 background_color = (0, 0, 0) # Preto
 
-                                # Calcular o font_scale dinamicamente
-                                # Começamos com um font_scale base e ajustamos
                                 font_scale = 0.6 
                                 (text_width, text_height), baseline = cv2.getTextSize(text_on_image, font, font_scale, font_thickness)
 
-                                # Se o texto for muito grande para a largura da imagem, reduzimos o font_scale
-                                if text_width > w - 10: # 10 pixels de padding total
+                                if text_width > w - 10: 
                                     font_scale = (w - 10) / text_width * font_scale
                                     (text_width, text_height), baseline = cv2.getTextSize(text_on_image, font, font_scale, font_thickness)
                                     
-                                # Posição para o texto (inferior, centralizado horizontalmente)
                                 text_x = (w - text_width) // 2 
-                                text_y = h - 5 # 5 pixels de padding do fundo
+                                text_y = h - 5 
 
-                                # Adiciona um retângulo de fundo (sempre para melhor legibilidade)
                                 cv2.rectangle(cropped_face, (text_x - 2, text_y - text_height - 2), 
                                               (text_x + text_width + 2, text_y + baseline + 2), background_color, -1)
                                 
-                                # Adiciona o texto à imagem
                                 cv2.putText(cropped_face, text_on_image, (text_x, text_y), 
                                             font, font_scale, text_color, font_thickness, cv2.LINE_AA)
-                                # --- FIM DAS ALTERAÇÕES ---
 
                                 cv2.imwrite(save_path, cropped_face)
                                 logger_alertas.warning(f"ALERTA: Pessoa não cadastrada detectada. Imagem salva em: {save_path}")
