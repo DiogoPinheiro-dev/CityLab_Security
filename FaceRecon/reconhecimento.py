@@ -73,7 +73,7 @@ class ProcessadorCV:
         # --- Configuração de Constantes de Processamento ---
         self.SIMILARITY_THRESHOLD = 0.52 
         self.SCALE_FACTOR = 0.5
-        self.GAMMA_VALUE = 1.2 
+        self.GAMMA_VALUE = 1.0
         self.LOG_COOLDOWN_SECONDS = 1 
         
         # ... (Loggers, Base de Dados, Modelos permanecem iguais) ...
