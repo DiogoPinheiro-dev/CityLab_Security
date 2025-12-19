@@ -109,8 +109,12 @@ class ProcessadorCV:
         self.model_yolo = YOLO(YOLO_MODEL_PATH)
         
         print("[INFO] Carregando modelo InsightFace...")
-        self.app_insight = insightface.app.FaceAnalysis(providers=['CPUExecutionProvider'])
-        self.app_insight.prepare(ctx_id=0, det_size=(640, 640))
+        self.app_insight = insightface.app.FaceAnalysis(
+            name='buffalo_l',
+            providers=['CPUExecutionProvider']
+        )
+        
+        self.app_insight.prepare(ctx_id=0, det_size=(320, 320))
         
         # --- Variáveis de Estado ---
         self.recently_logged = {}
@@ -118,34 +122,41 @@ class ProcessadorCV:
         print("[INFO] ProcessadorCV inicializado e pronto.")
 
     def processar_frame(self, frame_to_process):
-        # O resto do código permanece o mesmo
         current_faces_results = []
         current_persons_results = []
         try:
             frame_ajustado = adjust_gamma(frame_to_process, gamma=self.GAMMA_VALUE)
             small_frame = cv2.resize(frame_ajustado, (0, 0), fx=self.SCALE_FACTOR, fy=self.SCALE_FACTOR)
             faces = self.app_insight.get(small_frame)
+            
             for face in faces:
                 live_embedding = face.normed_embedding
+                
                 if len(self.known_face_embeddings) == 0:
                     name = "NAO ALUNO"
                     best_score = 0.0
+                    
                 else:
                     scores = np.dot(self.known_face_embeddings, live_embedding)
                     best_match_index = np.argmax(scores)
                     best_score = scores[best_match_index]
                     name = "NAO ALUNO"
+                    
                     if best_score > self.SIMILARITY_THRESHOLD:
                         name = self.known_face_names[best_match_index]
+                        
                 bbox = face.bbox.astype(int)
                 current_faces_results.append({
                     "name": name,
                     "bbox": [int(coord / self.SCALE_FACTOR) for coord in bbox],
                     "confidence": float(best_score)
                 })
+                
                 current_time = time.time()
+                
                 if name not in self.recently_logged or (current_time - self.recently_logged[name] > self.LOG_COOLDOWN_SECONDS):
                     self.recently_logged[name] = current_time
+                    
                     if name == "NAO ALUNO":
                         timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
                         timestamp_ms = f"{timestamp}_{int(current_time * 1000) % 1000}"
@@ -165,15 +176,94 @@ class ProcessadorCV:
                             self.logger_alertas.warning(f"ALERTA: Pessoa não cadastrada. Falha ao salvar (rosto pequeno).")
                     else:
                         self.logger_alunos.info(f"RECONHECIDO: {name}")
+                        
             results_yolo = self.model_yolo(small_frame, classes=[0], verbose=False)
+            
             for r in results_yolo:
                 for box in r.boxes:
                     bbox_person = box.xyxy[0].numpy().astype(int)
+                    
                     current_persons_results.append({
                         "bbox": [int(coord / self.SCALE_FACTOR) for coord in bbox_person],
                         "confidence": float(box.conf[0])
                     })
+                    
         except Exception as e:
             print(f"[ERRO NO PROCESSAMENTO]: {e}")
             self.logger_alertas.error(f"Erro ao processar frame: {e}")
+            
         return {"faces": current_faces_results, "persons": current_persons_results}
+        
+if __name__ == "__main__":
+    try:
+        pcv = ProcessadorCV()
+    
+    except Exception as e:
+        print(f"CRASH FATAL: {e}")
+        exit()
+    
+    #inicialização da camera
+    print("[INFO] Abrindo câmera")
+    cap = cv2.VideoCapture(0)
+    
+    cap.set(cv2.CAP_PROP_FRAME_WIDTH , 640)
+    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    
+    if not cap.isOpened():
+        print("[ERRO] Não foi possível acesasr a câmera. Verifique a conexão.")
+        exit()
+    
+    print("--- SISTEMA INICIADO ---")
+    print("Pressione 'q' na janela de vídeo para sair.")
+    
+    frame_count = 0
+    SKIP_FRAMES = 3
+    
+    last_results = {"faces": [], "persons" : []}
+    
+    try:
+        while True:
+            ret, frame = cap.read()
+            
+            if not ret: 
+                print("[ERRO] Falha ao ler framded de câmera")
+                break
+                
+            if frame_count % (SKIP_FRAMES + 1) == 0:
+                last_results = pcv.processar_frame(frame)
+            
+            for face in last_results.get("faces", []):
+                name = face["name"]
+                x1, y1, x2, y2 = face["bbox"]
+                conf = face["confidence"]
+                
+                if name == "NAO ALUNO":
+                    color = (0, 0, 255)
+                    label = f"NAO ALUNO"
+                
+                else:
+                    color = (0, 255, 0)
+                    label = f"{name} ({int(conf*100)}%)"
+                    
+                cv2.rectangle(frame, (x1, y1), (x2, y2), color, 2)
+                cv2.putText(frame, label, (x1, y1 - 10), cv2.FONT_HERSHEY_SIMPLEX, 0.6, color, 2)
+                
+            for person in last_results.get("persons", []):
+                px1, py1, px2, py2 = person["bbox"]
+                
+                cv2.rectangle(frame, (px1, py1), (px2, py2), (255, 0 ,0), 1)
+                
+            cv2.imshow("Sistema de reconhecimento - Raspberry Pi", frame)
+            frame_count += 1
+            
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        
+    except KeyboardInterrupt:
+        print("Interrupção manual detectada")
+    
+    finally:
+        cap.release()
+        cv2.destroyAllWindows()
+            
+        print("[INFO] Sistema encerrado corretamente.")
