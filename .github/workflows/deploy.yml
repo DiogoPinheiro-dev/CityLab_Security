@@ -1,23 +1,27 @@
 name: Deploy CityLab Security
 
-on: 
+# Aciona o workflow apenas quando houver push na branch main
+on:
   push:
-    branches: ["main"]
-  
-  jobs:
-    build-and-deploy:
-      runs-on: self-hosted
+    branches: [ "main" ]
 
-      steps: 
-      - name: Check out repository
-        uses: actions/checkout@v4
+jobs:
+  build-and-deploy:
+    runs-on: self-hosted  # Isso diz para rodar NO SEU Raspberry Pi, não na nuvem do GitHub
+    
+    steps:
+    # Baixa a versão mais recente do código
+    - name: Check out repository
+      uses: actions/checkout@v4
       
-      - name: Install Dependecies
-        run: |
-          python3 -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-      
-      - name: Restar Application
-        run: |
-          echo "Reiniciando serviço de segurança..."
-          sudp systemctl restart citylab.service
+    # Atualiza dependências (caso você tenha adicionado bibliotecas novas no requirements.txt)
+    - name: Install Dependencies
+      run: |
+        python3 -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        
+    # Reinicia o serviço do projeto
+    - name: Restart Application
+      run: |
+        echo "Reiniciando serviço de segurança..."
+        sudo systemctl restart citylab.service

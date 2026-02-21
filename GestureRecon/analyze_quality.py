@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 
-IMAGE_DIRS_TO_CHECK = ['/media/digas/Win_Dados/Faculdades/Fatec/TCC/codigos/GestureRecon/Gestures/Images/Train']
+IMAGE_DIRS_TO_CHECK = ['./Gestures/Images/Train']
 BLUR_THRESHOLD = 100.0  # Ajuste este valor. Menor que 100 é geralmente borrado.
 DARK_THRESHOLD = 60    # Brilho médio abaixo disso é escuro.
 BRIGHT_THRESHOLD = 200 # Brilho médio acima disso é claro demais.
