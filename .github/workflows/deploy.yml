@@ -10,18 +10,15 @@ jobs:
     runs-on: self-hosted  # Isso diz para rodar no Raspberry Pi, não na nuvem do GitHub
     
     steps:
-    # Baixa a versão mais recente do código
     - name: Check out repository
       uses: actions/checkout@v4
-      
-    # Atualiza dependências usando o Ambiente Virtual já existente
+
     - name: Install Dependencies
       run: |
-        /home/citylab/Desktop/Projects/CityLab_Security/citylab_venv -m pip install --upgrade pip  
-        if [ -f requirements.txt ]; then ./citylab_venv/bin/pip install -r requirements.txt; fi
-        
-    # Reinicia o serviço do projeto
+        VENV_PATH="/home/citylab/Desktop/Projects/CityLab_Security/citylab_venv"
+        $VENV_PATH/bin/python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then $VENV_PATH/bin/pip install -r requirements.txt; fi
+    
     - name: Restart Application
       run: |
-        echo "Reiniciando serviço de segurança..."
         sudo systemctl restart citylab.service
