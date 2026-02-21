@@ -14,11 +14,11 @@ jobs:
     - name: Check out repository
       uses: actions/checkout@v4
       
-    # Atualiza dependências 
+    # Atualiza dependências usando o Ambiente Virtual já existente
     - name: Install Dependencies
       run: |
-        python3 -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        ./citylab_venv/bin/python -m pip install --upgrade pip  
+        if [ -f requirements.txt ]; then ./citylab_venv/bin/pip install -r requirements.txt; fi
         
     # Reinicia o serviço do projeto
     - name: Restart Application
