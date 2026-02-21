@@ -19,6 +19,10 @@ jobs:
         $VENV_PATH/bin/python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then $VENV_PATH/bin/pip install -r requirements.txt; fi
     
+    - name: Sync files to Production Folder
+      run: |
+        rsync -a --exclude='citylab_venv' --exclude='.git' ./ /home/citylab/Desktop/Projects/CityLab_Security/
+
     - name: Restart Application
       run: |
         sudo systemctl restart citylab.service
