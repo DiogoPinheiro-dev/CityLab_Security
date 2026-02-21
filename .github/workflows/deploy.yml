@@ -17,7 +17,7 @@ jobs:
     # Atualiza dependências usando o Ambiente Virtual já existente
     - name: Install Dependencies
       run: |
-        /bome/citylab/Desktop/Projects/CityLab_Security/citylab_venv -m pip install --upgrade pip  
+        /home/citylab/Desktop/Projects/CityLab_Security/citylab_venv -m pip install --upgrade pip  
         if [ -f requirements.txt ]; then ./citylab_venv/bin/pip install -r requirements.txt; fi
         
     # Reinicia o serviço do projeto
