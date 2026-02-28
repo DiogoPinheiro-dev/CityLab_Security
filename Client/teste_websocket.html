@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reconhecimento Facial em Tempo Real</title>
+    <style>
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            background-color: #1e1e1e; 
+            color: white; 
+            margin: 0;
+            padding: 20px;
+        }
+        canvas { 
+            border: 3px solid #333; 
+            border-radius: 8px; 
+            margin-top: 15px; 
+            background-color: #000;
+        }
+        #status { 
+            margin-top: 10px; 
+            font-weight: bold; 
+            font-size: 1.2rem;
+        }
+    </style>
+</head>
+<body>
+    <h1>Câmera - CityLab Security</h1>
+    <div id="status" style="color: yellow;">Ligando a câmera e conectando ao servidor...</div>
+
+    <video id="video" autoplay playsinline style="display: none;"></video>
+    
+    <canvas id="canvas" width="640" height="480"></canvas>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const statusDiv = document.getElementById('status');
+
+        let ws;
+        let aguardandoResposta = false;
+        let ultimosResultados = { rostos: [], pessoas: [] };
+
+        // 1. Acessar a Webcam do Computador
+        async function iniciarCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 } });
+                video.srcObject = stream;
+            } catch (err) {
+                console.error("Erro ao acessar a câmera: ", err);
+                statusDiv.innerText = "Erro ao acessar a câmera. Verifique as permissões.";
+                statusDiv.style.color = "red";
+            }
+        }
+
+        // 2. Conectar ao WebSocket da nossa API FastAPI
+        function conectarWebSocket() {
+            // Conecta na rota que criamos no main.py
+            ws = new WebSocket("ws://localhost:8000/stream");
+
+            ws.onopen = () => {
+                statusDiv.innerText = "Conectado e Processando ✓";
+                statusDiv.style.color = "lightgreen";
+                processarFrames(); // Inicia o loop de captura
+            };
+
+            ws.onmessage = (event) => {
+                // Quando a API responde, guardamos os resultados e liberamos o próximo frame
+                ultimosResultados = JSON.parse(event.data);
+                aguardandoResposta = false; 
+            };
+
+            ws.onclose = () => {
+                statusDiv.innerText = "Desconectado. Tentando reconectar em 3s...";
+                statusDiv.style.color = "orange";
+                setTimeout(conectarWebSocket, 3000); // Tenta reconectar se a API cair
+            };
+        }
+
+        // 3. Capturar frame, enviar e desenhar
+        function processarFrames() {
+            if (ws.readyState !== WebSocket.OPEN) return;
+
+            // Desenha o frame atual do vídeo no canvas
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Desenha as bounding boxes por cima
+            desenharBoundingBoxes();
+
+            // Só enviamos uma nova foto se a API já terminou de processar a anterior
+            // Isso evita travamentos e gargalos na rede
+            if (!aguardandoResposta) {
+                aguardandoResposta = true;
+                
+                // Converte o frame atual do canvas para JPEG e envia como bytes para o Python
+                canvas.toBlob((blob) => {
+                    if (blob) ws.send(blob);
+                }, 'image/jpeg', 0.8);
+            }
+
+            // Repete o processo no próximo frame do navegador
+            requestAnimationFrame(processarFrames);
+        }
+
+        // 4. Lógica de desenho das caixas (OpenCV direto no Front-end)
+        function desenharBoundingBoxes() {
+            // Desenha as caixas do YOLO (Pessoas detectadas)
+            ultimosResultados.pessoas.forEach(pessoa => {
+                const [x1, y1, x2, y2] = pessoa.bbox;
+                ctx.strokeStyle = "rgba(0, 150, 255, 0.6)"; // Azul translúcido
+                ctx.lineWidth = 2;
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+            });
+
+            // Desenha as caixas do InsightFace (Rostos reconhecidos)
+            ultimosResultados.rostos.forEach(rosto => {
+                const [x1, y1, x2, y2] = rosto.bbox;
+                const nome = rosto.nome;
+                
+                // Se for NAO ALUNO, fica vermelho. Se reconhecer, fica verde.
+                const cor = nome === "NAO ALUNO" ? "red" : "#4CAF50";
+
+                ctx.strokeStyle = cor;
+                ctx.lineWidth = 3;
+                ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+                // Desenha o fundo da tag de texto
+                ctx.fillStyle = cor;
+                ctx.fillRect(x1, y1 - 25, Math.max(120, ctx.measureText(nome).width + 20), 25);
+
+                // Desenha o nome
+                ctx.fillStyle = "white";
+                ctx.font = "bold 16px Arial";
+                ctx.fillText(nome, x1 + 5, y1 - 7);
+            });
+        }
+
+        // Dá o start inicial
+        iniciarCamera().then(conectarWebSocket);
+    </script>
+</body>
+</html>
