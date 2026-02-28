@@ -1,0 +1,4 @@
+ultralytics==8.1.0 # Or latest
+opencv-python
+numpy
+lapx # Needed for tracking in YOLOv8
