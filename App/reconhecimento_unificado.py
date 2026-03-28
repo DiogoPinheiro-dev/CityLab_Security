@@ -1,20 +1,23 @@
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
+from pathlib import Path
 from typing import Any
 
 import cv2
 import numpy as np
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-PROJECT_ROOT = os.path.dirname(BASE_DIR)
-os.environ.setdefault("YOLO_CONFIG_DIR", os.path.join(PROJECT_ROOT, ".ultralytics"))
-os.environ.setdefault("MPLCONFIGDIR", os.path.join(PROJECT_ROOT, ".mplconfig"))
+BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent
+POSE_MODEL_PATH = BASE_DIR / "GestureRecon" / "yolov8n-pose.pt"
+
+os.environ.setdefault("YOLO_CONFIG_DIR", str(PROJECT_ROOT / ".ultralytics"))
+os.environ.setdefault("MPLCONFIGDIR", str(PROJECT_ROOT / ".mplconfig"))
 
 from ultralytics import YOLO
 
-if PROJECT_ROOT not in sys.path:
-    sys.path.insert(0, PROJECT_ROOT)
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from App.FaceRecon.reconhecimento import ProcessadorCV
 from App.GestureRecon.detector import GestureAnalyzer
@@ -43,8 +46,12 @@ class ReconhecimentoUnificado:
         self.face_processor = ProcessadorCV()
         self.gesture_analyzer = GestureAnalyzer(fps=30)
 
-        pose_model_path = os.path.join(BASE_DIR, "GestureRecon", "yolov8n-pose.pt")
-        self.pose_model = YOLO(pose_model_path)
+        if not POSE_MODEL_PATH.exists():
+            raise FileNotFoundError(
+                f"Modelo de pose nao encontrado em: {POSE_MODEL_PATH}. "
+                "Adicione o arquivo yolov8n-pose.pt em App/GestureRecon."
+            )
+        self.pose_model = YOLO(str(POSE_MODEL_PATH))
 
         self.last_face_results = {"faces": [], "persons": []}
         self.last_gesture_results = []

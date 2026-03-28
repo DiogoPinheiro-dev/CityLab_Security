@@ -2,6 +2,7 @@
 .env.*
 !.env.example
 
+.vscode/
 .venv/
 .tmp/
 .home/
