@@ -1,170 +1,175 @@
-# CityLab\_Security Documentação
+# CityLab Security - Servidor
 
-### Visão Geral do Projeto
+## Requisitos
 
-Repósitorio de um projeto feito na faculdade **FATEC de São José do Rio Preto**, cuja funcionalidade é ajudar no controle da entrada de pessoas não alunas nos campus da faculdade, aumentando a segurança dos alunos e preservando a integridade da instituição.
+- Python 3.13
+- MongoDB local ou MongoDB Atlas
+- Dependencias do projeto instaladas via `requirements.txt`
 
-O projeto é, em sua maior parte, executado em **Python**, tendo como os principais pacotes, para o funcionamento do projeto, os seguintes: **ultralytics**, **insightface** e **opencv-python**.
+Arquivos de modelo esperados:
 
-### Autores
+- `App/FaceRecon/yolov8n.pt`
+- `App/FaceRecon/base_dados_alunos.pkl`
+- `App/GestureRecon/yolov8n-pose.pt`
 
-  * Mariana Lebrão Murauskas
-  * Diogo de Lorenzi Pinheiro
+Observacao sobre InsightFace:
 
-### Orientador
+- O servidor usa modelos em `App/.insightface/models/buffalo_l`.
+- Se esse modelo nao existir, o InsightFace tenta baixar automaticamente na primeira execucao.
 
-  * Prof. Dr. Mário Henrique de Souza Pardo
+## Configuracao do ambiente
 
-### Execução do Projeto
+Na raiz do projeto:
 
-#### Reconhecimento Facial
-
-Para **gerar/atualizar o banco de dados** com as imagens de pessoas "validadas" (serão reconhecidas como alunos), o diretório `"alunos"` deve ser atualizado. Logo após, o arquivo `cadastro.py` deve ser executado.
-
-> **Nota:** Essa etapa registra as faces autorizadas.
-
-```bash
-$ py cadastro.py
+```powershell
+py -3.13 -m venv .venv
+.venv\Scripts\Activate.ps1
+py -m pip install --upgrade pip
+py -m pip install -r requirements.txt
 ```
 
-A **funcionalidade de reconhecimento facial** está inteiramente dentro do arquivo `reconhecimento.py`. Esse arquivo só deverá ser executado *após* a execução do arquivo `cadastro.py`.
+## Variaveis de ambiente
 
-```bash
-$ py reconhecimento.py
+Crie um arquivo `.env` na raiz do projeto.
+
+Exemplo:
+
+```env
+MONGO_DETAILS=mongodb://localhost:27017
+MONGO_DB_NAME=recon-db
+MONGO_SERVER_SELECTION_TIMEOUT_MS=10000
 ```
 
-#### Reconhecimento de Gestos e Objetos
+## Como rodar o servidor
 
-O estado atual do projeto só permite o treinamento do **modelo YOLO, da ultralytics**, por meio de imagens e arquivos de anotação `.txt` correspondentes. Cada arquivo `.png` tem seu correspondente, com o mesmo nome, em um arquivo `.txt`.
+Com o ambiente virtual ativo:
 
-Os arquivos `.txt` têm a funcionalidade de marcar, para o modelo, que tipo de imagem é aquela, como:
-
-  * Uma pessoa com **arma de fogo**
-  * Uma pessoa **encapuzada** ou de **capacete**
-  * Uma pessoa com **arma branca**
-
-Já as imagens são para o modelo gravar que tipo de imagem é aquela, seguindo o que está escrito no arquivo `.txt` correspondente.
-
-#### Preparação e Filtragem de Imagens
-
-Para executar, corretamente, esse treinamento, deve-se executar, primeiramente, o arquivo `get_gestures.py`. Esse arquivo tem a funcionalidade de **buscar na rede por imagens** de pessoas com bonés, capacetes, armas (brancas ou de fogo), etc.
-
-```bash
-$ py get_gestures.py
+```powershell
+py -m uvicorn Server.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-Após a execução desse arquivo, uma **limpeza de imagens manual** deverá ser executa, para a melhor eficiência do treinamento do modelo.
+Endpoints uteis:
 
-Antes da limpeza de imagens manual, podem ser executados os seguintes dois arquivos (sem ordem específica) para uma **filtragem inicial de imagens "ruins"**:
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- Home: `http://127.0.0.1:8000/`
 
-1.  **Análise de Qualidade:** O arquivo `analyze_quality.py` tem como sua funcionalidade marcar imagens que estejam **borradas** ou que estejam com **baixa luminosidade**, facilitando a limpeza das imagens para treinamento do modelo.
+## Rotas da API
 
-    ```bash
-    $ py analyze_quality.py
-    ```
+### `GET /`
 
-2.  **Verificação de Arquivos de Anotação:** Outro arquivo útil para a limpeza de imagens é o `check_match_files.py`. Ele busca, e gera uma lista, por imagens que **possuem correspondência** com arquivos `.txt` e outra lista dos arquivos que **não têm correspondência**.
+Retorna status do servidor e nome do banco configurado.
 
-    ```bash
-    $ py check_match_files.py
-    ```
+Resposta esperada:
 
-#### Treinamento do Modelo
-
-Para finalizar, o treinamento do modelo é executado por meio de um arquivo com o nome de `train.py`, em que nele é chamado, apenas, o modelo e são passados a ele os parâmetros para treinamento, que são as imagens.
-
-```bash
-py train.py
+```json
+{
+  "status": "online",
+  "banco": "recon-db"
+}
 ```
 
-## MongoDB Atlas (Without Local MongoDB)
+### `POST /cadastro`
 
-You can run the API using MongoDB Atlas, without installing MongoDB on your machine.
+Cadastra um aluno no MongoDB com embedding facial.
 
-1. Create a `.env` file in the project root using `.env.example` as reference.
-2. Set `MONGO_DETAILS` with your Atlas URI.
-3. Keep or change `MONGO_DB_NAME` as needed.
-4. Run the API:
+Formato: `multipart/form-data`
 
-```bash
-python -m uvicorn Server.main:app --host 127.0.0.1 --port 8000
+- `nome` (texto, obrigatorio)
+- `foto` (arquivo `.jpg`, `.jpeg` ou `.png`, obrigatorio)
+
+Regras importantes:
+
+- A imagem precisa conter exatamente 1 rosto.
+- Se a pipeline ainda nao estiver pronta, retorna `503`.
+
+Exemplo (PowerShell):
+
+```powershell
+curl.exe -X POST "http://127.0.0.1:8000/cadastro" `
+  -F "nome=Joao Silva" `
+  -F "foto=@C:\caminho\foto.jpg"
 ```
 
-# English version 
+Resposta de sucesso:
 
-### Project Overview
-
-This repository contains a project developed at **FATEC São José do Rio Preto** aiming to enhance campus security by controlling the entry of non-students. Its functionality helps increase the safety of students and preserve the integrity of the institution.
-
-The project is predominantly executed in **Python**, utilizing the following key packages for its core functionality: **ultralytics**, **insightface**, and **opencv-python**.
-
-### Authors
-
-  * Mariana Lebrão Murauskas
-  * Diogo de Lorenzi Pinheiro
-
-### Advisor
-
-  * Prof. Dr. Mário Henrique de Souza Pardo
-
-### Project Execution
-
-#### Face Recognition
-
-To **generate or update the database** with images of "validated" individuals (who will be recognized as students), the directory `"alunos"` (students) must first be updated with the new images. Afterward, the `cadastro.py` file should be executed.
-
-> **Note:** This step registers the authorized faces.
-
-```bash
-$ py cadastro.py
+```json
+{
+  "mensagem": "Sucesso! Rosto de 'Joao Silva' cadastrado.",
+  "status": "sucesso"
+}
 ```
 
-The **facial recognition functionality** itself is entirely contained within the `reconhecimento.py` file. This file should only be executed *after* running `cadastro.py`.
+### `GET /logs`
 
-```bash
-$ py reconhecimento.py
+Lista os logs mais recentes de reconhecimento.
+
+Query param:
+
+- `limite` (opcional, padrao: `50`)
+
+Exemplo:
+
+`GET http://127.0.0.1:8000/logs?limite=20`
+
+Resposta (exemplo):
+
+```json
+[
+  {
+    "id": "67f0...",
+    "nome": "Joao Silva",
+    "tipo": "RECONHECIDO",
+    "data_hora": "28/03/2026 - 19:20:11",
+    "imagem_url": "data:image/jpeg;base64,..."
+  }
+]
 ```
 
-#### Gesture and Object Recognition
+### `WS /stream` (WebSocket)
 
-The current state of the project allows for the training of the **ultralytics YOLO model** using images and corresponding `.txt` annotation files. Each `.png` image has a counterpart `.txt` file with the same name.
+Stream de reconhecimento em tempo real.
 
-The `.txt` files mark the object/gesture type for the model, such as:
+Entrada do cliente:
 
-  * A person with a **firearm**
-  * A person wearing a **hood** or **helmet**
-  * A person with a **knife/edged weapon**
+- Enviar frame em bytes (JPEG) a cada ciclo.
 
-The images are used for the model to learn the visual characteristics of these categories, guided by the corresponding `.txt` annotations.
+Saida do servidor:
 
-#### Image Preparation and Filtering
-
-To correctly execute this training, the `get_gestures.py` file must be run first. This file is responsible for **fetching images from the web** of people with caps, helmets, weapons (edged or fire), etc.
-
-```bash
-$ py get_gestures.py
+```json
+{
+  "rostos": [
+    {
+      "nome": "Joao Silva",
+      "bbox": [100, 80, 220, 260],
+      "confidence": 0.87
+    }
+  ],
+  "pessoas": [
+    {
+      "bbox": [90, 60, 260, 430],
+      "confidence": 0.81
+    }
+  ],
+  "gestos": [
+    {
+      "track_id": 3,
+      "bbox": [95, 70, 255, 420],
+      "alerts": ["Rendicao"]
+    }
+  ]
+}
 ```
 
-After executing this file, a **manual image cleanup** is required to ensure the best training efficiency for the model.
+## Teste rapido com o cliente web
 
-Before the manual cleanup, the following two files can be executed (in no specific order) for an initial **filtering of "bad" images**:
+Em outro terminal, para servir os arquivos do cliente:
 
-1.  **Image Quality Analysis:** The `analyze_quality.py` file flags images that are **blurred** or have **low luminosity**, making the cleanup process easier.
-
-    ```bash
-    $ py analyze_quality.py
-    ```
-
-2.  **Annotation File Check:** The `check_match_files.py` file is useful for cleanup as it finds and generates one list for images that **have a corresponding `.txt` annotation file** and another list for images that **do not**.
-
-    ```bash
-    $ py check_match_files.py
-    ```
-
-#### Model Training
-
-Finally, the model training is executed by running the `train.py` file. This script calls the model and passes the necessary parameters, which include the prepared image dataset, for training.
-
-```bash
-py train.py
+```powershell
+py -m http.server 5500 -d Client
 ```
+
+Abra:
+
+`http://127.0.0.1:5500/teste_websocket.html`
+
+Se a camera nao estiver disponivel no notebook atual, o cliente ainda conecta no servidor, mas nao envia frames.

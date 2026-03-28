@@ -2,7 +2,9 @@
 .env.*
 !.env.example
 
+# IDE
 .vscode/
+**/.vscode/
 .venv/
 .tmp/
 .home/
