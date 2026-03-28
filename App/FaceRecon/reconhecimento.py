@@ -57,6 +57,7 @@ class ProcessadorCV:
         # ... (Configuração de caminhos permanece igual) ...
         self.SCRIPT_DIR = os.path.dirname(os.path.abspath(__file__))
         PROJECT_ROOT = os.path.dirname(self.SCRIPT_DIR)
+        INSIGHTFACE_ROOT = os.path.join(PROJECT_ROOT, ".insightface")
         ARQUIVO_BASE_DADOS = os.path.join(self.SCRIPT_DIR, "base_dados_alunos.pkl")
         
         YOLO_MODEL_PATH = os.path.join(self.SCRIPT_DIR, "yolov8n.pt") 
@@ -97,7 +98,11 @@ class ProcessadorCV:
         self.model_yolo = YOLO(YOLO_MODEL_PATH)
         
         print("[INFO] Carregando modelo InsightFace...")
-        self.app_insight = insightface.app.FaceAnalysis(providers=['CPUExecutionProvider'])
+        os.makedirs(INSIGHTFACE_ROOT, exist_ok=True)
+        self.app_insight = insightface.app.FaceAnalysis(
+            root=INSIGHTFACE_ROOT,
+            providers=['CPUExecutionProvider']
+        )
         self.app_insight.prepare(ctx_id=0, det_size=(640, 640))
         
         self.recently_logged = {}

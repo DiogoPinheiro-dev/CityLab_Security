@@ -1,0 +1,10 @@
+.env
+.env.*
+!.env.example
+
+.venv/
+.tmp/
+.home/
+.mplconfig/
+.ultralytics/
+App/.insightface/
