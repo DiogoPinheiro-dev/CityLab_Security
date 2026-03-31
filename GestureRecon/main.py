@@ -1,6 +1,16 @@
+import os
+import sys
+
 import cv2
 from ultralytics import YOLO
 from detector import GestureAnalyzer
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+from camera_auto_config import AutoImageOptimizer, configure_camera_capture
 
 def main():
     # Inicializa o modelo de Pose. 
@@ -10,11 +20,13 @@ def main():
     
     # Inicializa o analisador de gestos
     analyzer = GestureAnalyzer(fps=30)
+    image_optimizer = AutoImageOptimizer()
     
     # Tenta usar a câmera externa primeiro (índice 1, ou maior),
     # Se falhar ou não existir, usa a webcam nativa (índice 0).
     video_source = 1
     cap = cv2.VideoCapture(video_source)
+    selected_resolution = None
     
     if not cap.isOpened() or not cap.read()[0]:
         print("Câmera externa não encontrada. Iniciando webcam nativa...")
@@ -26,6 +38,13 @@ def main():
         print(f"Erro ao abrir qualquer fonte de vídeo.")
         return
 
+    selected_resolution = configure_camera_capture(cap)
+    if selected_resolution is not None:
+        print(
+            f"Camera configurada automaticamente em "
+            f"{selected_resolution[0]}x{selected_resolution[1]}"
+        )
+
     print("Iniciando detecção... Pressione 'q' para sair.")
 
     while cap.isOpened():
@@ -33,11 +52,17 @@ def main():
         if not ret:
             print("Fim do vídeo ou erro na leitura.")
             break
+        processed_frame = image_optimizer.optimize(frame)
             
         # Roda o YOLO Tracking no frame.
         # persist=True avisa o modelo que os frames pertencem ao mesmo vídeo.
         # tracker="bytetrack.yaml" usa o ByteTrack, excelente para multidões.
-        results = model.track(frame, persist=True, tracker="bytetrack.yaml", verbose=False)
+        results = model.track(
+            processed_frame,
+            persist=True,
+            tracker="bytetrack.yaml",
+            verbose=False,
+        )
         
         current_tracks = []
 

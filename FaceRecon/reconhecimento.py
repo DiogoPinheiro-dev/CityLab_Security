@@ -6,6 +6,14 @@ import time
 import insightface
 import pickle
 import logging
+import sys
+
+CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
+ROOT_DIR = os.path.dirname(CURRENT_DIR)
+if ROOT_DIR not in sys.path:
+    sys.path.insert(0, ROOT_DIR)
+
+from camera_auto_config import AutoImageOptimizer, configure_camera_capture
 
 # ================================
 # FUNÇÃO DE CONFIGURAÇÃO DO LOGGER
@@ -51,11 +59,6 @@ def setup_logger(script_dir):
 # ================================
 # FUNÇÕES AUXILIARES
 # ================================
-def adjust_gamma(image, gamma=1.0):
-    invGamma = 1.0 / max(gamma, 0.01)
-    table = np.array([((i / 255.0) ** invGamma) * 255 for i in np.arange(0, 256)]).astype("uint8")
-    return cv2.LUT(image, table)
-
 # ================================
 # CLASSE DO PROCESSADOR DE CV
 # ================================
@@ -83,7 +86,6 @@ class ProcessadorCV:
         # --- Configuração de Constantes de Processamento ---
         self.SIMILARITY_THRESHOLD = 0.52 
         self.SCALE_FACTOR = 0.5 
-        self.GAMMA_VALUE = 1.2
         self.LOG_COOLDOWN_SECONDS = 1 
         
         # --- Inicialização de Loggers ---
@@ -118,6 +120,7 @@ class ProcessadorCV:
         
         # --- Variáveis de Estado ---
         self.recently_logged = {}
+        self.image_optimizer = AutoImageOptimizer()
 
         print("[INFO] ProcessadorCV inicializado e pronto.")
 
@@ -125,7 +128,7 @@ class ProcessadorCV:
         current_faces_results = []
         current_persons_results = []
         try:
-            frame_ajustado = adjust_gamma(frame_to_process, gamma=self.GAMMA_VALUE)
+            frame_ajustado = self.image_optimizer.optimize(frame_to_process)
             small_frame = cv2.resize(frame_ajustado, (0, 0), fx=self.SCALE_FACTOR, fy=self.SCALE_FACTOR)
             faces = self.app_insight.get(small_frame)
             
@@ -206,13 +209,18 @@ if __name__ == "__main__":
     print("[INFO] Abrindo câmera")
     cap = cv2.VideoCapture(0)
     
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH , 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    selected_resolution = configure_camera_capture(cap)
     
     if not cap.isOpened():
         print("[ERRO] Não foi possível acesasr a câmera. Verifique a conexão.")
         exit()
     
+    if selected_resolution is not None:
+        print(
+            f"[INFO] Camera configurada automaticamente em "
+            f"{selected_resolution[0]}x{selected_resolution[1]}"
+        )
+
     print("--- SISTEMA INICIADO ---")
     print("Pressione 'q' na janela de vídeo para sair.")
     

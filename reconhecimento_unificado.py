@@ -6,6 +6,7 @@ from ultralytics import YOLO
 
 from FaceRecon.reconhecimento import ProcessadorCV
 from GestureRecon.detector import GestureAnalyzer
+from camera_auto_config import AutoImageOptimizer, configure_camera_capture
 
 
 class ReconhecimentoUnificado:
@@ -16,18 +17,19 @@ class ReconhecimentoUnificado:
         base_dir = os.path.dirname(os.path.abspath(__file__))
         pose_model_path = os.path.join(base_dir, "GestureRecon", "yolov8n-pose.pt")
         self.pose_model = YOLO(pose_model_path)
+        self.image_optimizer = AutoImageOptimizer()
 
         self.last_face_results = {"faces": [], "persons": []}
         self.last_gesture_results = []
         self.frame_count = 0
 
-        # Reaproveita os ultimos resultados em alguns frames para aliviar carga.
         self.face_skip_frames = 2
         self.gesture_skip_frames = 1
 
     def processar_gestos(self, frame):
+        processed_frame = self.image_optimizer.optimize(frame)
         results = self.pose_model.track(
-            frame,
+            processed_frame,
             persist=True,
             tracker="bytetrack.yaml",
             verbose=False,
@@ -157,11 +159,16 @@ def main():
 
     print("[INFO] Abrindo camera")
     cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    selected_resolution = configure_camera_capture(cap)
 
     if not cap.isOpened():
         raise RuntimeError("Nao foi possivel acessar a camera.")
+
+    if selected_resolution is not None:
+        print(
+            f"[INFO] Camera configurada automaticamente em "
+            f"{selected_resolution[0]}x{selected_resolution[1]}"
+        )
 
     print("--- SISTEMA UNIFICADO INICIADO ---")
     print("Pressione 'q' na janela de video para sair.")
