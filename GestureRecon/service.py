@@ -6,6 +6,7 @@ import numpy as np
 from ultralytics import YOLO
 
 from GestureRecon.detector import GestureAnalyzer
+from camera_auto_config import AutoImageOptimizer
 
 
 class GestureRecognitionService:
@@ -41,10 +42,16 @@ class GestureRecognitionService:
         self.pose_model = YOLO(self.pose_model_path)
         self.object_model = YOLO(self.object_model_path)
         self.analyzer = GestureAnalyzer(fps=fps)
+        self.image_optimizer = AutoImageOptimizer()
 
-    def detect_objects(self, frame: np.ndarray) -> list[dict[str, Any]]:
+    def detect_objects(
+        self,
+        frame: np.ndarray,
+        optimized_frame: Optional[np.ndarray] = None,
+    ) -> list[dict[str, Any]]:
+        processed_frame = optimized_frame if optimized_frame is not None else self.image_optimizer.optimize(frame)
         obj_results = self.object_model(
-            frame,
+            processed_frame,
             classes=self.target_classes,
             verbose=False,
         )
@@ -76,9 +83,14 @@ class GestureRecognitionService:
 
         return detections
 
-    def detect_gestures(self, frame: np.ndarray) -> list[dict[str, Any]]:
+    def detect_gestures(
+        self,
+        frame: np.ndarray,
+        optimized_frame: Optional[np.ndarray] = None,
+    ) -> list[dict[str, Any]]:
+        processed_frame = optimized_frame if optimized_frame is not None else self.image_optimizer.optimize(frame)
         pose_results = self.pose_model.track(
-            frame,
+            processed_frame,
             persist=True,
             tracker=self.tracker,
             verbose=False,
@@ -127,12 +139,19 @@ class GestureRecognitionService:
         detect_objects: bool = True,
     ) -> dict[str, Any]:
         response: dict[str, Any] = {"gestures": [], "objects": []}
+        optimized_frame = self.image_optimizer.optimize(frame)
 
         if detect_pose:
-            response["gestures"] = self.detect_gestures(frame)
+            response["gestures"] = self.detect_gestures(
+                frame,
+                optimized_frame=optimized_frame,
+            )
 
         if detect_objects:
-            response["objects"] = self.detect_objects(frame)
+            response["objects"] = self.detect_objects(
+                frame,
+                optimized_frame=optimized_frame,
+            )
 
         return response
 

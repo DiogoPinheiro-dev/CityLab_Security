@@ -10,6 +10,8 @@ import insightface
 import numpy as np
 from ultralytics import YOLO  # type: ignore
 
+from camera_auto_config import AutoImageOptimizer
+
 
 def setup_logger(script_dir: str) -> tuple[logging.Logger, logging.Logger, str]:
     base_log_directory = os.path.join(script_dir, "historico")
@@ -49,14 +51,6 @@ def setup_logger(script_dir: str) -> tuple[logging.Logger, logging.Logger, str]:
     return logger_alunos, logger_alertas, image_log_directory
 
 
-def adjust_gamma(image: np.ndarray, gamma: float = 1.0) -> np.ndarray:
-    inv_gamma = 1.0 / max(gamma, 0.01)
-    table = np.array(
-        [((value / 255.0) ** inv_gamma) * 255 for value in np.arange(0, 256)]
-    ).astype("uint8")
-    return cv2.LUT(image, table)
-
-
 class FaceRecognitionService:
     def __init__(
         self,
@@ -65,7 +59,6 @@ class FaceRecognitionService:
         yolo_model_path: Optional[str] = None,
         similarity_threshold: float = 0.52,
         scale_factor: float = 0.5,
-        gamma_value: float = 1.2,
         log_cooldown_seconds: float = 1.0,
         enable_logging: bool = True,
         face_model_name: str = "buffalo_l",
@@ -87,9 +80,9 @@ class FaceRecognitionService:
 
         self.similarity_threshold = similarity_threshold
         self.scale_factor = scale_factor
-        self.gamma_value = gamma_value
         self.log_cooldown_seconds = log_cooldown_seconds
         self.enable_logging = enable_logging
+        self.image_optimizer = AutoImageOptimizer()
 
         self.logger_alunos: Optional[logging.Logger] = None
         self.logger_alertas: Optional[logging.Logger] = None
@@ -141,7 +134,7 @@ class FaceRecognitionService:
         self.known_face_embeddings = np.asarray(embeddings, dtype=np.float32)
 
     def prepare_frame(self, frame: np.ndarray) -> dict[str, np.ndarray]:
-        adjusted_frame = adjust_gamma(frame, gamma=self.gamma_value)
+        adjusted_frame = self.image_optimizer.optimize(frame)
         small_frame = cv2.resize(
             adjusted_frame,
             (0, 0),

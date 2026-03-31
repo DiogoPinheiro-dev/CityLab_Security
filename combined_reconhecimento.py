@@ -1,5 +1,6 @@
 import cv2
 
+from camera_auto_config import configure_camera_capture
 from recognition_pipeline import UnifiedRecognitionService
 
 
@@ -79,11 +80,16 @@ def main():
     service = UnifiedRecognitionService(run_in_parallel=True)
 
     cap = cv2.VideoCapture(0)
-    cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
-    cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+    selected_resolution = configure_camera_capture(cap)
 
     if not cap.isOpened():
         raise RuntimeError("Nao foi possivel acessar a camera.")
+
+    if selected_resolution is not None:
+        print(
+            f"Camera configurada automaticamente em "
+            f"{selected_resolution[0]}x{selected_resolution[1]}"
+        )
 
     print("Sistema combinado iniciado. Pressione 'q' para sair.")
 
