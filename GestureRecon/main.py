@@ -2,13 +2,20 @@ import os
 import sys
 
 import cv2
-from ultralytics import YOLO
-from detector import GestureAnalyzer
 
 CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT_DIR = os.path.dirname(CURRENT_DIR)
+os.environ.setdefault("YOLO_CONFIG_DIR", os.path.join(ROOT_DIR, "Ultralytics"))
+
+from ultralytics import YOLO
+
 if ROOT_DIR not in sys.path:
     sys.path.insert(0, ROOT_DIR)
+
+try:
+    from GestureRecon.detector import GestureAnalyzer
+except ImportError:
+    from detector import GestureAnalyzer
 
 from camera_auto_config import AutoImageOptimizer, configure_camera_capture
 
