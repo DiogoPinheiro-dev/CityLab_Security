@@ -11,13 +11,10 @@ BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
 POSE_MODEL_PATH = BASE_DIR / "GestureRecon" / "yolov8n-pose.pt"
 
-os.environ.setdefault("YOLO_CONFIG_DIR", str(PROJECT_ROOT / ".ultralytics"))
-os.environ.setdefault("MPLCONFIGDIR", str(PROJECT_ROOT / ".mplconfig"))
-
-from ultralytics import YOLO
-
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+from ultralytics import YOLO
 
 from App.FaceRecon.reconhecimento import ProcessadorCV
 from App.GestureRecon.detector import GestureAnalyzer

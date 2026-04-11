@@ -2,10 +2,18 @@
 .env.*
 !.env.example
 
+# Python cache/bytecode
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+
 # IDE
 .vscode/
 **/.vscode/
 .venv/
+
+# Legacy local runtime folders
 .tmp/
 .home/
 .mplconfig/

@@ -1,4 +1,3 @@
-import os
 from pathlib import Path
 from typing import Any
 
@@ -9,16 +8,12 @@ BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parents[1]
 POSE_MODEL_PATH = BASE_DIR / "yolov8n-pose.pt"
 
-os.environ.setdefault("YOLO_CONFIG_DIR", str(PROJECT_ROOT / ".ultralytics"))
-os.environ.setdefault("MPLCONFIGDIR", str(PROJECT_ROOT / ".mplconfig"))
-
 from ultralytics import YOLO
 
 try:
     from .detector import GestureAnalyzer
 except ImportError:
     from detector import GestureAnalyzer
-
 
 def _to_numpy(data: Any):
     if hasattr(data, "cpu"):

@@ -14,7 +14,7 @@ Arquivos de modelo esperados:
 
 Observacao sobre InsightFace:
 
-- O servidor usa modelos em `App/.insightface/models/buffalo_l`.
+- O servidor usa modelos em `%USERPROFILE%\.insightface\models\buffalo_l` por padrao.
 - Se esse modelo nao existir, o InsightFace tenta baixar automaticamente na primeira execucao.
 
 ## Configuracao do ambiente
