@@ -25,6 +25,14 @@ Arquivos principais do projeto:
 - [App/camera_auto_config.py](/e:/Codigos/CityLab_Security/App/camera_auto_config.py): ajuste automatico de imagem
 - [Client/teste_websocket.html](/e:/Codigos/CityLab_Security/Client/teste_websocket.html): cliente web simples para teste
 
+## Estrategia de branches
+
+- `main`: branch estavel do app
+- `server`: branch principal de desenvolvimento
+- outras branches: desenvolvimento de features, correcao e experimentos
+
+O fluxo detalhado esta em [CONTRIBUTING.md](/e:/Codigos/CityLab_Security/CONTRIBUTING.md).
+
 ## Requisitos
 
 - Python 3.13
