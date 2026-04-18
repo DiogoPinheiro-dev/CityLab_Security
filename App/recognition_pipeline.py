@@ -4,8 +4,16 @@ from typing import Optional
 
 import numpy as np
 
-from FaceRecon.service import FaceRecognitionService
-from GestureRecon.service import GestureRecognitionService
+try:
+    from App.FaceRecon.service import FaceRecognitionService
+    from App.GestureRecon.service import GestureRecognitionService
+except ImportError:
+    try:
+        from FaceRecon.service import FaceRecognitionService
+        from GestureRecon.service import GestureRecognitionService
+    except ImportError:
+        from .FaceRecon.service import FaceRecognitionService
+        from .GestureRecon.service import GestureRecognitionService
 
 
 class UnifiedRecognitionService:

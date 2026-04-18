@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityLab Security - Monitor de Camera</title>
+    <link rel="stylesheet" href="index.css">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="hero">
+            <p class="eyebrow">CityLab Security</p>
+            <h1>Monitor de Reconhecimento em Tempo Real</h1>
+            <p id="status" class="status status-warn">Inicializando camera e conexao...</p>
+        </header>
+
+        <main class="layout">
+            <section class="viewer-card">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="canvas" width="640" height="480"></canvas>
+                <div class="controls">
+                    <button id="toggleStreamBtn" type="button">Pausar Stream</button>
+                    <button id="reconnectBtn" type="button">Reconectar</button>
+                </div>
+            </section>
+
+            <aside class="panel">
+                <div class="metric">
+                    <span>Rostos</span>
+                    <strong id="facesCount">0</strong>
+                </div>
+                <div class="metric">
+                    <span>Pessoas</span>
+                    <strong id="personsCount">0</strong>
+                </div>
+                <div class="metric">
+                    <span>Gestos</span>
+                    <strong id="gesturesCount">0</strong>
+                </div>
+                <div class="metric">
+                    <span>Objetos</span>
+                    <strong id="objectsCount">0</strong>
+                </div>
+                <div class="metric">
+                    <span>Round Trip</span>
+                    <strong id="latencyValue">-</strong>
+                </div>
+                <div class="legend">
+                    <p><span class="chip chip-face"></span> Rostos reconhecidos</p>
+                    <p><span class="chip chip-person"></span> Pessoas detectadas</p>
+                    <p><span class="chip chip-gesture"></span> Alertas de gesto</p>
+                    <p><span class="chip chip-object"></span> Objetos suspeitos</p>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="./index.js"></script>
+</body>
+</html>

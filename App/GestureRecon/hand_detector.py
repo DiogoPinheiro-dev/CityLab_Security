@@ -1,15 +1,24 @@
 import math
 import os
 import urllib.request
+from typing import Any
+
+import numpy as np
+
+MP_MODULE: Any = None
+MP_TASKS_PYTHON: Any = None
+MP_VISION: Any = None
 
 try:
-    import mediapipe as mp
-    from mediapipe.tasks import python
-    from mediapipe.tasks.python import vision
+    import mediapipe as mediapipe_module
+    from mediapipe.tasks import python as mediapipe_tasks_python
+    from mediapipe.tasks.python import vision as mediapipe_vision
 except ImportError:
-    mp = None
-    python = None
-    vision = None
+    pass
+else:
+    MP_MODULE = mediapipe_module
+    MP_TASKS_PYTHON = mediapipe_tasks_python
+    MP_VISION = mediapipe_vision
 
 
 class HandDetector:
@@ -20,15 +29,19 @@ class HandDetector:
 
     def __init__(
         self,
-        max_num_hands=4,
-        min_detection_confidence=0.5,
-        min_tracking_confidence=0.5,
-    ):
-        self.recognizer = None
-        self.available = mp is not None and python is not None and vision is not None
+        max_num_hands: int = 4,
+        min_detection_confidence: float = 0.5,
+        min_tracking_confidence: float = 0.5,
+    ) -> None:
+        self.recognizer: Any = None
+        self.available = all(
+            module is not None
+            for module in (MP_MODULE, MP_TASKS_PYTHON, MP_VISION)
+        )
+        self.model_path: str | None = None
+
         if not self.available:
             print("[AVISO] MediaPipe nao esta instalado. Detector de maos desativado.")
-            self.model_path = None
             return
 
         self.model_path = self._ensure_model()
@@ -38,24 +51,27 @@ class HandDetector:
             min_tracking_confidence=min_tracking_confidence,
         )
 
-    def detect(self, frame_bgr):
+    def detect(self, frame_bgr: np.ndarray) -> list[dict[str, Any]]:
         if not self.available or self.recognizer is None:
             return []
 
         frame_h, frame_w = frame_bgr.shape[:2]
         image_rgb = frame_bgr[:, :, ::-1]
-        mp_image = mp.Image(image_format=mp.ImageFormat.SRGB, data=image_rgb)
+        mp_image = MP_MODULE.Image(
+            image_format=MP_MODULE.ImageFormat.SRGB,
+            data=image_rgb,
+        )
         results = self.recognizer.recognize(mp_image)
 
-        detected_hands = []
+        detected_hands: list[dict[str, Any]] = []
         landmarks_batch = results.hand_landmarks or []
         handedness_batch = results.handedness or []
         gestures_batch = results.gestures or []
 
         for index, landmarks in enumerate(landmarks_batch):
-            points = []
-            xs = []
-            ys = []
+            points: list[tuple[int, int]] = []
+            xs: list[int] = []
+            ys: list[int] = []
 
             for landmark in landmarks:
                 x = int(landmark.x * frame_w)
@@ -63,6 +79,9 @@ class HandDetector:
                 points.append((x, y))
                 xs.append(x)
                 ys.append(y)
+
+            if not xs or not ys:
+                continue
 
             bbox = [
                 max(0, min(xs)),
@@ -80,7 +99,7 @@ class HandDetector:
                 handedness = classification.category_name
                 handedness_score = float(classification.score)
 
-            gesture_name = None
+            gesture_name: str | None = None
             gesture_score = 0.0
             if index < len(gestures_batch) and gestures_batch[index]:
                 gesture = gestures_batch[index][0]
@@ -106,10 +125,10 @@ class HandDetector:
 
     def _create_recognizer(
         self,
-        max_num_hands,
-        min_detection_confidence,
-        min_tracking_confidence,
-    ):
+        max_num_hands: int,
+        min_detection_confidence: float,
+        min_tracking_confidence: float,
+    ) -> None:
         if (
             not self.available
             or not self.model_path
@@ -117,18 +136,18 @@ class HandDetector:
         ):
             return
 
-        base_options = python.BaseOptions(model_asset_path=self.model_path)
-        options = vision.GestureRecognizerOptions(
+        base_options = MP_TASKS_PYTHON.BaseOptions(model_asset_path=self.model_path)
+        options = MP_VISION.GestureRecognizerOptions(
             base_options=base_options,
             num_hands=max_num_hands,
             min_hand_detection_confidence=min_detection_confidence,
             min_hand_presence_confidence=min_tracking_confidence,
             min_tracking_confidence=min_tracking_confidence,
-            running_mode=vision.RunningMode.IMAGE,
+            running_mode=MP_VISION.RunningMode.IMAGE,
         )
-        self.recognizer = vision.GestureRecognizer.create_from_options(options)
+        self.recognizer = MP_VISION.GestureRecognizer.create_from_options(options)
 
-    def _ensure_model(self):
+    def _ensure_model(self) -> str | None:
         current_dir = os.path.dirname(os.path.abspath(__file__))
         model_dir = os.path.join(current_dir, "models")
         os.makedirs(model_dir, exist_ok=True)
@@ -144,10 +163,13 @@ class HandDetector:
             print(f"[AVISO] Nao foi possivel baixar o modelo do MediaPipe: {exc}")
             return None
 
-    def _distance(self, point_a, point_b):
+    def _distance(self, point_a: tuple[int, int], point_b: tuple[int, int]) -> float:
         return math.hypot(point_a[0] - point_b[0], point_a[1] - point_b[1])
 
-    def _is_closed_fist(self, points):
+    def _is_closed_fist(self, points: list[tuple[int, int]]) -> bool:
+        if len(points) < 21:
+            return False
+
         wrist = points[0]
         index_mcp = points[5]
         pinky_mcp = points[17]

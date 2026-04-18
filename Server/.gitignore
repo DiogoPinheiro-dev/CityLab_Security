@@ -1,0 +1,33 @@
+# Python cache/bytecode
+__pycache__/
+**/__pycache__/
+*.py[cod]
+*$py.class
+
+# Local virtual environments
+.venv/
+venv/
+env/
+
+# Local environment/secrets
+.env
+.env.*
+!.env.example
+
+# Test/tool cache
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+coverage.xml
+htmlcov/
+
+# Runtime artifacts
+*.log
+logs/
+tmp/
+*.pid
+
+# Local databases
+*.sqlite3
+*.db
