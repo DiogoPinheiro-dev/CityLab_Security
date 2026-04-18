@@ -32,7 +32,7 @@ class ReconhecimentoUnificado:
         self.frame_count = 0
 
         self.face_skip_frames = 2
-        self.gesture_skip_frames = 1
+        self.gesture_skip_frames = 0
 
     def processar_gestos(self, frame):
         processed_frame = self.image_optimizer.optimize(frame)
