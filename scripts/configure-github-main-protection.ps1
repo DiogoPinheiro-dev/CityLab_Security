@@ -47,7 +47,11 @@ $payload = @{
 
 $jsonPayload = $payload | ConvertTo-Json -Depth 10 -Compress
 $tempFile = Join-Path $env:TEMP "github-branch-protection.json"
-Set-Content -LiteralPath $tempFile -Value $jsonPayload -Encoding utf8
+[System.IO.File]::WriteAllText(
+    $tempFile,
+    $jsonPayload,
+    (New-Object System.Text.UTF8Encoding($false))
+)
 
 try {
     & $ghPath api `
