@@ -2,9 +2,14 @@ import math
 import os
 import urllib.request
 
-import mediapipe as mp
-from mediapipe.tasks import python
-from mediapipe.tasks.python import vision
+try:
+    import mediapipe as mp
+    from mediapipe.tasks import python
+    from mediapipe.tasks.python import vision
+except ImportError:
+    mp = None
+    python = None
+    vision = None
 
 
 class HandDetector:
@@ -20,6 +25,12 @@ class HandDetector:
         min_tracking_confidence=0.5,
     ):
         self.recognizer = None
+        self.available = mp is not None and python is not None and vision is not None
+        if not self.available:
+            print("[AVISO] MediaPipe nao esta instalado. Detector de maos desativado.")
+            self.model_path = None
+            return
+
         self.model_path = self._ensure_model()
         self._create_recognizer(
             max_num_hands=max_num_hands,
@@ -28,7 +39,7 @@ class HandDetector:
         )
 
     def detect(self, frame_bgr):
-        if self.recognizer is None:
+        if not self.available or self.recognizer is None:
             return []
 
         frame_h, frame_w = frame_bgr.shape[:2]
@@ -99,7 +110,11 @@ class HandDetector:
         min_detection_confidence,
         min_tracking_confidence,
     ):
-        if not self.model_path or not os.path.exists(self.model_path):
+        if (
+            not self.available
+            or not self.model_path
+            or not os.path.exists(self.model_path)
+        ):
             return
 
         base_options = python.BaseOptions(model_asset_path=self.model_path)
