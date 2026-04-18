@@ -1,4 +1,5 @@
 from collections import defaultdict
+import math
 
 
 class GestureAnalyzer:
@@ -14,15 +15,74 @@ class GestureAnalyzer:
         )
 
         self.fps = fps
-        self.thresh_hidden = int(self.fps * 1.2)
-        self.thresh_surrender = int(self.fps * 0.5)
-        self.thresh_aiming = int(self.fps * 0.8)
-        self.thresh_fist = int(self.fps * 0.4)
-        self.thresh_threat = int(self.fps * 0.35)
+        self.thresh_hidden = max(3, int(self.fps * 0.35))
+        self.thresh_surrender = max(3, int(self.fps * 0.3))
+        self.thresh_aiming = max(4, int(self.fps * 0.4))
+        self.thresh_fist = max(2, int(self.fps * 0.2))
+        self.thresh_threat = max(3, int(self.fps * 0.22))
 
     def _get_keypoint(self, keypoints, idx):
         kp = keypoints[idx]
         return kp[0], kp[1], kp[2]
+
+    def _distance(self, point_a, point_b):
+        return math.hypot(point_a[0] - point_b[0], point_a[1] - point_b[1])
+
+    def _inside_box(self, point, box, margin_x=0.0, margin_y=0.0):
+        if box is None:
+            return False
+
+        x1, y1, x2, y2 = box
+        return (
+            (x1 - margin_x) <= point[0] <= (x2 + margin_x)
+            and (y1 - margin_y) <= point[1] <= (y2 + margin_y)
+        )
+
+    def _build_torso_box(self, shoulders, hips, shoulder_width):
+        visible_points = [point for point in shoulders + hips if point[2] > 0.35]
+        if len(visible_points) < 2:
+            return None
+
+        xs = [point[0] for point in visible_points]
+        ys = [point[1] for point in visible_points]
+        margin_x = max(12.0, shoulder_width * 0.22)
+        margin_y = max(10.0, shoulder_width * 0.12)
+        return [
+            min(xs) - margin_x,
+            min(ys) - margin_y,
+            max(xs) + margin_x,
+            max(ys) + margin_y,
+        ]
+
+    def _arm_extension_features(self, shoulder, elbow, wrist, shoulder_width, torso_box):
+        if min(shoulder[2], elbow[2], wrist[2]) <= 0.35:
+            return 0.0, 0.0, False
+
+        upper_arm = self._distance(shoulder, elbow)
+        lower_arm = self._distance(elbow, wrist)
+        shoulder_to_wrist = self._distance(shoulder, wrist)
+        full_arm = upper_arm + lower_arm
+
+        if full_arm <= 1e-6:
+            return 0.0, 0.0, False
+
+        straightness = shoulder_to_wrist / full_arm
+        reach_ratio = shoulder_to_wrist / max(shoulder_width, 1.0)
+        wrist_in_torso = self._inside_box(
+            wrist,
+            torso_box,
+            margin_x=shoulder_width * 0.08,
+            margin_y=shoulder_width * 0.08,
+        )
+        return straightness, reach_ratio, wrist_in_torso
+
+    def _confirm_gesture(self, track_id, key, active, threshold, decay=2, reset=False):
+        if reset and not active:
+            self.history[track_id][key] = 0
+        else:
+            self._update_counter(track_id, key, active, cooldown=decay)
+
+        return self.history[track_id][key] >= threshold
 
     def analyze(self, track_id, keypoints, box=None, hand_context=None):
         """
@@ -43,16 +103,40 @@ class GestureAnalyzer:
         lh_x, lh_y, lh_c = self._get_keypoint(keypoints, 11)
         rh_x, rh_y, rh_c = self._get_keypoint(keypoints, 12)
 
-        conf_thresh = 0.5
+        conf_thresh = 0.35
 
         shoulder_dist = 40.0
         if ls_c > conf_thresh and rs_c > conf_thresh:
-            shoulder_dist = abs(ls_x - rs_x) + 0.1
+            shoulder_dist = self._distance((ls_x, ls_y), (rs_x, rs_y)) + 0.1
 
-        if shoulder_dist < 20.0 and ls_c > conf_thresh and lh_c > conf_thresh:
-            shoulder_width = abs(ls_y - lh_y) * 0.4
+        torso_height = 60.0
+        visible_hips = [(lh_x, lh_y, lh_c), (rh_x, rh_y, rh_c)]
+        visible_hip_points = [point for point in visible_hips if point[2] > conf_thresh]
+        if visible_hip_points and (ls_c > conf_thresh or rs_c > conf_thresh):
+            visible_shoulder_points = [
+                point
+                for point in [(ls_x, ls_y, ls_c), (rs_x, rs_y, rs_c)]
+                if point[2] > conf_thresh
+            ]
+            if visible_shoulder_points:
+                avg_shoulder_y = sum(point[1] for point in visible_shoulder_points) / len(
+                    visible_shoulder_points
+                )
+                avg_hip_y = sum(point[1] for point in visible_hip_points) / len(
+                    visible_hip_points
+                )
+                torso_height = max(20.0, avg_hip_y - avg_shoulder_y)
+
+        if shoulder_dist < 20.0:
+            shoulder_width = torso_height * 0.45
         else:
             shoulder_width = max(shoulder_dist, 40.0)
+
+        torso_box = self._build_torso_box(
+            [(ls_x, ls_y, ls_c), (rs_x, rs_y, rs_c)],
+            [(lh_x, lh_y, lh_c), (rh_x, rh_y, rh_c)],
+            shoulder_width,
+        )
 
         left_visible = bool(hand_context.get("left_visible"))
         right_visible = bool(hand_context.get("right_visible"))
@@ -62,28 +146,40 @@ class GestureAnalyzer:
         right_in_torso = bool(hand_context.get("right_in_torso"))
 
         is_aiming = False
-        if ls_c > conf_thresh and lw_c > conf_thresh and le_c > conf_thresh:
-            arm_length = abs(ls_x - le_x) + abs(le_x - lw_x)
-            if arm_length > 10:
-                if abs(lw_y - ls_y) < (arm_length * 0.5) and abs(lw_x - ls_x) > (
-                    arm_length * 0.7
-                ):
-                    is_aiming = True
+        left_straightness, left_reach, left_wrist_in_torso = self._arm_extension_features(
+            (ls_x, ls_y, ls_c),
+            (le_x, le_y, le_c),
+            (lw_x, lw_y, lw_c),
+            shoulder_width,
+            torso_box,
+        )
+        right_straightness, right_reach, right_wrist_in_torso = self._arm_extension_features(
+            (rs_x, rs_y, rs_c),
+            (re_x, re_y, re_c),
+            (rw_x, rw_y, rw_c),
+            shoulder_width,
+            torso_box,
+        )
 
-        if rs_c > conf_thresh and rw_c > conf_thresh and re_c > conf_thresh:
-            arm_length = abs(rs_x - re_x) + abs(re_x - rw_x)
-            if arm_length > 10:
-                if abs(rw_y - rs_y) < (arm_length * 0.5) and abs(rw_x - rs_x) > (
-                    arm_length * 0.7
-                ):
-                    is_aiming = True
+        if left_straightness > 0.82 and left_reach > 1.05 and not left_wrist_in_torso:
+            is_aiming = True
+        if right_straightness > 0.82 and right_reach > 1.05 and not right_wrist_in_torso:
+            is_aiming = True
 
-        self._update_counter(track_id, "aiming_frames", is_aiming, cooldown=2)
-        aiming_confirmed = self.history[track_id]["aiming_frames"] > self.thresh_aiming
+        aiming_confirmed = self._confirm_gesture(
+            track_id,
+            "aiming_frames",
+            is_aiming,
+            self.thresh_aiming,
+            decay=5,
+            reset=left_visible or right_visible,
+        )
         if aiming_confirmed:
             alerts.append("Braco Estendido")
 
         is_surrendering = False
+        left_hands_up = False
+        right_hands_up = False
         if not is_aiming:
             margin_y = shoulder_width * 0.4
 
@@ -108,96 +204,131 @@ class GestureAnalyzer:
             if left_hands_up or right_hands_up or left_behind_head or right_behind_head:
                 is_surrendering = True
 
-        self._update_counter(track_id, "surrender_frames", is_surrendering, cooldown=2)
-        if self.history[track_id]["surrender_frames"] > self.thresh_surrender:
+        surrender_confirmed = self._confirm_gesture(
+            track_id,
+            "surrender_frames",
+            is_surrendering,
+            self.thresh_surrender,
+            decay=5,
+            reset=(not left_hands_up and not right_hands_up),
+        )
+        if surrender_confirmed:
             alerts.append("Rendicao")
 
         fist_detected = left_closed or right_closed
-        self._update_counter(track_id, "fist_frames", fist_detected, cooldown=1)
-        fist_confirmed = self.history[track_id]["fist_frames"] > self.thresh_fist
+        fist_confirmed = self._confirm_gesture(
+            track_id,
+            "fist_frames",
+            fist_detected,
+            self.thresh_fist,
+            decay=6,
+            reset=left_visible or right_visible,
+        )
         if fist_confirmed:
             alerts.append("Mao Fechada")
 
         threat_detected = fist_detected and is_aiming
-        self._update_counter(track_id, "threat_frames", threat_detected, cooldown=2)
-        if self.history[track_id]["threat_frames"] > self.thresh_threat:
+        threat_confirmed = self._confirm_gesture(
+            track_id,
+            "threat_frames",
+            threat_detected,
+            self.thresh_threat,
+            decay=6,
+            reset=(not fist_detected or not is_aiming),
+        )
+        if threat_confirmed:
             alerts.append("Mao Fechada + Braco Estendido")
 
         is_hidden = False
-        left_side_visible = ls_c > conf_thresh and lh_c > conf_thresh
-        right_side_visible = rs_c > conf_thresh and rh_c > conf_thresh
 
-        if left_side_visible or right_side_visible:
-            min_x = min(
-                [
-                    x
-                    for x, c in [(ls_x, ls_c), (rs_x, rs_c), (lh_x, lh_c), (rh_x, rh_c)]
-                    if c > conf_thresh
-                ]
+        def hand_hidden(side):
+            if side == "left":
+                shoulder = (ls_x, ls_y, ls_c)
+                elbow = (le_x, le_y, le_c)
+                wrist = (lw_x, lw_y, lw_c)
+                opposite_shoulder_x = rs_x
+                hand_visible = left_visible
+                hand_in_torso = left_in_torso
+            else:
+                shoulder = (rs_x, rs_y, rs_c)
+                elbow = (re_x, re_y, re_c)
+                wrist = (rw_x, rw_y, rw_c)
+                opposite_shoulder_x = ls_x
+                hand_visible = right_visible
+                hand_in_torso = right_in_torso
+
+            if shoulder[2] <= conf_thresh:
+                return False
+
+            if hand_visible and not hand_in_torso:
+                return False
+
+            elbow_inside = elbow[2] > conf_thresh and self._inside_box(
+                elbow,
+                torso_box,
+                margin_x=shoulder_width * 0.18,
+                margin_y=shoulder_width * 0.10,
             )
-            max_x = max(
-                [
-                    x
-                    for x, c in [(ls_x, ls_c), (rs_x, rs_c), (lh_x, lh_c), (rh_x, rh_c)]
-                    if c > conf_thresh
-                ]
-            )
-            min_y = min(
-                [y for y, c in [(ls_y, ls_c), (rs_y, rs_c)] if c > conf_thresh]
-            )
-            max_y = max(
-                [y for y, c in [(lh_y, lh_c), (rh_y, rh_c)] if c > conf_thresh]
+            wrist_inside = wrist[2] > conf_thresh and self._inside_box(
+                wrist,
+                torso_box,
+                margin_x=shoulder_width * 0.22,
+                margin_y=shoulder_width * 0.16,
             )
 
-            if max_x - min_x < 10:
-                min_x -= shoulder_width / 2
-                max_x += shoulder_width / 2
+            cross_body = False
+            if elbow[2] > conf_thresh:
+                if side == "left":
+                    cross_body = elbow[0] > (shoulder[0] + shoulder_width * 0.08)
+                else:
+                    cross_body = elbow[0] < (shoulder[0] - shoulder_width * 0.08)
 
-            margin = (max_x - min_x) * 0.2
-            waist_y = max_y
+            wrist_missing = wrist[2] <= conf_thresh and elbow[2] > conf_thresh
+            wrist_near_opposite = False
+            if wrist[2] > conf_thresh and abs(wrist[0] - opposite_shoulder_x) < (
+                shoulder_width * 0.55
+            ):
+                wrist_near_opposite = True
 
-            left_hidden = False
-            right_hidden = False
+            return (
+                hand_in_torso
+                or wrist_inside
+                or (elbow_inside and (wrist_missing or cross_body or wrist_near_opposite))
+            )
 
-            if left_side_visible:
-                if left_visible:
-                    left_hidden = False
-                elif lw_c > conf_thresh:
-                    if (min_x - margin) < lw_x < (max_x + margin) and min_y < lw_y < waist_y:
-                        left_hidden = True
-                elif le_c > conf_thresh:
-                    if (min_x - margin) < le_x < (max_x + margin) and le_y < waist_y:
-                        left_hidden = True
+        if torso_box is not None:
+            is_hidden = hand_hidden("left") or hand_hidden("right")
 
-            if right_side_visible:
-                if right_visible:
-                    right_hidden = False
-                elif rw_c > conf_thresh:
-                    if (min_x - margin) < rw_x < (max_x + margin) and min_y < rw_y < waist_y:
-                        right_hidden = True
-                elif re_c > conf_thresh:
-                    if (min_x - margin) < re_x < (max_x + margin) and re_y < waist_y:
-                        right_hidden = True
+        hands_recovered = (
+            left_visible
+            and right_visible
+            and not left_in_torso
+            and not right_in_torso
+        )
+        pose_recovered = (
+            lw_c > conf_thresh
+            and rw_c > conf_thresh
+            and torso_box is not None
+            and not self._inside_box(
+                (lw_x, lw_y),
+                torso_box,
+                margin_x=shoulder_width * 0.14,
+                margin_y=shoulder_width * 0.12,
+            )
+            and not self._inside_box(
+                (rw_x, rw_y),
+                torso_box,
+                margin_x=shoulder_width * 0.14,
+                margin_y=shoulder_width * 0.12,
+            )
+        )
 
-            if left_hidden and right_hidden and lw_c > conf_thresh and rw_c > conf_thresh:
-                dist_between_hands = abs(lw_x - rw_x) + abs(lw_y - rw_y)
-                if dist_between_hands < (shoulder_width * 1.0) and lw_y > (
-                    ls_y + shoulder_width
-                ):
-                    left_hidden = False
-                    right_hidden = False
+        if not is_hidden and (hands_recovered or pose_recovered):
+            self.history[track_id]["hidden_frames"] = 0
+        else:
+            self._update_counter(track_id, "hidden_frames", is_hidden, cooldown=6)
 
-            # Se a mao esta visivel bem na frente do torso, nao tratamos como oculta.
-            if left_in_torso:
-                left_hidden = False
-            if right_in_torso:
-                right_hidden = False
-
-            if left_hidden or right_hidden:
-                is_hidden = True
-
-        self._update_counter(track_id, "hidden_frames", is_hidden, cooldown=1)
-        if self.history[track_id]["hidden_frames"] > self.thresh_hidden:
+        if self.history[track_id]["hidden_frames"] >= self.thresh_hidden:
             alerts.append("Mao Oculta")
 
         return alerts
