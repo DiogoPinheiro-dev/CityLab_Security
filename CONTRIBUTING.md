@@ -74,6 +74,27 @@ Se quiser refletir esse fluxo no remoto, o ideal e configurar:
 - exigir pull request ou merge controlado para a `main`
 - usar tags para marcar snapshots estaveis
 
+O repositorio inclui um script para aplicar a protection na `main` via GitHub CLI:
+
+```powershell
+.\scripts\configure-github-main-protection.ps1
+```
+
+Configuracao aplicada por esse script:
+
+- exige pull request para mudar a `main`
+- exige 1 aprovacao
+- bloqueia force push
+- bloqueia delete da branch
+- exige resolucao de conversa
+- aplica protecao tambem para admins
+
+Antes de rodar esse script, faca login na GitHub CLI:
+
+```powershell
+gh auth login
+```
+
 ## Tags estaveis
 
 Quando quiser marcar uma versao estavel validada, use algo como:
