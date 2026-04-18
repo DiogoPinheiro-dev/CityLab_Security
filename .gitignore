@@ -18,4 +18,5 @@ __pycache__/
 .home/
 .mplconfig/
 .ultralytics/
+Ultralytics/
 App/.insightface/

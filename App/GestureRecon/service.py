@@ -1,22 +1,28 @@
+import os
 from pathlib import Path
 from typing import Any
 from typing import Optional
 from typing import cast
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+os.environ.setdefault("YOLO_CONFIG_DIR", str(PROJECT_ROOT))
 
 import numpy as np
 from ultralytics import YOLO
 
 try:
     from App.GestureRecon.detector import GestureAnalyzer
+    from App.GestureRecon.hand_detector import HandDetector
     from App.camera_auto_config import AutoImageOptimizer
 except ImportError:
     try:
         from GestureRecon.detector import GestureAnalyzer
+        from GestureRecon.hand_detector import HandDetector
         from camera_auto_config import AutoImageOptimizer
     except ImportError:
         from .detector import GestureAnalyzer
+        from .hand_detector import HandDetector
         from ..camera_auto_config import AutoImageOptimizer
-
 
 class GestureRecognitionService:
     def __init__(
@@ -57,6 +63,7 @@ class GestureRecognitionService:
         self.pose_model = YOLO(str(self.pose_model_path))
         self.object_model = YOLO(str(self.object_model_path))
         self.analyzer = GestureAnalyzer(fps=fps)
+        self.hand_detector = HandDetector()
         self.image_optimizer = AutoImageOptimizer()
         self.last_track_centers: dict[int, tuple[float, float]] = {}
         self.next_track_id = 1
@@ -115,6 +122,7 @@ class GestureRecognitionService:
             if optimized_frame is not None
             else self.image_optimizer.optimize(frame)
         )
+        hand_detections = self.hand_detector.detect(processed_frame)
         pose_results = self.pose_model.track(
             processed_frame,
             persist=True,
@@ -147,7 +155,13 @@ class GestureRecognitionService:
             zip(boxes, track_ids, keypoints_batch)
         ):
             current_tracks.append(track_id)
-            alerts = self.analyzer.analyze(track_id, keypoints, box)
+            hand_context = self._associate_hands(box, keypoints, hand_detections)
+            alerts = self.analyzer.analyze(
+                track_id,
+                keypoints,
+                box,
+                hand_context=hand_context,
+            )
 
             people.append(
                 {
@@ -155,6 +169,11 @@ class GestureRecognitionService:
                     "bbox": [int(value) for value in box],
                     "alerts": alerts,
                     "confidence": float(confidences[index]),
+                    **(
+                        {"matched_hands": hand_context["matched_hands"]}
+                        if hand_context["matched_hands"]
+                        else {}
+                    ),
                     **(
                         {"keypoints": keypoints.tolist()}
                         if include_keypoints
@@ -198,6 +217,90 @@ class GestureRecognitionService:
             return "Arma Branca (Faca)"
         return f"Classe {cls_id}"
 
+    def _associate_hands(
+        self,
+        box: np.ndarray,
+        keypoints: np.ndarray,
+        hand_detections: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        x1, y1, x2, y2 = [float(value) for value in box]
+        body_width = max(1.0, x2 - x1)
+        body_height = max(1.0, y2 - y1)
+        expanded_x1 = x1 - (body_width * 0.15)
+        expanded_y1 = y1 - (body_height * 0.1)
+        expanded_x2 = x2 + (body_width * 0.15)
+        expanded_y2 = y2 + (body_height * 0.1)
+
+        torso_box = self._build_torso_box(keypoints)
+        left_wrist = self._keypoint_xy_conf(keypoints, 9)
+        right_wrist = self._keypoint_xy_conf(keypoints, 10)
+
+        context: dict[str, Any] = {
+            "left_visible": False,
+            "right_visible": False,
+            "left_closed": False,
+            "right_closed": False,
+            "left_in_torso": False,
+            "right_in_torso": False,
+            "matched_hands": [],
+        }
+
+        left_candidate: Optional[dict[str, Any]] = None
+        right_candidate: Optional[dict[str, Any]] = None
+
+        for hand in hand_detections:
+            center_x, center_y = hand["center"]
+            if not (
+                expanded_x1 <= center_x <= expanded_x2
+                and expanded_y1 <= center_y <= expanded_y2
+            ):
+                continue
+
+            side, distance = self._match_hand_side(hand, left_wrist, right_wrist)
+            if side is None:
+                continue
+
+            hand_data = {
+                "bbox": hand["bbox"],
+                "center": hand["center"],
+                "closed": hand["closed"],
+                "in_torso": self._point_in_box(hand["center"], torso_box),
+                "distance": distance,
+            }
+
+            if side == "left":
+                if left_candidate is None or distance < left_candidate["distance"]:
+                    left_candidate = hand_data
+            else:
+                if right_candidate is None or distance < right_candidate["distance"]:
+                    right_candidate = hand_data
+
+        if left_candidate is not None:
+            context["left_visible"] = True
+            context["left_closed"] = left_candidate["closed"]
+            context["left_in_torso"] = left_candidate["in_torso"]
+            context["matched_hands"].append(
+                {
+                    "side": "left",
+                    "bbox": left_candidate["bbox"],
+                    "closed": left_candidate["closed"],
+                }
+            )
+
+        if right_candidate is not None:
+            context["right_visible"] = True
+            context["right_closed"] = right_candidate["closed"]
+            context["right_in_torso"] = right_candidate["in_torso"]
+            context["matched_hands"].append(
+                {
+                    "side": "right",
+                    "bbox": right_candidate["bbox"],
+                    "closed": right_candidate["closed"],
+                }
+            )
+
+        return context
+
     def _find_default_object_model(self) -> Optional[Path]:
         candidate_paths = [
             self.base_dir / "yolov8n.pt",
@@ -226,6 +329,65 @@ class GestureRecognitionService:
         values = self._to_numpy(bbox).tolist()
         x1, y1, x2, y2 = [int(value) for value in values]
         return x1, y1, x2, y2
+
+    def _keypoint_xy_conf(
+        self,
+        keypoints: np.ndarray,
+        index: int,
+    ) -> tuple[float, float, float]:
+        keypoint = keypoints[index]
+        return float(keypoint[0]), float(keypoint[1]), float(keypoint[2])
+
+    def _point_in_box(
+        self,
+        point: tuple[float, float] | list[int],
+        box: Optional[list[float]],
+    ) -> bool:
+        if box is None:
+            return False
+
+        point_x, point_y = point
+        x1, y1, x2, y2 = box
+        return x1 <= point_x <= x2 and y1 <= point_y <= y2
+
+    def _build_torso_box(self, keypoints: np.ndarray) -> Optional[list[float]]:
+        torso_indices = [5, 6, 11, 12]
+        visible_points: list[tuple[float, float]] = []
+        for index in torso_indices:
+            x, y, conf = self._keypoint_xy_conf(keypoints, index)
+            if conf > 0.4:
+                visible_points.append((x, y))
+
+        if len(visible_points) < 2:
+            return None
+
+        xs = [point[0] for point in visible_points]
+        ys = [point[1] for point in visible_points]
+        return [min(xs), min(ys), max(xs), max(ys)]
+
+    def _match_hand_side(
+        self,
+        hand: dict[str, Any],
+        left_wrist: tuple[float, float, float],
+        right_wrist: tuple[float, float, float],
+    ) -> tuple[Optional[str], Optional[float]]:
+        best_side: Optional[str] = None
+        best_distance: Optional[float] = None
+
+        for side, wrist in (("left", left_wrist), ("right", right_wrist)):
+            wrist_x, wrist_y, wrist_conf = wrist
+            if wrist_conf <= 0.35:
+                continue
+
+            hand_x, hand_y = hand["center"]
+            distance = float(
+                ((hand_x - wrist_x) ** 2 + (hand_y - wrist_y) ** 2) ** 0.5
+            )
+            if best_distance is None or distance < best_distance:
+                best_side = side
+                best_distance = distance
+
+        return best_side, best_distance
 
     def _resolve_track_ids(
         self,
