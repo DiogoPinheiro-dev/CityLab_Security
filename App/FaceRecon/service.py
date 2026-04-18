@@ -5,13 +5,21 @@ import time
 from typing import Any
 from typing import Optional
 
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+os.environ.setdefault("YOLO_CONFIG_DIR", PROJECT_ROOT)
+
 import cv2
 import insightface
 import numpy as np
 from ultralytics import YOLO  # type: ignore
 
-from camera_auto_config import AutoImageOptimizer
-
+try:
+    from App.camera_auto_config import AutoImageOptimizer
+except ImportError:
+    try:
+        from camera_auto_config import AutoImageOptimizer
+    except ImportError:
+        from ..camera_auto_config import AutoImageOptimizer
 
 def setup_logger(script_dir: str) -> tuple[logging.Logger, logging.Logger, str]:
     base_log_directory = os.path.join(script_dir, "historico")
@@ -119,8 +127,9 @@ class FaceRecognitionService:
         embeddings = data.get("embeddings", [])
         names = data.get("names", [])
 
-        if embeddings:
-            self.known_face_embeddings = np.asarray(embeddings, dtype=np.float32)
+        embeddings_array = np.asarray(embeddings, dtype=np.float32)
+        if embeddings_array.size > 0:
+            self.known_face_embeddings = embeddings_array
         self.known_face_names = list(names)
 
     def replace_known_faces(
