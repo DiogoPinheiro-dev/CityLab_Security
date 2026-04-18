@@ -17,7 +17,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from App.reconhecimento_unificado import ReconhecimentoUnificado
+from App.recognition_pipeline import UnifiedRecognitionService, create_unified_service
 from Server.Db.database import MONGO_DB_NAME, colecao_alunos, colecao_logs, validar_conexao_mongo
 
 
@@ -34,15 +34,17 @@ banco_rostos_memoria = {
     "embeddings": [],
 }
 
-recognizer: Optional[ReconhecimentoUnificado] = None
+recognizer: Optional[UnifiedRecognitionService] = None
 
 
 def _sync_memoria_para_recognizer() -> None:
     if recognizer is None:
         return
 
-    recognizer.face_processor.known_face_names = banco_rostos_memoria["nomes"]
-    recognizer.face_processor.known_face_embeddings = banco_rostos_memoria["embeddings"]
+    recognizer.face_service.replace_known_faces(
+        banco_rostos_memoria["nomes"],
+        banco_rostos_memoria["embeddings"],
+    )
 
 
 @asynccontextmanager
@@ -54,7 +56,7 @@ async def lifespan(_: FastAPI):
     print("[INFO] Conexao com MongoDB OK.")
 
     print("[INFO] API iniciada. Carregando pipeline unificado...")
-    recognizer = ReconhecimentoUnificado()
+    recognizer = create_unified_service()
 
     print("[INFO] Carregando alunos do MongoDB para memoria...")
     banco_rostos_memoria["nomes"].clear()
@@ -96,7 +98,7 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
         if img is None:
             raise HTTPException(status_code=400, detail="Erro ao processar a imagem. Arquivo corrompido.")
 
-        faces = recognizer.face_processor.app_insight.get(img)
+        faces = recognizer.face_service.app_insight.get(img)
 
         if not faces:
             raise HTTPException(status_code=400, detail="Nenhum rosto encontrado na foto enviada.")
@@ -117,6 +119,7 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
 
         banco_rostos_memoria["nomes"].append(nome)
         banco_rostos_memoria["embeddings"].append(np.array(embedding_lista))
+        _sync_memoria_para_recognizer()
 
         return {
             "mensagem": f"Sucesso! Rosto de '{nome}' cadastrado.",
@@ -170,7 +173,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
             if frame is None:
                 continue
 
-            results = recognizer.processar_frame(frame)
+            results = recognizer.process_frame(frame)
 
             resultados_faces = []
             for face in results.get("faces", []):
@@ -226,10 +229,50 @@ async def websocket_reconhecimento(websocket: WebSocket):
                     }
                 )
 
+            resultados_gestos = []
+            for gesture in results.get("gestures", []):
+                bbox = gesture.get("bbox")
+                if not bbox or len(bbox) != 4:
+                    continue
+
+                resultados_gestos.append(
+                    {
+                        "track_id": int(gesture.get("track_id", -1)),
+                        "bbox": [int(valor) for valor in bbox],
+                        "alerts": [
+                            str(alert)
+                            for alert in gesture.get("alerts", [])
+                        ],
+                        "confidence": gesture.get("confidence"),
+                    }
+                )
+
+            resultados_objetos = []
+            for detected_object in results.get("objects", []):
+                bbox = detected_object.get("bbox")
+                center = detected_object.get("center")
+                if not bbox or len(bbox) != 4:
+                    continue
+
+                resultados_objetos.append(
+                    {
+                        "class_id": int(detected_object.get("class_id", -1)),
+                        "label": str(detected_object.get("label", "Objeto")),
+                        "bbox": [int(valor) for valor in bbox],
+                        "confidence": detected_object.get("confidence"),
+                        "center": (
+                            [int(valor) for valor in center]
+                            if isinstance(center, list) and len(center) == 2
+                            else None
+                        ),
+                    }
+                )
+
             resposta = {
                 "rostos": resultados_faces,
                 "pessoas": resultados_pessoas,
-                "gestos": results.get("gestures", []),
+                "gestos": resultados_gestos,
+                "objetos": resultados_objetos,
             }
             await websocket.send_json(resposta)
 

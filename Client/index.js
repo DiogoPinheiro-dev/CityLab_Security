@@ -5,6 +5,7 @@ const statusEl = document.getElementById("status");
 const facesCountEl = document.getElementById("facesCount");
 const personsCountEl = document.getElementById("personsCount");
 const gesturesCountEl = document.getElementById("gesturesCount");
+const objectsCountEl = document.getElementById("objectsCount");
 const latencyValueEl = document.getElementById("latencyValue");
 const toggleStreamBtn = document.getElementById("toggleStreamBtn");
 const reconnectBtn = document.getElementById("reconnectBtn");
@@ -15,6 +16,7 @@ const JPEG_QUALITY = 0.78;
 const SERVER_PORT = 8000;
 const RECONNECT_BASE_DELAY = 1500;
 const RECONNECT_MAX_DELAY = 10000;
+const MAX_IN_FLIGHT_FRAMES = 2;
 
 const captureCanvas = document.createElement("canvas");
 captureCanvas.width = CAPTURE_WIDTH;
@@ -28,6 +30,7 @@ const state = {
     streamEnabled: true,
     cameraReady: false,
     waitingResponse: false,
+    inFlightFrames: 0,
     requestAnimationFrameId: null,
     lastRoundTripMs: null,
     pendingSentAt: null,
@@ -35,6 +38,7 @@ const state = {
         rostos: [],
         pessoas: [],
         gestos: [],
+        objetos: [],
     },
 };
 
@@ -192,15 +196,17 @@ function updateMetrics() {
     const rostos = Array.isArray(state.results.rostos) ? state.results.rostos : [];
     const pessoas = Array.isArray(state.results.pessoas) ? state.results.pessoas : [];
     const gestos = Array.isArray(state.results.gestos) ? state.results.gestos : [];
+    const objetos = Array.isArray(state.results.objetos) ? state.results.objetos : [];
 
-    const totalAlertas = gestos.reduce((acc, item) => {
+    const totalGestosAtivos = gestos.reduce((acc, item) => {
         const alerts = Array.isArray(item.alerts) ? item.alerts.length : 0;
-        return acc + alerts;
+        return acc + (alerts > 0 ? 1 : 0);
     }, 0);
 
     facesCountEl.textContent = String(rostos.length);
     personsCountEl.textContent = String(pessoas.length);
-    gesturesCountEl.textContent = String(totalAlertas);
+    gesturesCountEl.textContent = String(totalGestosAtivos);
+    objectsCountEl.textContent = String(objetos.length);
     setLatencyDisplay(state.lastRoundTripMs);
 }
 
@@ -246,6 +252,7 @@ function closeSocket() {
 
     state.ws = null;
     state.waitingResponse = false;
+    state.inFlightFrames = 0;
     state.pendingSentAt = null;
 }
 
@@ -287,6 +294,7 @@ function conectarWebSocket() {
                 rostos: Array.isArray(payload.rostos) ? payload.rostos : [],
                 pessoas: Array.isArray(payload.pessoas) ? payload.pessoas : [],
                 gestos: Array.isArray(payload.gestos) ? payload.gestos : [],
+                objetos: Array.isArray(payload.objetos) ? payload.objetos : [],
             };
         } catch (err) {
             console.error("Falha ao interpretar resposta websocket:", err);
@@ -298,6 +306,7 @@ function conectarWebSocket() {
 
         state.pendingSentAt = null;
         state.waitingResponse = false;
+        state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
         updateMetrics();
     };
 
@@ -307,6 +316,7 @@ function conectarWebSocket() {
 
     ws.onclose = () => {
         state.waitingResponse = false;
+        state.inFlightFrames = 0;
         if (state.streamEnabled) {
             scheduleReconnect();
         } else {
@@ -371,13 +381,41 @@ function drawGestures(gestos) {
 
         const label = hasAlerts ? `ID ${trackId}: ${alerts.join(" | ")}` : `ID ${trackId}: monitorando`;
         ctx.font = "500 12px 'IBM Plex Mono', monospace";
-        const textWidth = Math.min(canvas.width - x1 - 4, ctx.measureText(label).width + 12);
-        const textY = Math.max(18, y2 + 16);
+        const availableWidth = Math.max(80, canvas.width - x1 - 4);
+        const textWidth = Math.min(availableWidth, ctx.measureText(label).width + 12);
+        const textY = Math.min(canvas.height - 4, Math.max(18, y2 + 16));
 
         ctx.fillStyle = hasAlerts ? "rgba(220, 38, 38, 0.9)" : "rgba(245, 158, 11, 0.92)";
         ctx.fillRect(x1, textY - 14, textWidth, 16);
         ctx.fillStyle = "#ffffff";
         ctx.fillText(label, x1 + 6, textY - 2, textWidth - 8);
+    }
+}
+
+function drawObjects(objetos) {
+    for (const objeto of objetos) {
+        if (!objeto || !Array.isArray(objeto.bbox) || objeto.bbox.length !== 4) {
+            continue;
+        }
+
+        const [x1, y1, x2, y2] = objeto.bbox;
+        const label = objeto.label || "Objeto";
+        const confidence = typeof objeto.confidence === "number" ? Math.round(objeto.confidence * 100) : null;
+        const text = confidence === null ? label : `${label} (${confidence}%)`;
+
+        ctx.strokeStyle = "#f97316";
+        ctx.lineWidth = 2;
+        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
+
+        ctx.font = "500 12px 'IBM Plex Mono', monospace";
+        const availableWidth = Math.max(100, canvas.width - x1 - 4);
+        const textWidth = Math.min(availableWidth, Math.max(120, ctx.measureText(text).width + 12));
+        const textY = Math.max(18, y1 - 6);
+
+        ctx.fillStyle = "rgba(249, 115, 22, 0.92)";
+        ctx.fillRect(x1, textY - 14, textWidth, 16);
+        ctx.fillStyle = "#ffffff";
+        ctx.fillText(text, x1 + 6, textY - 2);
     }
 }
 
@@ -395,10 +433,11 @@ function drawFrame() {
     drawPersons(state.results.pessoas);
     drawFaces(state.results.rostos);
     drawGestures(state.results.gestos);
+    drawObjects(state.results.objetos);
 }
 
 function sendFrameToBackend() {
-    if (!state.streamEnabled || state.waitingResponse || !state.cameraReady) {
+    if (!state.streamEnabled || !state.cameraReady) {
         return;
     }
 
@@ -410,19 +449,26 @@ function sendFrameToBackend() {
         return;
     }
 
+    if (state.inFlightFrames >= MAX_IN_FLIGHT_FRAMES) {
+        return;
+    }
+
     captureCtx.drawImage(video, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
     state.waitingResponse = true;
     state.pendingSentAt = performance.now();
+    state.inFlightFrames += 1;
 
     captureCanvas.toBlob((blob) => {
         if (!blob) {
             state.waitingResponse = false;
+            state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
             state.pendingSentAt = null;
             return;
         }
 
         if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
             state.waitingResponse = false;
+            state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
             state.pendingSentAt = null;
             return;
         }

@@ -2,21 +2,23 @@ from collections import defaultdict
 
 
 class GestureAnalyzer:
-    def __init__(self, fps=30):
+    def __init__(self, fps=30, track_ttl_frames=18):
         # Historico de frames continuos em que a pessoa esta fazendo o gesto.
         self.history = defaultdict(
             lambda: {
                 "hidden_frames": 0,
                 "surrender_frames": 0,
                 "aiming_frames": 0,
+                "missing_frames": 0,
             }
         )
 
         # Limiares de tempo (frames) para confirmar o gesto.
         self.fps = fps
-        self.thresh_hidden = int(self.fps * 2.5)  # 2.5 segundos oculto
-        self.thresh_surrender = int(self.fps * 1.0)  # 1.0 segundo com mao pro alto
-        self.thresh_aiming = int(self.fps * 1.5)  # 1.5 segundo apontando
+        self.track_ttl_frames = track_ttl_frames
+        self.thresh_hidden = max(4, int(self.fps * 1.5))  # oculto por algum tempo
+        self.thresh_surrender = max(3, int(self.fps * 0.55))  # maos para o alto
+        self.thresh_aiming = max(4, int(self.fps * 0.8))  # braco estendido
 
     def _get_keypoint(self, keypoints, idx):
         # Retorna (x, y, conf) do keypoint.
@@ -29,6 +31,7 @@ class GestureAnalyzer:
         Retorna uma lista de alertas ativos para a pessoa.
         """
         alerts = []
+        self.history[track_id]["missing_frames"] = 0
 
         # Indices do COCO:
         # 5: L Shoulder, 6: R Shoulder
@@ -174,7 +177,9 @@ class GestureAnalyzer:
         return alerts
 
     def clean_old_tracks(self, current_tracks):
-        """Remove historico de IDs que nao estao mais na tela."""
+        """Remove historico apenas apos algumas perdas consecutivas de tracking."""
         missing_tracks = set(self.history.keys()) - set(current_tracks)
         for track_id in missing_tracks:
-            del self.history[track_id]
+            self.history[track_id]["missing_frames"] += 1
+            if self.history[track_id]["missing_frames"] > self.track_ttl_frames:
+                del self.history[track_id]
