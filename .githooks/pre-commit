@@ -1,12 +1,3 @@
 #!/bin/sh
 
-branch="$(git symbolic-ref --quiet --short HEAD 2>/dev/null || true)"
-
-if [ "$branch" = "main" ] && [ "$ALLOW_MAIN_COMMIT" != "1" ]; then
-  echo "Commit direto na main bloqueado."
-  echo "Use uma branch de desenvolvimento e promova depois para a main."
-  echo "Se o commit na main for intencional, defina ALLOW_MAIN_COMMIT=1 temporariamente."
-  exit 1
-fi
-
 exit 0

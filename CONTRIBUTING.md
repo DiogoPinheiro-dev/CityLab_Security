@@ -10,9 +10,8 @@ Este repositorio usa a `main` como branch estavel do app.
 
 ## Regras do fluxo
 
-- Nao desenvolver direto na `main`.
-- Toda alteracao deve nascer em uma branch de desenvolvimento.
-- A `main` so recebe mudancas promovidas depois de validacao.
+- O fluxo recomendado e desenvolver em branches de desenvolvimento.
+- A `main` deve continuar representando uma versao estavel e validada do app.
 - A promocao para a `main` deve preservar contexto, por isso o padrao recomendado e `merge commit`.
 
 ## Fluxo recomendado
@@ -51,26 +50,11 @@ Se quiser publicar no remoto no mesmo fluxo:
 .\scripts\promote-to-main.ps1 -SourceBranch server -Push
 ```
 
-## Protecao local da main
-
-Este repositorio inclui um hook local que bloqueia commits diretos na `main`.
-
-Se voce realmente precisar criar um commit intencional na `main`, use:
-
-```powershell
-$env:ALLOW_MAIN_COMMIT='1'
-git commit -m "mensagem"
-Remove-Item Env:ALLOW_MAIN_COMMIT
-```
-
-O script de promocao ja faz isso automaticamente quando necessario.
-
 ## Recomendacoes para o GitHub
 
 Se quiser refletir esse fluxo no remoto, o ideal e configurar:
 
 - branch protection na `main`
-- bloquear push direto na `main`
 - exigir pull request ou merge controlado para a `main`
 - usar tags para marcar snapshots estaveis
 

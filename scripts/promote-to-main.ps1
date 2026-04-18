@@ -26,13 +26,10 @@ if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }
 
-$env:ALLOW_MAIN_COMMIT = "1"
 git merge --no-ff $SourceBranch -m "Promote $SourceBranch to stable main"
-$mergeExitCode = $LASTEXITCODE
-Remove-Item Env:ALLOW_MAIN_COMMIT -ErrorAction SilentlyContinue
-if ($mergeExitCode -ne 0) {
+if ($LASTEXITCODE -ne 0) {
     Write-Error "Falha ao promover $SourceBranch para a main."
-    exit $mergeExitCode
+    exit $LASTEXITCODE
 }
 
 if ($Push) {
