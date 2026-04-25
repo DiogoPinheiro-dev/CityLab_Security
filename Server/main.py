@@ -262,32 +262,10 @@ async def websocket_reconhecimento(websocket: WebSocket):
                     }
                 )
 
-            resultados_objetos = []
-            for detected_object in results.get("objects", []):
-                bbox = detected_object.get("bbox")
-                center = detected_object.get("center")
-                if not bbox or len(bbox) != 4:
-                    continue
-
-                resultados_objetos.append(
-                    {
-                        "class_id": int(detected_object.get("class_id", -1)),
-                        "label": str(detected_object.get("label", "Objeto")),
-                        "bbox": [int(valor) for valor in bbox],
-                        "confidence": detected_object.get("confidence"),
-                        "center": (
-                            [int(valor) for valor in center]
-                            if isinstance(center, list) and len(center) == 2
-                            else None
-                        ),
-                    }
-                )
-
             resposta = {
                 "rostos": resultados_faces,
                 "pessoas": resultados_pessoas,
                 "gestos": resultados_gestos,
-                "objetos": resultados_objetos,
             }
             await websocket.send_json(resposta)
 

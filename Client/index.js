@@ -5,14 +5,13 @@ const statusEl = document.getElementById("status");
 const facesCountEl = document.getElementById("facesCount");
 const personsCountEl = document.getElementById("personsCount");
 const gesturesCountEl = document.getElementById("gesturesCount");
-const objectsCountEl = document.getElementById("objectsCount");
 const latencyValueEl = document.getElementById("latencyValue");
 const toggleStreamBtn = document.getElementById("toggleStreamBtn");
 const reconnectBtn = document.getElementById("reconnectBtn");
 
-const CAPTURE_WIDTH = 640;
-const CAPTURE_HEIGHT = 480;
-const JPEG_QUALITY = 0.78;
+const CAPTURE_WIDTH = 960;
+const CAPTURE_HEIGHT = 540;
+const JPEG_QUALITY = 0.9;
 const SERVER_PORT = 8000;
 const RECONNECT_BASE_DELAY = 1500;
 const RECONNECT_MAX_DELAY = 10000;
@@ -38,7 +37,6 @@ const state = {
         rostos: [],
         pessoas: [],
         gestos: [],
-        objetos: [],
     },
 };
 
@@ -196,7 +194,6 @@ function updateMetrics() {
     const rostos = Array.isArray(state.results.rostos) ? state.results.rostos : [];
     const pessoas = Array.isArray(state.results.pessoas) ? state.results.pessoas : [];
     const gestos = Array.isArray(state.results.gestos) ? state.results.gestos : [];
-    const objetos = Array.isArray(state.results.objetos) ? state.results.objetos : [];
 
     const totalGestosAtivos = gestos.reduce((acc, item) => {
         const alerts = Array.isArray(item.alerts) ? item.alerts.length : 0;
@@ -206,7 +203,6 @@ function updateMetrics() {
     facesCountEl.textContent = String(rostos.length);
     personsCountEl.textContent = String(pessoas.length);
     gesturesCountEl.textContent = String(totalGestosAtivos);
-    objectsCountEl.textContent = String(objetos.length);
     setLatencyDisplay(state.lastRoundTripMs);
 }
 
@@ -294,7 +290,6 @@ function conectarWebSocket() {
                 rostos: Array.isArray(payload.rostos) ? payload.rostos : [],
                 pessoas: Array.isArray(payload.pessoas) ? payload.pessoas : [],
                 gestos: Array.isArray(payload.gestos) ? payload.gestos : [],
-                objetos: Array.isArray(payload.objetos) ? payload.objetos : [],
             };
         } catch (err) {
             console.error("Falha ao interpretar resposta websocket:", err);
@@ -392,33 +387,6 @@ function drawGestures(gestos) {
     }
 }
 
-function drawObjects(objetos) {
-    for (const objeto of objetos) {
-        if (!objeto || !Array.isArray(objeto.bbox) || objeto.bbox.length !== 4) {
-            continue;
-        }
-
-        const [x1, y1, x2, y2] = objeto.bbox;
-        const label = objeto.label || "Objeto";
-        const confidence = typeof objeto.confidence === "number" ? Math.round(objeto.confidence * 100) : null;
-        const text = confidence === null ? label : `${label} (${confidence}%)`;
-
-        ctx.strokeStyle = "#f97316";
-        ctx.lineWidth = 2;
-        ctx.strokeRect(x1, y1, x2 - x1, y2 - y1);
-
-        ctx.font = "500 12px 'IBM Plex Mono', monospace";
-        const availableWidth = Math.max(100, canvas.width - x1 - 4);
-        const textWidth = Math.min(availableWidth, Math.max(120, ctx.measureText(text).width + 12));
-        const textY = Math.max(18, y1 - 6);
-
-        ctx.fillStyle = "rgba(249, 115, 22, 0.92)";
-        ctx.fillRect(x1, textY - 14, textWidth, 16);
-        ctx.fillStyle = "#ffffff";
-        ctx.fillText(text, x1 + 6, textY - 2);
-    }
-}
-
 function drawFrame() {
     if (video.readyState >= 2 && state.cameraReady) {
         ctx.drawImage(video, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
@@ -433,7 +401,6 @@ function drawFrame() {
     drawPersons(state.results.pessoas);
     drawFaces(state.results.rostos);
     drawGestures(state.results.gestos);
-    drawObjects(state.results.objetos);
 }
 
 function sendFrameToBackend() {

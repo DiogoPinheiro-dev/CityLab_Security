@@ -30,8 +30,8 @@ class HandDetector:
     def __init__(
         self,
         max_num_hands: int = 4,
-        min_detection_confidence: float = 0.5,
-        min_tracking_confidence: float = 0.5,
+        min_detection_confidence: float = 0.35,
+        min_tracking_confidence: float = 0.4,
     ) -> None:
         self.recognizer: Any = None
         self.available = all(
@@ -106,7 +106,11 @@ class HandDetector:
                 gesture_name = gesture.category_name
                 gesture_score = float(gesture.score)
 
-            closed = gesture_name == "Closed_Fist" or self._is_closed_fist(points)
+            closed = (
+                gesture_name == "Closed_Fist"
+                or self._is_closed_fist(points)
+                or self._is_side_closed_fist(points)
+            )
 
             detected_hands.append(
                 {
@@ -211,3 +215,58 @@ class HandDetector:
         ) * 1.15
 
         return curled_fingers >= 3 and thumb_curled
+
+    def _is_side_closed_fist(self, points: list[tuple[int, int]]) -> bool:
+        if len(points) < 21:
+            return False
+
+        wrist = points[0]
+        index_mcp = points[5]
+        middle_mcp = points[9]
+        pinky_mcp = points[17]
+        fingertips = [points[index] for index in (8, 12, 16, 20)]
+        palm_center = (
+            (index_mcp[0] + middle_mcp[0] + pinky_mcp[0]) / 3.0,
+            (index_mcp[1] + middle_mcp[1] + pinky_mcp[1]) / 3.0,
+        )
+
+        palm_size = max(
+            1.0,
+            (
+                self._distance(wrist, index_mcp)
+                + self._distance(wrist, pinky_mcp)
+                + self._distance(index_mcp, pinky_mcp)
+            )
+            / 3.0,
+        )
+
+        compact_tips = 0
+        fingertip_distances = []
+        for tip, mcp in zip(fingertips, (points[5], points[9], points[13], points[17])):
+            tip_to_center = self._distance(tip, palm_center)
+            tip_to_mcp = self._distance(tip, mcp)
+            fingertip_distances.append(tip_to_center)
+            if tip_to_center < (palm_size * 1.15) and tip_to_mcp < (palm_size * 1.2):
+                compact_tips += 1
+
+        fingertip_spread = max(
+            self._distance(fingertips[i], fingertips[j])
+            for i in range(len(fingertips))
+            for j in range(i + 1, len(fingertips))
+        )
+        avg_tip_to_center = sum(fingertip_distances) / len(fingertip_distances)
+
+        thumb_tip = points[4]
+        thumb_mcp = points[2]
+        thumb_to_palm = self._distance(thumb_tip, palm_center)
+        thumb_compact = (
+            thumb_to_palm < (palm_size * 1.35)
+            or self._distance(thumb_tip, thumb_mcp) < (palm_size * 0.95)
+        )
+
+        return (
+            compact_tips >= 3
+            and avg_tip_to_center < (palm_size * 1.05)
+            and fingertip_spread < (palm_size * 1.35)
+            and thumb_compact
+        )

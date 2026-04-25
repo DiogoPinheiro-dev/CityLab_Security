@@ -10,14 +10,6 @@ import insightface
 import numpy as np
 from ultralytics import YOLO  # type: ignore
 
-try:
-    from App.camera_auto_config import AutoImageOptimizer
-except ImportError:
-    try:
-        from camera_auto_config import AutoImageOptimizer
-    except ImportError:
-        from ..camera_auto_config import AutoImageOptimizer
-
 def setup_logger(script_dir: str) -> tuple[logging.Logger, logging.Logger, str]:
     base_log_directory = os.path.join(script_dir, "historico")
     text_log_directory = os.path.join(base_log_directory, "escrito")
@@ -87,7 +79,6 @@ class FaceRecognitionService:
         self.scale_factor = scale_factor
         self.log_cooldown_seconds = log_cooldown_seconds
         self.enable_logging = enable_logging
-        self.image_optimizer = AutoImageOptimizer()
 
         self.logger_alunos: Optional[logging.Logger] = None
         self.logger_alertas: Optional[logging.Logger] = None
@@ -140,16 +131,14 @@ class FaceRecognitionService:
         self.known_face_embeddings = np.asarray(embeddings, dtype=np.float32)
 
     def prepare_frame(self, frame: np.ndarray) -> dict[str, np.ndarray]:
-        adjusted_frame = self.image_optimizer.optimize(frame)
         small_frame = cv2.resize(
-            adjusted_frame,
+            frame,
             (0, 0),
             fx=self.scale_factor,
             fy=self.scale_factor,
         )
         return {
             "original_frame": frame,
-            "adjusted_frame": adjusted_frame,
             "small_frame": small_frame,
         }
 

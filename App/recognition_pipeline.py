@@ -37,7 +37,6 @@ class UnifiedRecognitionService:
         detect_faces: bool = True,
         detect_persons: bool = True,
         detect_gestures: bool = True,
-        detect_objects: bool = True,
         with_face_logging: bool = True,
     ) -> dict[str, Any]:
         if self.run_in_parallel:
@@ -46,7 +45,6 @@ class UnifiedRecognitionService:
                 detect_faces=detect_faces,
                 detect_persons=detect_persons,
                 detect_gestures=detect_gestures,
-                detect_objects=detect_objects,
                 with_face_logging=with_face_logging,
             )
 
@@ -59,7 +57,6 @@ class UnifiedRecognitionService:
         gesture_payload = self.gesture_service.process_frame(
             frame,
             detect_pose=detect_gestures,
-            detect_objects=detect_objects,
         )
         return self._merge_payloads(face_payload, gesture_payload)
 
@@ -69,7 +66,6 @@ class UnifiedRecognitionService:
         detect_faces: bool,
         detect_persons: bool,
         detect_gestures: bool,
-        detect_objects: bool,
         with_face_logging: bool,
     ) -> dict[str, Any]:
         with ThreadPoolExecutor(max_workers=2) as executor:
@@ -84,7 +80,6 @@ class UnifiedRecognitionService:
                 self.gesture_service.process_frame,
                 frame,
                 detect_gestures,
-                detect_objects,
             )
 
             face_payload = face_future.result()
@@ -101,7 +96,6 @@ class UnifiedRecognitionService:
             "faces": face_payload.get("faces", []),
             "persons": face_payload.get("persons", []),
             "gestures": gesture_payload.get("gestures", []),
-            "objects": gesture_payload.get("objects", []),
         }
 
 
