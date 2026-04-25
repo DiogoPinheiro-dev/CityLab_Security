@@ -31,7 +31,7 @@ Arquivos principais do projeto:
 - `server`: branch principal de desenvolvimento
 - outras branches: desenvolvimento de features, correcao e experimentos
 
-O fluxo detalhado esta em [CONTRIBUTING.md](/e:/Codigos/CityLab_Security/CONTRIBUTING.md).
+O projeto usa um fluxo leve, sem bloqueio local para commits na `main`. O guia esta em [CONTRIBUTING.md](/e:/Codigos/CityLab_Security/CONTRIBUTING.md).
 
 ## Requisitos
 
