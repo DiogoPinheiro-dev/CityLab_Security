@@ -1,11 +1,7 @@
-import os
 from pathlib import Path
 from typing import Any
 from typing import Optional
 from typing import cast
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-os.environ.setdefault("YOLO_CONFIG_DIR", str(PROJECT_ROOT))
 
 import numpy as np
 from ultralytics import YOLO
@@ -156,12 +152,13 @@ class GestureRecognitionService:
         ):
             current_tracks.append(track_id)
             hand_context = self._associate_hands(box, keypoints, hand_detections)
-            alerts = self.analyzer.analyze(
+            analysis = self.analyzer.analyze(
                 track_id,
                 keypoints,
                 box,
                 hand_context=hand_context,
             )
+            alerts = analysis["alerts"]
 
             people.append(
                 {
@@ -169,6 +166,8 @@ class GestureRecognitionService:
                     "bbox": [int(value) for value in box],
                     "alerts": alerts,
                     "confidence": float(confidences[index]),
+                    "hand_context": analysis["hand_context"],
+                    "hidden_debug": analysis["hidden_debug"],
                     **(
                         {"matched_hands": hand_context["matched_hands"]}
                         if hand_context["matched_hands"]

@@ -5,9 +5,6 @@ import time
 from typing import Any
 from typing import Optional
 
-PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-os.environ.setdefault("YOLO_CONFIG_DIR", PROJECT_ROOT)
-
 import cv2
 import insightface
 import numpy as np

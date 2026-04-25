@@ -1,12 +1,14 @@
 from collections import defaultdict
 import math
+from typing import Any
 
 
 class GestureAnalyzer:
     def __init__(self, fps=30):
         self.history = defaultdict(
             lambda: {
-                "hidden_frames": 0,
+                "left_hidden_frames": 0,
+                "right_hidden_frames": 0,
                 "surrender_frames": 0,
                 "aiming_frames": 0,
                 "fist_frames": 0,
@@ -239,28 +241,58 @@ class GestureAnalyzer:
         if threat_confirmed:
             alerts.append("Mao Fechada + Braco Estendido")
 
-        is_hidden = False
+        hand_state = {
+            "left": {
+                "visible": left_visible,
+                "closed": left_closed,
+                "in_torso": left_in_torso,
+            },
+            "right": {
+                "visible": right_visible,
+                "closed": right_closed,
+                "in_torso": right_in_torso,
+            },
+        }
+        hidden_debug: dict[str, dict[str, Any]] = {
+            "left": {
+                "hand_visible": left_visible,
+                "hand_in_torso": left_in_torso,
+                "elbow_inside": False,
+                "wrist_inside": False,
+                "wrist_missing": False,
+                "cross_body": False,
+                "arm_towards_torso": False,
+                "hidden": False,
+            },
+            "right": {
+                "hand_visible": right_visible,
+                "hand_in_torso": right_in_torso,
+                "elbow_inside": False,
+                "wrist_inside": False,
+                "wrist_missing": False,
+                "cross_body": False,
+                "arm_towards_torso": False,
+                "hidden": False,
+            },
+        }
 
         def hand_hidden(side):
             if side == "left":
                 shoulder = (ls_x, ls_y, ls_c)
                 elbow = (le_x, le_y, le_c)
                 wrist = (lw_x, lw_y, lw_c)
-                opposite_shoulder_x = rs_x
                 hand_visible = left_visible
-                hand_in_torso = left_in_torso
             else:
                 shoulder = (rs_x, rs_y, rs_c)
                 elbow = (re_x, re_y, re_c)
                 wrist = (rw_x, rw_y, rw_c)
-                opposite_shoulder_x = ls_x
                 hand_visible = right_visible
-                hand_in_torso = right_in_torso
+            side_debug = hidden_debug[side]
 
             if shoulder[2] <= conf_thresh:
                 return False
 
-            if hand_visible and not hand_in_torso:
+            if hand_visible:
                 return False
 
             elbow_inside = elbow[2] > conf_thresh and self._inside_box(
@@ -284,54 +316,37 @@ class GestureAnalyzer:
                     cross_body = elbow[0] < (shoulder[0] - shoulder_width * 0.08)
 
             wrist_missing = wrist[2] <= conf_thresh and elbow[2] > conf_thresh
-            wrist_near_opposite = False
-            if wrist[2] > conf_thresh and abs(wrist[0] - opposite_shoulder_x) < (
-                shoulder_width * 0.55
-            ):
-                wrist_near_opposite = True
+            arm_towards_torso = wrist_inside or elbow_inside or (wrist_missing and cross_body)
 
-            return (
-                hand_in_torso
-                or wrist_inside
-                or (elbow_inside and (wrist_missing or cross_body or wrist_near_opposite))
-            )
+            side_debug["elbow_inside"] = elbow_inside
+            side_debug["wrist_inside"] = wrist_inside
+            side_debug["wrist_missing"] = wrist_missing
+            side_debug["cross_body"] = cross_body
+            side_debug["arm_towards_torso"] = arm_towards_torso
+            side_debug["hidden"] = arm_towards_torso
 
+            return arm_towards_torso
+
+        left_hidden = False
+        right_hidden = False
         if torso_box is not None:
-            is_hidden = hand_hidden("left") or hand_hidden("right")
+            left_hidden = hand_hidden("left")
+            right_hidden = hand_hidden("right")
 
-        hands_recovered = (
-            left_visible
-            and right_visible
-            and not left_in_torso
-            and not right_in_torso
-        )
-        pose_recovered = (
-            lw_c > conf_thresh
-            and rw_c > conf_thresh
-            and torso_box is not None
-            and not self._inside_box(
-                (lw_x, lw_y),
-                torso_box,
-                margin_x=shoulder_width * 0.14,
-                margin_y=shoulder_width * 0.12,
-            )
-            and not self._inside_box(
-                (rw_x, rw_y),
-                torso_box,
-                margin_x=shoulder_width * 0.14,
-                margin_y=shoulder_width * 0.12,
-            )
-        )
+        self._update_counter(track_id, "left_hidden_frames", left_hidden, cooldown=6)
+        self._update_counter(track_id, "right_hidden_frames", right_hidden, cooldown=6)
 
-        if not is_hidden and (hands_recovered or pose_recovered):
-            self.history[track_id]["hidden_frames"] = 0
-        else:
-            self._update_counter(track_id, "hidden_frames", is_hidden, cooldown=6)
-
-        if self.history[track_id]["hidden_frames"] >= self.thresh_hidden:
+        if (
+            self.history[track_id]["left_hidden_frames"] >= self.thresh_hidden
+            or self.history[track_id]["right_hidden_frames"] >= self.thresh_hidden
+        ):
             alerts.append("Mao Oculta")
 
-        return alerts
+        return {
+            "alerts": alerts,
+            "hand_context": hand_state,
+            "hidden_debug": hidden_debug,
+        }
 
     def _update_counter(self, track_id, key, active, cooldown=1):
         if active:
