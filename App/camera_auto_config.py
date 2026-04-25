@@ -1,14 +1,12 @@
 import cv2
 import numpy as np
 
-
 def apply_gamma(image, gamma=1.0):
     inv_gamma = 1.0 / max(gamma, 0.01)
     table = np.array(
         [((value / 255.0) ** inv_gamma) * 255 for value in np.arange(0, 256)]
     ).astype("uint8")
     return cv2.LUT(image, table)
-
 
 def apply_clahe(image):
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
@@ -17,7 +15,6 @@ def apply_clahe(image):
     l_channel = clahe.apply(l_channel)
     merged = cv2.merge((l_channel, a_channel, b_channel))
     return cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
-
 
 def configure_camera_capture(cap, preferred_resolutions=None):
     if preferred_resolutions is None:
