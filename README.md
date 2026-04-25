@@ -232,9 +232,3 @@ Abra no navegador:
 `http://127.0.0.1:5500/teste_websocket.html`
 
 Se a camera nao estiver disponivel na maquina atual, o cliente ainda pode abrir a interface, mas nao enviara frames validos para o servidor.
-
-## Observacoes
-
-- O projeto nao depende mais dos scripts antigos de reconhecimento unificado.
-- O fluxo ativo passa apenas pelos services e pela `recognition_pipeline`.
-- Logs e imagens geradas em runtime nao fazem parte do codigo-fonte principal.
