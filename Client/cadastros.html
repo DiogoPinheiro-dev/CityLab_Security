@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CityLab Security - Cadastro Facial</title>
+    <link rel="stylesheet" href="/client/index.css">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="hero">
+            <p class="eyebrow">CityLab Security</p>
+            <h1>Cadastro de Reconhecimento Facial</h1>
+            <p id="status" class="status status-warn">Preencha os dados para cadastrar um rosto.</p>
+        </header>
+
+        <main class="layout cadastro-layout">
+            <section class="viewer-card cadastro-card">
+                <form id="cadastroForm" class="cadastro-form">
+                    <label class="field">
+                        <span>Nome do aluno</span>
+                        <input id="nome" name="nome" type="text" autocomplete="name" placeholder="Ex: Joao Silva" required>
+                    </label>
+
+                    <label class="upload-area" for="foto">
+                        <input id="foto" name="foto" type="file" accept="image/png,image/jpeg" capture="user" required>
+                        <span class="upload-title">Selecionar foto</span>
+                        <span class="upload-copy">Use uma imagem JPG ou PNG com apenas um rosto visivel.</span>
+                    </label>
+
+                    <div class="preview-frame">
+                        <img id="preview" alt="Preview da foto selecionada">
+                        <p id="previewPlaceholder">Nenhuma foto selecionada.</p>
+                    </div>
+
+                    <div class="controls">
+                        <button id="submitBtn" type="submit">Cadastrar rosto</button>
+                        <button id="clearBtn" type="button" class="button-secondary">Limpar</button>
+                    </div>
+                </form>
+
+                <section class="info-grid" aria-label="Informacoes sobre o app">
+                    <article class="info-block">
+                        <h2>Sobre o app</h2>
+                        <p>O CityLab Security é um sistema de apoio para monitoramento em tempo real. Ele usa a camera para reconhecer rostos cadastrados, identificar pessoas e destacar alertas visuais durante a transmissao.</p>
+                    </article>
+
+                    <article class="info-block">
+                        <h2>Quem cuida</h2>
+                        <p>O projeto e mantido por Diogo de Lorenzi Pinheiro, Mariana Lebrão Murauskas e Prof. Mario Pardo, com foco em criar uma ferramenta simples de testar, evoluir e demonstrar em ambiente academico.</p>
+                    </article>
+
+                    <article class="info-block">
+                        <h2>Tecnologias</h2>
+                        <p>A aplicacao usa FastAPI no servidor, MongoDB para dados, OpenCV e InsightFace para reconhecimento facial, YOLO para deteccao visual e HTML, CSS e JavaScript no cliente web.</p>
+                    </article>
+
+                    <article class="info-block">
+                        <h2>Como funciona</h2>
+                        <p>Nesta tela, voçe envia o nome e uma foto. O servidor extrai as características do rosto e guarda esse cadastro para que a tela de reconhecimento consiga identificar a pessoa depois.</p>
+                    </article>
+                </section>
+            </section>
+
+            <aside class="panel">
+                <div class="metric">
+                    <span>Status</span>
+                    <strong id="statusLabel">Pendente</strong>
+                </div>
+                <div class="metric">
+                    <span>Arquivo</span>
+                    <strong id="fileLabel">-</strong>
+                </div>
+                <div class="legend">
+                    <p><span class="chip chip-face"></span> Foto com 1 rosto</p>
+                    <p><span class="chip chip-person"></span> JPG ou PNG</p>
+                    <p><span class="chip chip-gesture"></span> Evite grupos</p>
+                    <p><span class="chip chip-object"></span> Boa iluminacao</p>
+                </div>
+            </aside>
+        </main>
+    </div>
+
+    <script src="/client/cadastros.js"></script>
+</body>
+</html>

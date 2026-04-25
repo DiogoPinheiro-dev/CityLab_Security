@@ -11,11 +11,15 @@ from typing import List, Optional
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
+
+CLIENT_DIR = PROJECT_ROOT / "Client"
 
 from App.recognition_pipeline import UnifiedRecognitionService, create_unified_service
 from Server.Db.database import MONGO_DB_NAME, colecao_alunos, colecao_logs, validar_conexao_mongo
@@ -76,11 +80,20 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title="API FaceRecon", lifespan=lifespan)
 
+if CLIENT_DIR.exists():
+    app.mount("/client", StaticFiles(directory=CLIENT_DIR), name="client")
 
 @app.get("/")
 async def home():
     return {"status": "online", "banco": MONGO_DB_NAME}
 
+@app.get("/cadastro")
+async def pagina_cadastros():
+    cadastro_page = CLIENT_DIR / "cadastros.html"
+    if not cadastro_page.exists():
+        raise HTTPException(status_code=404, detail="Pagina de cadastros nao encontrada.")
+
+    return FileResponse(cadastro_page)
 
 @app.post("/cadastro")
 async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
@@ -131,7 +144,6 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erro interno no servidor: {exc}")
 
-
 @app.get("/logs", response_model=List[LogResponse])
 async def visualizar_logs(limite: int = 50):
     logs_db = []
@@ -150,6 +162,9 @@ async def visualizar_logs(limite: int = 50):
 
     return logs_db
 
+@app.get("/stream")
+async def pagina_stream():
+    return RedirectResponse(url="/client/teste_websocket.html")
 
 @app.websocket("/stream")
 async def websocket_reconhecimento(websocket: WebSocket):
