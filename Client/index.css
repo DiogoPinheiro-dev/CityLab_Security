@@ -220,6 +220,53 @@ button:disabled {
     gap: 8px;
 }
 
+.qr-card {
+    margin-top: 10px;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 12px;
+    display: grid;
+    gap: 8px;
+    justify-items: center;
+    text-align: center;
+    background: var(--surface-soft);
+}
+
+.qr-title {
+    margin: 0;
+    color: var(--ink);
+    font-weight: 700;
+}
+
+.qr-card a {
+    width: min(100%, 190px);
+    display: block;
+}
+
+.qr-card img {
+    width: 100%;
+    aspect-ratio: 1;
+    display: block;
+    border: 8px solid #ffffff;
+    border-radius: 12px;
+    background: #ffffff;
+}
+
+.qr-copy {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.88rem;
+    line-height: 1.35;
+}
+
+.qr-card small {
+    width: 100%;
+    color: var(--accent-strong);
+    font-family: "IBM Plex Mono", monospace;
+    font-size: 0.72rem;
+    overflow-wrap: anywhere;
+}
+
 .chip {
     width: 10px;
     height: 10px;

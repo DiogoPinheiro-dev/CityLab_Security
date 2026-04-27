@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CityLab Security - Monitor de Camera</title>
-    <link rel="stylesheet" href="index.css">
+    <link rel="stylesheet" href="/client/index.css">
 </head>
 <body>
     <div class="app-shell">
@@ -51,10 +51,18 @@
                     <p><span class="chip chip-gesture"></span> Alertas de gesto</p>
                     <p><span class="chip chip-object"></span> Objetos suspeitos</p>
                 </div>
+                <div class="qr-card">
+                    <p class="qr-title">Cadastro facial</p>
+                    <a id="registrationQrLink" href="/cadastros">
+                        <img id="registrationQr" alt="QR Code para abrir o cadastro facial">
+                    </a>
+                    <p class="qr-copy">Leia com a camera do celular para abrir o cadastro de nome e rosto.</p>
+                    <small id="registrationUrl">/cadastros</small>
+                </div>
             </aside>
         </main>
     </div>
 
-    <script src="./index.js"></script>
+    <script src="/client/index.js"></script>
 </body>
 </html>

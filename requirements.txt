@@ -109,6 +109,7 @@ python-dotenv==1.2.1
 python-multipart==0.0.22
 pytz==2025.2
 PyYAML==6.0.3
+qrcode[pil]==8.2
 rarfile==4.2
 regex==2026.2.19
 requests==2.32.5

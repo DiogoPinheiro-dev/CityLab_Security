@@ -9,6 +9,9 @@ const objectsCountEl = document.getElementById("objectsCount");
 const latencyValueEl = document.getElementById("latencyValue");
 const toggleStreamBtn = document.getElementById("toggleStreamBtn");
 const reconnectBtn = document.getElementById("reconnectBtn");
+const registrationQr = document.getElementById("registrationQr");
+const registrationQrLink = document.getElementById("registrationQrLink");
+const registrationUrlEl = document.getElementById("registrationUrl");
 
 const CAPTURE_WIDTH = 640;
 const CAPTURE_HEIGHT = 480;
@@ -164,6 +167,64 @@ function buildWebSocketUrl() {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const host = window.location.hostname || "localhost";
     return `${protocol}://${host}:${SERVER_PORT}/stream`;
+}
+
+function buildBackendHttpUrl(path) {
+    const isHttpPage = window.location.protocol === "http:" || window.location.protocol === "https:";
+    if (isHttpPage && window.location.port !== "5500") {
+        return path;
+    }
+
+    const protocol = isHttpPage ? window.location.protocol : "http:";
+    const host = window.location.hostname || "localhost";
+    return `${protocol}//${host}:${SERVER_PORT}${path}`;
+}
+
+function buildCadastroUrl() {
+    const cadastroPath = "/cadastros";
+    const isHttpPage = window.location.protocol === "http:" || window.location.protocol === "https:";
+
+    if (isHttpPage && window.location.port !== "5500") {
+        return `${window.location.origin}${cadastroPath}`;
+    }
+
+    const protocol = isHttpPage ? window.location.protocol : "http:";
+    const host = window.location.hostname || "localhost";
+    return `${protocol}//${host}:${SERVER_PORT}${cadastroPath}`;
+}
+
+async function getCadastroUrl() {
+    try {
+        const response = await fetch(buildBackendHttpUrl("/access-info"), {
+            cache: "no-store",
+        });
+
+        if (!response.ok) {
+            throw new Error("Falha ao buscar URL publica do cadastro.");
+        }
+
+        const payload = await response.json();
+        if (payload && typeof payload.cadastro_url === "string") {
+            return payload.cadastro_url;
+        }
+    } catch (err) {
+        console.warn("Usando URL local de cadastro como fallback:", err);
+    }
+
+    return buildCadastroUrl();
+}
+
+async function setupRegistrationQrCode() {
+    if (!registrationQr || !registrationQrLink || !registrationUrlEl) {
+        return;
+    }
+
+    const cadastroUrl = await getCadastroUrl();
+    const qrPath = `/qrcode/cadastro.png?url=${encodeURIComponent(cadastroUrl)}`;
+
+    registrationQr.src = buildBackendHttpUrl(qrPath);
+    registrationQrLink.href = cadastroUrl;
+    registrationUrlEl.textContent = cadastroUrl;
 }
 
 function setStatus(message, level) {
@@ -543,6 +604,7 @@ async function bootstrap() {
     toggleStreamBtn.addEventListener("click", handleToggleStream);
     reconnectBtn.addEventListener("click", handleManualReconnect);
     window.addEventListener("beforeunload", encerrarRecursos);
+    setupRegistrationQrCode();
 
     try {
         await iniciarCamera();
