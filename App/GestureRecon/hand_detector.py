@@ -2,12 +2,15 @@ import math
 import os
 import urllib.request
 from typing import Any
+from typing import Sequence
+from typing import TypeAlias
 
 import numpy as np
 
 MP_MODULE: Any = None
 MP_TASKS_PYTHON: Any = None
 MP_VISION: Any = None
+Point: TypeAlias = tuple[float, float]
 
 try:
     import mediapipe as mediapipe_module
@@ -69,7 +72,7 @@ class HandDetector:
         gestures_batch = results.gestures or []
 
         for index, landmarks in enumerate(landmarks_batch):
-            points: list[tuple[int, int]] = []
+            points: list[Point] = []
             xs: list[int] = []
             ys: list[int] = []
 
@@ -167,10 +170,10 @@ class HandDetector:
             print(f"[AVISO] Nao foi possivel baixar o modelo do MediaPipe: {exc}")
             return None
 
-    def _distance(self, point_a: tuple[int, int], point_b: tuple[int, int]) -> float:
+    def _distance(self, point_a: Point, point_b: Point) -> float:
         return math.hypot(point_a[0] - point_b[0], point_a[1] - point_b[1])
 
-    def _is_closed_fist(self, points: list[tuple[int, int]]) -> bool:
+    def _is_closed_fist(self, points: Sequence[Point]) -> bool:
         if len(points) < 21:
             return False
 
@@ -216,7 +219,7 @@ class HandDetector:
 
         return curled_fingers >= 3 and thumb_curled
 
-    def _is_side_closed_fist(self, points: list[tuple[int, int]]) -> bool:
+    def _is_side_closed_fist(self, points: Sequence[Point]) -> bool:
         if len(points) < 21:
             return False
 

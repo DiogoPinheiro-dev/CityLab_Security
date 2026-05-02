@@ -8,12 +8,12 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 import cv2
 import numpy as np
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -44,10 +44,11 @@ recognizer: Optional[UnifiedRecognitionService] = None
 
 
 def _sync_memoria_para_recognizer() -> None:
-    if recognizer is None:
+    current_recognizer = recognizer
+    if current_recognizer is None:
         return
 
-    recognizer.face_service.replace_known_faces(
+    current_recognizer.face_service.replace_known_faces(
         banco_rostos_memoria["nomes"],
         banco_rostos_memoria["embeddings"],
     )
@@ -138,6 +139,7 @@ async def access_info(request: Request):
 async def qrcode_cadastro(request: Request, url: Optional[str] = None):
     try:
         import qrcode
+        from qrcode.constants import ERROR_CORRECT_M
     except ImportError as exc:
         raise HTTPException(
             status_code=503,
@@ -150,7 +152,7 @@ async def qrcode_cadastro(request: Request, url: Optional[str] = None):
 
     qr = qrcode.QRCode(
         version=None,
-        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        error_correction=ERROR_CORRECT_M,
         box_size=10,
         border=3,
     )
@@ -159,7 +161,7 @@ async def qrcode_cadastro(request: Request, url: Optional[str] = None):
 
     image = qr.make_image(fill_color="#102330", back_color="#ffffff")
     buffer = io.BytesIO()
-    image.save(buffer, format="PNG")
+    image.save(buffer, "PNG")
     buffer.seek(0)
 
     return StreamingResponse(buffer, media_type="image/png")
@@ -169,7 +171,8 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
     if not foto.filename or not foto.filename.lower().endswith((".jpg", ".jpeg", ".png")):
         raise HTTPException(status_code=400, detail="Formato invalido. Use JPG ou PNG.")
 
-    if recognizer is None:
+    current_recognizer = recognizer
+    if current_recognizer is None:
         raise HTTPException(status_code=503, detail="Pipeline de reconhecimento nao esta pronta.")
 
     try:
@@ -180,7 +183,7 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
         if img is None:
             raise HTTPException(status_code=400, detail="Erro ao processar a imagem. Arquivo corrompido.")
 
-        faces = recognizer.face_service.app_insight.get(img)
+        faces = current_recognizer.face_service.app_insight.get(img)
 
         if not faces:
             raise HTTPException(status_code=400, detail="Nenhum rosto encontrado na foto enviada.")
@@ -247,12 +250,13 @@ async def websocket_reconhecimento(websocket: WebSocket):
     await websocket.accept()
     print("[INFO] Cliente Web conectado ao stream de video.")
 
-    recently_logged = {}
+    recently_logged: Dict[str, float] = {}
     log_cooldown_seconds = 5
 
     try:
         while True:
-            if recognizer is None:
+            current_recognizer = recognizer
+            if current_recognizer is None:
                 await websocket.send_json({"erro": "Pipeline de reconhecimento nao inicializada."})
                 await asyncio.sleep(0.2)
                 continue
@@ -264,7 +268,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
             if frame is None:
                 continue
 
-            results = recognizer.process_frame(frame)
+            results = current_recognizer.process_frame(frame)
 
             resultados_faces = []
             for face in results.get("faces", []):
