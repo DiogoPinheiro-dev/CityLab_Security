@@ -1,6 +1,8 @@
 import asyncio
 import base64
+import io
 import os
+import socket
 import sys
 import time
 from contextlib import asynccontextmanager
@@ -10,8 +12,8 @@ from typing import List, Optional
 
 import cv2
 import numpy as np
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile, WebSocket, WebSocketDisconnect
-from fastapi.responses import FileResponse, RedirectResponse
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile, WebSocket, WebSocketDisconnect
+from fastapi.responses import FileResponse, RedirectResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
@@ -51,6 +53,34 @@ def _sync_memoria_para_recognizer() -> None:
     )
 
 
+def _get_local_network_ip() -> str:
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+            sock.connect(("8.8.8.8", 80))
+            return sock.getsockname()[0]
+    except OSError:
+        try:
+            return socket.gethostbyname(socket.gethostname())
+        except OSError:
+            return "127.0.0.1"
+
+
+def _build_public_base_url(request: Request) -> str:
+    configured_url = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+    if configured_url:
+        return configured_url
+
+    host = request.url.hostname or "127.0.0.1"
+    if host in {"127.0.0.1", "localhost", "::1"}:
+        host = _get_local_network_ip()
+
+    default_port = 443 if request.url.scheme == "https" else 80
+    port = request.url.port
+    port_part = f":{port}" if port and port != default_port else ""
+
+    return f"{request.url.scheme}://{host}{port_part}"
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global recognizer
@@ -87,6 +117,7 @@ if CLIENT_DIR.exists():
 async def home():
     return {"status": "online", "banco": MONGO_DB_NAME}
 
+@app.get("/cadastros")
 @app.get("/cadastro")
 async def pagina_cadastros():
     cadastro_page = CLIENT_DIR / "cadastros.html"
@@ -94,6 +125,44 @@ async def pagina_cadastros():
         raise HTTPException(status_code=404, detail="Pagina de cadastros nao encontrada.")
 
     return FileResponse(cadastro_page)
+
+@app.get("/access-info")
+async def access_info(request: Request):
+    public_base_url = _build_public_base_url(request)
+    return {
+        "base_url": public_base_url,
+        "cadastro_url": f"{public_base_url}/cadastros",
+    }
+
+@app.get("/qrcode/cadastro.png")
+async def qrcode_cadastro(request: Request, url: Optional[str] = None):
+    try:
+        import qrcode
+    except ImportError as exc:
+        raise HTTPException(
+            status_code=503,
+            detail="Dependencia qrcode nao instalada. Rode: pip install qrcode[pil]",
+        ) from exc
+
+    cadastro_url = url or f"{_build_public_base_url(request)}/cadastros"
+    if not cadastro_url.startswith(("http://", "https://")):
+        raise HTTPException(status_code=400, detail="URL invalida para QR Code.")
+
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=3,
+    )
+    qr.add_data(cadastro_url)
+    qr.make(fit=True)
+
+    image = qr.make_image(fill_color="#102330", back_color="#ffffff")
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    buffer.seek(0)
+
+    return StreamingResponse(buffer, media_type="image/png")
 
 @app.post("/cadastro")
 async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
@@ -164,7 +233,14 @@ async def visualizar_logs(limite: int = 50):
 
 @app.get("/stream")
 async def pagina_stream():
-    return RedirectResponse(url="/client/teste_websocket.html")
+    stream_page = CLIENT_DIR / "teste_websocket.html"
+    if not stream_page.exists():
+        raise HTTPException(status_code=404, detail="Pagina do stream nao encontrada.")
+
+    return FileResponse(
+        stream_page,
+        headers={"Cache-Control": "no-store"},
+    )
 
 @app.websocket("/stream")
 async def websocket_reconhecimento(websocket: WebSocket):

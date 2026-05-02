@@ -78,13 +78,14 @@ MONGO_SERVER_SELECTION_TIMEOUT_MS=10000
 Com o ambiente virtual ativo:
 
 ```powershell
-py -m uvicorn Server.main:app --reload --host 127.0.0.1 --port 8000
+py -m uvicorn Server.main:app --reload --host 0.0.0.0 --port 8000
+
 ```
 
 Endpoints uteis:
 
-- Swagger UI: `http://127.0.0.1:8000/docs`
-- Home: `http://127.0.0.1:8000/`
+- Swagger UI: `http://0.0.0.0 :8000/docs`
+- Home: `http://0.0.0.0 :8000/`
 
 ## Fluxo de processamento
 
@@ -135,7 +136,7 @@ Regras importantes:
 Exemplo em PowerShell:
 
 ```powershell
-curl.exe -X POST "http://127.0.0.1:8000/cadastro" `
+curl.exe -X POST "http://0.0.0.0:8000/cadastro" `
   -F "nome=Joao Silva" `
   -F "foto=@C:\caminho\foto.jpg"
 ```
@@ -159,7 +160,7 @@ Query param:
 
 Exemplo:
 
-`GET http://127.0.0.1:8000/logs?limite=20`
+`GET http://0.0.0.0:8000/logs?limite=20`
 
 Resposta de exemplo:
 
@@ -229,6 +230,6 @@ py -m http.server 5500 -d Client
 
 Abra no navegador:
 
-`http://127.0.0.1:5500/teste_websocket.html`
+`http://0.0.0.0 :5500/teste_websocket.html`
 
 Se a camera nao estiver disponivel na maquina atual, o cliente ainda pode abrir a interface, mas nao enviara frames validos para o servidor.
