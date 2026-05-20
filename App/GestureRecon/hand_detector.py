@@ -59,7 +59,7 @@ class HandDetector:
             return []
 
         frame_h, frame_w = frame_bgr.shape[:2]
-        image_rgb = frame_bgr[:, :, ::-1]
+        image_rgb = np.ascontiguousarray(frame_bgr[:, :, ::-1], dtype=np.uint8)
         mp_image = MP_MODULE.Image(
             image_format=MP_MODULE.ImageFormat.SRGB,
             data=image_rgb,
