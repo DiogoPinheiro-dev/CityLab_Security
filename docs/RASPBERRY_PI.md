@@ -33,6 +33,19 @@ Copie o exemplo de variaveis:
 cp .env.rpi.example .env
 ```
 
+Teste a conexao com o Atlas antes de subir a API:
+
+```bash
+python tools/test_mongo_connection.py
+```
+
+Se a rede do Raspberry estiver usando IPv6 de forma instavel para o Atlas, tente
+forcar IPv4 no `.env`:
+
+```env
+MONGO_FORCE_IPV4=1
+```
+
 Suba a API:
 
 ```bash
