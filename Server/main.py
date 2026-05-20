@@ -45,7 +45,7 @@ recognizer: Optional[UnifiedRecognitionService] = None
 
 def _sync_memoria_para_recognizer() -> None:
     current_recognizer = recognizer
-    if current_recognizer is None:
+    if current_recognizer is None or current_recognizer.face_service is None:
         return
 
     current_recognizer.face_service.replace_known_faces(
@@ -174,6 +174,8 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
     current_recognizer = recognizer
     if current_recognizer is None:
         raise HTTPException(status_code=503, detail="Pipeline de reconhecimento nao esta pronta.")
+    if current_recognizer.face_service is None:
+        raise HTTPException(status_code=503, detail="Servico facial nao esta disponivel neste ambiente.")
 
     try:
         conteudo_arquivo = await foto.read()

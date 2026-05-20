@@ -1,0 +1,32 @@
+# Raspberry Pi OS Legacy 64-bit Bookworm / Python 3.11
+#
+# Instale OpenCV pelo apt e crie o venv com --system-site-packages:
+# sudo apt install -y python3-venv python3-pip python3-opencv libatlas-base-dev
+# python3 -m venv --system-site-packages .venv
+
+fastapi==0.121.0
+uvicorn==0.38.0
+websockets==15.0.1
+python-dotenv==1.2.1
+python-multipart==0.0.22
+aiofiles==25.1.0
+
+motor==3.6.1
+pymongo==4.9.2
+dnspython==2.8.0
+
+numpy==1.26.4
+pillow==10.4.0
+qrcode[pil]==8.2
+requests==2.32.5
+
+# Ultima linha testavel via wheel Linux ARM64/aarch64 para CPython 3.11/3.12.
+# O projeto principal usa 0.10.33, mas essa versao nao publica wheel Linux ARM64.
+mediapipe==0.10.18
+
+# Dependencias pesadas do pipeline completo.
+# Em Raspberry Pi 3 B+ elas podem ser lentas ou indisponiveis via wheel padrao.
+# Instale e valide separadamente antes de ativar os servicos correspondentes.
+# ultralytics==8.3.226
+# insightface==0.7.3
+# onnxruntime==1.23.2
