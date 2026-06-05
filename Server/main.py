@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import io
 import os
 import socket
@@ -8,7 +7,8 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -24,7 +24,21 @@ if str(PROJECT_ROOT) not in sys.path:
 CLIENT_DIR = PROJECT_ROOT / "Client"
 
 from App.recognition_pipeline import UnifiedRecognitionService, create_unified_service
+from App.settings import (
+    DEBUG_PIPELINE,
+    ENABLE_PERFORMANCE_METRICS,
+    ENABLE_SYSTEM_MONITOR,
+    JPEG_QUALITY,
+    MAX_IN_FLIGHT_FRAMES,
+    PIPELINE_MAX_WORKERS,
+    PROCESS_SCALE,
+    STREAM_FPS,
+    STREAM_HEIGHT,
+    STREAM_WIDTH,
+)
 from Server.Db.database import MONGO_DB_NAME, colecao_alunos, colecao_logs, validar_conexao_mongo
+from Server.event_logger import EventLogger
+from Server.system_monitor import SystemMonitor
 
 
 class LogResponse(BaseModel):
@@ -35,12 +49,22 @@ class LogResponse(BaseModel):
     imagem_url: Optional[str] = None
 
 
+class ClientStreamConfig(BaseModel):
+    stream_fps: int
+    jpeg_quality: float
+    stream_width: int
+    stream_height: int
+    max_in_flight_frames: int
+
+
 banco_rostos_memoria = {
     "nomes": [],
     "embeddings": [],
 }
 
 recognizer: Optional[UnifiedRecognitionService] = None
+event_logger = EventLogger(colecao_logs)
+system_monitor = SystemMonitor(enabled=ENABLE_SYSTEM_MONITOR)
 
 
 def _sync_memoria_para_recognizer() -> None:
@@ -91,7 +115,12 @@ async def lifespan(_: FastAPI):
     print("[INFO] Conexao com MongoDB OK.")
 
     print("[INFO] API iniciada. Carregando pipeline unificado...")
-    recognizer = create_unified_service()
+    recognizer = create_unified_service(
+        max_workers=PIPELINE_MAX_WORKERS,
+        process_scale=PROCESS_SCALE,
+        enable_performance_metrics=ENABLE_PERFORMANCE_METRICS,
+        debug_pipeline=DEBUG_PIPELINE,
+    )
 
     print("[INFO] Carregando alunos do MongoDB para memoria...")
     banco_rostos_memoria["nomes"].clear()
@@ -106,6 +135,9 @@ async def lifespan(_: FastAPI):
     print(f"[INFO] {len(banco_rostos_memoria['nomes'])} alunos carregados.")
 
     yield
+
+    if recognizer is not None:
+        recognizer.close()
     print("[INFO] API desligada.")
 
 
@@ -114,9 +146,22 @@ app = FastAPI(title="API FaceRecon", lifespan=lifespan)
 if CLIENT_DIR.exists():
     app.mount("/client", StaticFiles(directory=CLIENT_DIR), name="client")
 
+
 @app.get("/")
 async def home():
     return {"status": "online", "banco": MONGO_DB_NAME}
+
+
+@app.get("/config/client", response_model=ClientStreamConfig)
+async def client_stream_config():
+    return ClientStreamConfig(
+        stream_fps=STREAM_FPS,
+        jpeg_quality=JPEG_QUALITY,
+        stream_width=STREAM_WIDTH,
+        stream_height=STREAM_HEIGHT,
+        max_in_flight_frames=MAX_IN_FLIGHT_FRAMES,
+    )
+
 
 @app.get("/cadastros")
 @app.get("/cadastro")
@@ -127,6 +172,7 @@ async def pagina_cadastros():
 
     return FileResponse(cadastro_page)
 
+
 @app.get("/access-info")
 async def access_info(request: Request):
     public_base_url = _build_public_base_url(request)
@@ -134,6 +180,7 @@ async def access_info(request: Request):
         "base_url": public_base_url,
         "cadastro_url": f"{public_base_url}/cadastros",
     }
+
 
 @app.get("/qrcode/cadastro.png")
 async def qrcode_cadastro(request: Request, url: Optional[str] = None):
@@ -165,6 +212,7 @@ async def qrcode_cadastro(request: Request, url: Optional[str] = None):
     buffer.seek(0)
 
     return StreamingResponse(buffer, media_type="image/png")
+
 
 @app.post("/cadastro")
 async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
@@ -218,6 +266,7 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erro interno no servidor: {exc}")
 
+
 @app.get("/logs", response_model=List[LogResponse])
 async def visualizar_logs(limite: int = 50):
     logs_db = []
@@ -236,6 +285,7 @@ async def visualizar_logs(limite: int = 50):
 
     return logs_db
 
+
 @app.get("/stream")
 async def pagina_stream():
     stream_page = CLIENT_DIR / "teste_websocket.html"
@@ -247,13 +297,11 @@ async def pagina_stream():
         headers={"Cache-Control": "no-store"},
     )
 
+
 @app.websocket("/stream")
 async def websocket_reconhecimento(websocket: WebSocket):
     await websocket.accept()
     print("[INFO] Cliente Web conectado ao stream de video.")
-
-    recently_logged: Dict[str, float] = {}
-    log_cooldown_seconds = 5
 
     try:
         while True:
@@ -263,55 +311,43 @@ async def websocket_reconhecimento(websocket: WebSocket):
                 await asyncio.sleep(0.2)
                 continue
 
+            frame_started_at = time.perf_counter()
             bytes_frame = await websocket.receive_bytes()
+            receive_ms = (time.perf_counter() - frame_started_at) * 1000.0
+
+            decode_started_at = time.perf_counter()
             nparr = np.frombuffer(bytes_frame, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            decode_ms = (time.perf_counter() - decode_started_at) * 1000.0
 
             if frame is None:
                 continue
 
+            pipeline_started_at = time.perf_counter()
             results = current_recognizer.process_frame(frame)
+            pipeline_ms = (time.perf_counter() - pipeline_started_at) * 1000.0
+
+            faces = [face for face in results.get("faces", []) if not face.get("debug_only")]
+            gestures = results.get("gestures", [])
+
+            log_started_at = time.perf_counter()
+            await event_logger.log_face_events(frame, faces)
+            await event_logger.log_gesture_events(frame, gestures)
+            logs_ms = (time.perf_counter() - log_started_at) * 1000.0
 
             resultados_faces = []
-            for face in results.get("faces", []):
+            for face in faces:
                 bbox = face.get("bbox")
                 if not bbox or len(bbox) != 4:
                     continue
 
-                nome_detectado = face.get("name", "NAO ALUNO")
-                resultado_face = {
-                    "nome": nome_detectado,
-                    "bbox": bbox,
-                    "confidence": face.get("confidence"),
-                }
-                resultados_faces.append(resultado_face)
-
-                tempo_atual = time.time()
-                if nome_detectado in recently_logged and (tempo_atual - recently_logged[nome_detectado] <= log_cooldown_seconds):
-                    continue
-
-                recently_logged[nome_detectado] = tempo_atual
-
-                x1, y1, x2, y2 = [int(valor) for valor in bbox]
-                h_full, w_full = frame.shape[:2]
-                crop_x1, crop_y1 = max(0, x1), max(0, y1)
-                crop_x2, crop_y2 = min(w_full, x2), min(h_full, y2)
-                rosto_recortado = frame[crop_y1:crop_y2, crop_x1:crop_x2]
-
-                imagem_base64 = ""
-                if rosto_recortado.size > 0:
-                    _, buffer = cv2.imencode(".jpg", rosto_recortado)
-                    imagem_base64 = base64.b64encode(buffer).decode("utf-8")
-                    imagem_base64 = f"data:image/jpeg;base64,{imagem_base64}"
-
-                novo_log = {
-                    "nome": nome_detectado,
-                    "tipo": "RECONHECIDO" if nome_detectado != "NAO ALUNO" else "NAO_ALUNO",
-                    "data_hora_formatada": datetime.now().strftime("%d/%m/%Y - %H:%M:%S"),
-                    "data_hora_raw": datetime.now(),
-                    "imagem_rosto": imagem_base64,
-                }
-                await colecao_logs.insert_one(novo_log)
+                resultados_faces.append(
+                    {
+                        "nome": face.get("name", "NAO ALUNO"),
+                        "bbox": bbox,
+                        "confidence": face.get("confidence"),
+                    }
+                )
 
             resultados_pessoas = []
             for person in results.get("persons", []):
@@ -327,7 +363,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
                 )
 
             resultados_gestos = []
-            for gesture in results.get("gestures", []):
+            for gesture in gestures:
                 bbox = gesture.get("bbox")
                 if not bbox or len(bbox) != 4:
                     continue
@@ -336,10 +372,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
                     {
                         "track_id": int(gesture.get("track_id", -1)),
                         "bbox": [int(valor) for valor in bbox],
-                        "alerts": [
-                            str(alert)
-                            for alert in gesture.get("alerts", [])
-                        ],
+                        "alerts": [str(alert) for alert in gesture.get("alerts", [])],
                         "confidence": gesture.get("confidence"),
                     }
                 )
@@ -349,6 +382,24 @@ async def websocket_reconhecimento(websocket: WebSocket):
                 "pessoas": resultados_pessoas,
                 "gestos": resultados_gestos,
             }
+
+            metrics = dict(results.get("metrics", {}))
+            metrics["receive_ms"] = receive_ms
+            metrics["decode_ms"] = decode_ms
+            metrics["pipeline_ms"] = pipeline_ms
+            metrics["logs_ms"] = logs_ms
+            metrics["total_ms"] = (time.perf_counter() - frame_started_at) * 1000.0
+            if metrics["total_ms"] > 0:
+                metrics["effective_fps"] = 1000.0 / metrics["total_ms"]
+
+            system_monitor.record_frame_metrics(metrics)
+            system_monitor.maybe_log_snapshot()
+
+            if DEBUG_PIPELINE or ENABLE_PERFORMANCE_METRICS:
+                resposta["metrics"] = metrics
+            if DEBUG_PIPELINE and "debug" in results:
+                resposta["debug"] = results["debug"]
+
             await websocket.send_json(resposta)
 
     except WebSocketDisconnect:

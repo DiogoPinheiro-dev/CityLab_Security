@@ -1,51 +1,14 @@
-import logging
 import os
 import pickle
-import time
 from typing import Any
 from typing import Optional
 
-import cv2
 import insightface
 import numpy as np
 from ultralytics import YOLO  # type: ignore
 
-def setup_logger(script_dir: str) -> tuple[logging.Logger, logging.Logger, str]:
-    base_log_directory = os.path.join(script_dir, "historico")
-    text_log_directory = os.path.join(base_log_directory, "escrito")
-    image_log_directory = os.path.join(base_log_directory, "imagem-nao-aluno")
-
-    os.makedirs(text_log_directory, exist_ok=True)
-    os.makedirs(image_log_directory, exist_ok=True)
-
-    formatter = logging.Formatter(
-        "%(asctime)s - %(levelname)s - %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
-
-    logger_alunos = logging.getLogger("AlunosLogger")
-    logger_alunos.setLevel(logging.INFO)
-    if not logger_alunos.handlers:
-        handler_alunos = logging.FileHandler(
-            os.path.join(text_log_directory, "reconhecimento_alunos.log"),
-            mode="a",
-            encoding="utf-8",
-        )
-        handler_alunos.setFormatter(formatter)
-        logger_alunos.addHandler(handler_alunos)
-
-    logger_alertas = logging.getLogger("AlertasLogger")
-    logger_alertas.setLevel(logging.WARNING)
-    if not logger_alertas.handlers:
-        handler_alertas = logging.FileHandler(
-            os.path.join(text_log_directory, "alertas_nao_alunos.log"),
-            mode="a",
-            encoding="utf-8",
-        )
-        handler_alertas.setFormatter(formatter)
-        logger_alertas.addHandler(handler_alertas)
-
-    return logger_alunos, logger_alertas, image_log_directory
+from App.frame_context import FrameContext
+from App.settings import DEBUG_PIPELINE, FACE_MIN_CONFIDENCE, FACE_MIN_HEIGHT, FACE_MIN_WIDTH
 
 
 class FaceRecognitionService:
@@ -55,12 +18,13 @@ class FaceRecognitionService:
         database_path: Optional[str] = None,
         yolo_model_path: Optional[str] = None,
         similarity_threshold: float = 0.52,
-        scale_factor: float = 0.5,
-        log_cooldown_seconds: float = 1.0,
-        enable_logging: bool = True,
         face_model_name: str = "buffalo_l",
         insight_providers: Optional[list[str]] = None,
         insight_det_size: tuple[int, int] = (320, 320),
+        face_min_width: int = FACE_MIN_WIDTH,
+        face_min_height: int = FACE_MIN_HEIGHT,
+        face_min_confidence: float = FACE_MIN_CONFIDENCE,
+        debug_pipeline: bool = DEBUG_PIPELINE,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -76,19 +40,10 @@ class FaceRecognitionService:
             )
 
         self.similarity_threshold = similarity_threshold
-        self.scale_factor = scale_factor
-        self.log_cooldown_seconds = log_cooldown_seconds
-        self.enable_logging = enable_logging
-
-        self.logger_alunos: Optional[logging.Logger] = None
-        self.logger_alertas: Optional[logging.Logger] = None
-        self.image_log_directory: Optional[str] = None
-        if self.enable_logging:
-            (
-                self.logger_alunos,
-                self.logger_alertas,
-                self.image_log_directory,
-            ) = setup_logger(self.base_dir)
+        self.face_min_width = face_min_width
+        self.face_min_height = face_min_height
+        self.face_min_confidence = face_min_confidence
+        self.debug_pipeline = debug_pipeline
 
         self.known_face_embeddings = np.empty((0, 512), dtype=np.float32)
         self.known_face_names: list[str] = []
@@ -100,13 +55,14 @@ class FaceRecognitionService:
             providers=insight_providers or ["CPUExecutionProvider"],
         )
         self.app_insight.prepare(ctx_id=0, det_size=insight_det_size)
-        self.recently_logged: dict[str, float] = {}
+        self.latest_metrics: dict[str, float] = {
+            "faces_ms": 0.0,
+            "persons_ms": 0.0,
+        }
+        self.latest_ignored_faces: list[dict[str, Any]] = []
 
     def _load_database(self) -> None:
         if not os.path.exists(self.database_path):
-            self._log_warning(
-                f"Arquivo da base de dados nao encontrado: {self.database_path}"
-            )
             return
 
         with open(self.database_path, "rb") as file:
@@ -130,53 +86,60 @@ class FaceRecognitionService:
 
         self.known_face_embeddings = np.asarray(embeddings, dtype=np.float32)
 
-    def prepare_frame(self, frame: np.ndarray) -> dict[str, np.ndarray]:
-        small_frame = cv2.resize(
-            frame,
-            (0, 0),
-            fx=self.scale_factor,
-            fy=self.scale_factor,
-        )
-        return {
-            "original_frame": frame,
-            "small_frame": small_frame,
-        }
-
     def recognize_faces(
         self,
-        frame: np.ndarray,
-        prepared_frame: Optional[dict[str, np.ndarray]] = None,
-        with_logging: bool = True,
+        frame_context: FrameContext,
     ) -> list[dict[str, Any]]:
-        prepared = prepared_frame or self.prepare_frame(frame)
-        faces = self.app_insight.get(prepared["small_frame"])
+        import time
+
+        started_at = time.perf_counter()
+        faces = self.app_insight.get(frame_context.processing_frame)
         results: list[dict[str, Any]] = []
+        ignored_faces: list[dict[str, Any]] = []
 
         for face in faces:
+            bbox_processing = face.bbox.astype(int).tolist()
+            bbox_original = frame_context.clip_original_bbox(
+                frame_context.map_bbox_to_original(bbox_processing)
+            )
+            quality_reason = self._validate_face(face, bbox_original)
+            if quality_reason is not None:
+                if self.debug_pipeline:
+                    ignored_faces.append(
+                        {
+                            "bbox": bbox_original,
+                            "det_confidence": float(getattr(face, "det_score", 0.0)),
+                            "reason": quality_reason,
+                        }
+                    )
+                continue
+
             name, best_score = self._match_face(face.normed_embedding)
-            bbox = face.bbox.astype(int)
 
             results.append(
                 {
                     "name": name,
-                    "bbox": [int(coord / self.scale_factor) for coord in bbox],
+                    "bbox": bbox_original,
                     "confidence": float(best_score),
+                    "det_confidence": float(getattr(face, "det_score", 0.0)),
                 }
             )
 
-            if with_logging:
-                self._register_detection(name, bbox, frame)
-
+        if self.debug_pipeline and ignored_faces:
+            self.latest_metrics["ignored_faces"] = float(len(ignored_faces))
+        self.latest_ignored_faces = ignored_faces
+        self.latest_metrics["faces_ms"] = (time.perf_counter() - started_at) * 1000.0
         return results
 
     def detect_persons(
         self,
-        frame: np.ndarray,
-        prepared_frame: Optional[dict[str, np.ndarray]] = None,
+        frame_context: FrameContext,
     ) -> list[dict[str, Any]]:
-        prepared = prepared_frame or self.prepare_frame(frame)
+        import time
+
+        started_at = time.perf_counter()
         results_yolo = self.model_yolo(
-            prepared["small_frame"],
+            frame_context.processing_frame,
             classes=[0],
             verbose=False,
         )
@@ -187,37 +150,28 @@ class FaceRecognitionService:
                 bbox_person = box.xyxy[0].numpy().astype(int)
                 persons.append(
                     {
-                        "bbox": [
-                            int(coord / self.scale_factor)
-                            for coord in bbox_person
-                        ],
+                        "bbox": frame_context.clip_original_bbox(
+                            frame_context.map_bbox_to_original(bbox_person.tolist())
+                        ),
                         "confidence": float(box.conf[0]),
                     }
                 )
+        self.latest_metrics["persons_ms"] = (time.perf_counter() - started_at) * 1000.0
         return persons
 
     def process_frame(
         self,
-        frame: np.ndarray,
+        frame_context: FrameContext,
         detect_faces: bool = True,
         detect_persons: bool = True,
-        with_logging: bool = True,
     ) -> dict[str, Any]:
-        prepared = self.prepare_frame(frame)
         response: dict[str, Any] = {"faces": [], "persons": []}
 
         if detect_faces:
-            response["faces"] = self.recognize_faces(
-                frame,
-                prepared_frame=prepared,
-                with_logging=with_logging,
-            )
+            response["faces"] = self.recognize_faces(frame_context)
 
         if detect_persons:
-            response["persons"] = self.detect_persons(
-                frame,
-                prepared_frame=prepared,
-            )
+            response["persons"] = self.detect_persons(frame_context)
 
         return response
 
@@ -234,63 +188,19 @@ class FaceRecognitionService:
 
         return "NAO ALUNO", best_score
 
-    def _register_detection(
-        self,
-        name: str,
-        bbox: np.ndarray,
-        original_frame: np.ndarray,
-    ) -> None:
-        current_time = time.time()
-        last_logged_at = self.recently_logged.get(name)
-        if last_logged_at and (
-            current_time - last_logged_at <= self.log_cooldown_seconds
-        ):
-            return
+    def _validate_face(self, face: Any, bbox_original: list[int]) -> str | None:
+        x1, y1, x2, y2 = bbox_original
+        width = max(0, x2 - x1)
+        height = max(0, y2 - y1)
+        det_confidence = float(getattr(face, "det_score", 0.0))
 
-        self.recently_logged[name] = current_time
-
-        if name == "NAO ALUNO":
-            self._save_unknown_face_image(bbox, original_frame, current_time)
-            return
-
-        if self.logger_alunos:
-            self.logger_alunos.info("RECONHECIDO: %s", name)
-
-    def _save_unknown_face_image(
-        self,
-        bbox: np.ndarray,
-        original_frame: np.ndarray,
-        current_time: float,
-    ) -> None:
-        if not self.image_log_directory:
-            return
-
-        timestamp = time.strftime("%Y-%m-%d_%H-%M-%S")
-        timestamp_ms = f"{timestamp}_{int(current_time * 1000) % 1000}"
-        img_name = f"ALERTA_NAO_ALUNO_{timestamp_ms}.jpg"
-        save_path = os.path.join(self.image_log_directory, img_name)
-
-        inverse_scale = 1 / self.scale_factor
-        h_full, w_full = original_frame.shape[:2]
-        orig_x1 = max(0, int(bbox[0] * inverse_scale))
-        orig_y1 = max(0, int(bbox[1] * inverse_scale))
-        orig_x2 = min(w_full, int(bbox[2] * inverse_scale))
-        orig_y2 = min(h_full, int(bbox[3] * inverse_scale))
-        cropped_face = original_frame[orig_y1:orig_y2, orig_x1:orig_x2].copy()
-
-        if cropped_face.size > 0:
-            cv2.imwrite(save_path, cropped_face)
-            self._log_warning(
-                f"ALERTA: Pessoa nao cadastrada. Imagem salva: {save_path}"
-            )
-        else:
-            self._log_warning(
-                "ALERTA: Pessoa nao cadastrada. Falha ao salvar (rosto pequeno)."
-            )
-
-    def _log_warning(self, message: str) -> None:
-        if self.logger_alertas:
-            self.logger_alertas.warning(message)
+        if width <= 0 or height <= 0:
+            return "bbox_invalida"
+        if width < self.face_min_width or height < self.face_min_height:
+            return "baixa_qualidade"
+        if det_confidence < self.face_min_confidence:
+            return "baixa_confianca"
+        return None
 
 
 def create_face_service(**kwargs: Any) -> FaceRecognitionService:

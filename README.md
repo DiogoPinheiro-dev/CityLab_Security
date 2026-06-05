@@ -5,7 +5,7 @@ API FastAPI para reconhecimento em tempo real com:
 - reconhecimento facial
 - deteccao de pessoas
 - analise de gestos suspeitos
-- deteccao de objetos suspeitos
+- deteccao de maos para refinar gestos
 
 Hoje o servidor sobe usando diretamente a pipeline unificada em [App/recognition_pipeline.py](/e:/Codigos/CityLab_Security/App/recognition_pipeline.py), que orquestra:
 
@@ -20,7 +20,7 @@ Arquivos principais do projeto:
 - [Server/Db/database.py](/e:/Codigos/CityLab_Security/Server/Db/database.py): conexao com MongoDB
 - [App/recognition_pipeline.py](/e:/Codigos/CityLab_Security/App/recognition_pipeline.py): pipeline unificada
 - [App/FaceRecon/service.py](/e:/Codigos/CityLab_Security/App/FaceRecon/service.py): reconhecimento facial e deteccao de pessoas
-- [App/GestureRecon/service.py](/e:/Codigos/CityLab_Security/App/GestureRecon/service.py): gestos e objetos suspeitos
+- [App/GestureRecon/service.py](/e:/Codigos/CityLab_Security/App/GestureRecon/service.py): gestos, pose e maos
 - [App/GestureRecon/detector.py](/e:/Codigos/CityLab_Security/App/GestureRecon/detector.py): regras de interpretacao de pose
 - [App/camera_auto_config.py](/e:/Codigos/CityLab_Security/App/camera_auto_config.py): ajuste automatico de imagem
 - [Client/teste_websocket.html](/e:/Codigos/CityLab_Security/Client/teste_websocket.html): cliente web simples para teste
@@ -100,7 +100,7 @@ Durante o stream websocket:
 
 1. o cliente envia um frame JPEG
 2. o servidor decodifica o frame
-3. a pipeline roda face + pessoas + gestos + objetos
+3. a pipeline roda face + pessoas + gestos
 4. o servidor responde com o payload consolidado
 
 ## Rotas da API
@@ -169,7 +169,7 @@ Resposta de exemplo:
   {
     "id": "67f0...",
     "nome": "Joao Silva",
-    "tipo": "RECONHECIDO",
+    "tipo": "ALUNO",
     "data_hora": "28/03/2026 - 19:20:11",
     "imagem_url": "data:image/jpeg;base64,..."
   }
@@ -208,15 +208,6 @@ Saida do servidor:
       "alerts": ["Rendicao"]
     }
   ],
-  "objetos": [
-    {
-      "class_id": 43,
-      "label": "Arma Branca (Faca)",
-      "bbox": [310, 180, 380, 290],
-      "confidence": 0.76,
-      "center": [345, 235]
-    }
-  ]
 }
 ```
 
