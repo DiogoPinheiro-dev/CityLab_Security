@@ -35,6 +35,5 @@ database = client[MONGO_DB_NAME]
 colecao_alunos = database.get_collection("alunos")
 colecao_logs = database.get_collection("logs")
 
-
 async def validar_conexao_mongo() -> None:
     await client.admin.command("ping")

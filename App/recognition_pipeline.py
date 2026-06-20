@@ -11,9 +11,7 @@ if TYPE_CHECKING:
     from App.FaceRecon.service import FaceRecognitionService
     from App.GestureRecon.service import GestureRecognitionService
 
-
 logger = logging.getLogger(__name__)
-
 
 def _env_bool(name: str, default: bool) -> bool:
     raw_value = os.getenv(name)
@@ -21,7 +19,6 @@ def _env_bool(name: str, default: bool) -> bool:
         return default
 
     return raw_value.strip().lower() in {"1", "true", "yes", "on"}
-
 
 def _load_face_service_class() -> type["FaceRecognitionService"]:
     try:
@@ -34,7 +31,6 @@ def _load_face_service_class() -> type["FaceRecognitionService"]:
 
     return FaceRecognitionService
 
-
 def _load_gesture_service_class() -> type["GestureRecognitionService"]:
     try:
         from App.GestureRecon.service import GestureRecognitionService
@@ -45,7 +41,6 @@ def _load_gesture_service_class() -> type["GestureRecognitionService"]:
             from .GestureRecon.service import GestureRecognitionService
 
     return GestureRecognitionService
-
 
 class UnifiedRecognitionService:
     """

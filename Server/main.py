@@ -26,7 +26,6 @@ CLIENT_DIR = PROJECT_ROOT / "Client"
 from App.recognition_pipeline import UnifiedRecognitionService, create_unified_service
 from Server.Db.database import MONGO_DB_NAME, colecao_alunos, colecao_logs, validar_conexao_mongo
 
-
 class LogResponse(BaseModel):
     id: str
     nome: str
@@ -34,14 +33,12 @@ class LogResponse(BaseModel):
     data_hora: str
     imagem_url: Optional[str] = None
 
-
 banco_rostos_memoria = {
     "nomes": [],
     "embeddings": [],
 }
 
 recognizer: Optional[UnifiedRecognitionService] = None
-
 
 def _sync_memoria_para_recognizer() -> None:
     current_recognizer = recognizer
@@ -53,7 +50,6 @@ def _sync_memoria_para_recognizer() -> None:
         banco_rostos_memoria["embeddings"],
     )
 
-
 def _get_local_network_ip() -> str:
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
@@ -64,7 +60,6 @@ def _get_local_network_ip() -> str:
             return socket.gethostbyname(socket.gethostname())
         except OSError:
             return "127.0.0.1"
-
 
 def _build_public_base_url(request: Request) -> str:
     configured_url = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
@@ -80,7 +75,6 @@ def _build_public_base_url(request: Request) -> str:
     port_part = f":{port}" if port and port != default_port else ""
 
     return f"{request.url.scheme}://{host}{port_part}"
-
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
@@ -107,7 +101,6 @@ async def lifespan(_: FastAPI):
 
     yield
     print("[INFO] API desligada.")
-
 
 app = FastAPI(title="API FaceRecon", lifespan=lifespan)
 
