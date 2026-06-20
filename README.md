@@ -39,6 +39,13 @@ O projeto usa um fluxo leve, sem bloqueio local para commits na `main`. O guia e
 - MongoDB local ou MongoDB Atlas
 - Dependencias instaladas via `requirements.txt`
 
+Para Raspberry Pi 3 B+ use o perfil separado:
+
+- Raspberry Pi OS Legacy 64-bit Bookworm
+- Python 3.11
+- Dependencias de `requirements-rpi-bookworm.txt`
+- Guia em [docs/RASPBERRY_PI.md](/e:/Codigos/CityLab_Security/docs/RASPBERRY_PI.md)
+
 Modelos e arquivos esperados:
 
 - `App/FaceRecon/yolov8n.pt`
@@ -84,8 +91,13 @@ py -m uvicorn Server.main:app --reload --host 0.0.0.0 --port 8000
 
 Endpoints uteis:
 
-- Swagger UI: `http://0.0.0.0 :8000/docs`
-- Home: `http://0.0.0.0 :8000/`
+- Na propria maquina: `http://127.0.0.1:8000/`
+- Em outra maquina na mesma rede: `http://IP_DA_MAQUINA_DO_SERVIDOR:8000/`
+- Swagger UI: `http://127.0.0.1:8000/docs`
+- Home: `http://127.0.0.1:8000/`
+
+Observacao: `0.0.0.0` deve ser usado no comando do Uvicorn para escutar em todas
+as interfaces, mas nao deve ser usado como endereco no navegador.
 
 ## Fluxo de processamento
 
@@ -136,7 +148,7 @@ Regras importantes:
 Exemplo em PowerShell:
 
 ```powershell
-curl.exe -X POST "http://0.0.0.0:8000/cadastro" `
+curl.exe -X POST "http://127.0.0.1:8000/cadastro" `
   -F "nome=Joao Silva" `
   -F "foto=@C:\caminho\foto.jpg"
 ```
@@ -160,7 +172,7 @@ Query param:
 
 Exemplo:
 
-`GET http://0.0.0.0:8000/logs?limite=20`
+`GET http://127.0.0.1:8000/logs?limite=20`
 
 Resposta de exemplo:
 
@@ -222,6 +234,10 @@ Saida do servidor:
 
 ## Teste rapido com o cliente web
 
+O navegador so libera camera em contexto seguro: `https://` ou `localhost`.
+Por isso, abrir o cliente em `http://IP_DA_MAQUINA:8000/stream` a partir de outra
+maquina pode bloquear a permissao de camera sem permitir alterar nas configuracoes.
+
 Em outro terminal, sirva os arquivos do cliente:
 
 ```powershell
@@ -230,6 +246,14 @@ py -m http.server 5500 -d Client
 
 Abra no navegador:
 
-`http://0.0.0.0 :5500/teste_websocket.html`
+`http://127.0.0.1:5500/teste_websocket.html`
+
+Para usar a camera de outra maquina em rede, use uma destas opcoes:
+
+- recomendado: servir o app em HTTPS com um certificado confiavel na maquina cliente;
+- teste rapido no Chrome/Edge: iniciar o navegador com
+  `--unsafely-treat-insecure-origin-as-secure=http://IP_DA_MAQUINA_DO_SERVIDOR:8000`;
+- rodar o cliente na propria maquina que tem a camera, usando `localhost`, e apontar
+  o servidor/API para o IP da maquina do servidor.
 
 Se a camera nao estiver disponivel na maquina atual, o cliente ainda pode abrir a interface, mas nao enviara frames validos para o servidor.

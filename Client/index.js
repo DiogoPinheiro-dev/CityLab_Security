@@ -269,8 +269,16 @@ function updateMetrics() {
 
 async function iniciarCamera() {
     try {
+        if (!window.isSecureContext) {
+            throw new Error(
+                "Camera bloqueada: abra esta pagina em HTTPS ou em localhost. Navegadores bloqueiam camera em http://IP:porta.",
+            );
+        }
+
         if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-            throw new Error("getUserMedia nao suportado nesse navegador/contexto.");
+            throw new Error(
+                "getUserMedia nao suportado nesse navegador/contexto. Use HTTPS ou localhost para liberar a camera.",
+            );
         }
 
         if (video.srcObject && video.srcObject.getTracks) {
