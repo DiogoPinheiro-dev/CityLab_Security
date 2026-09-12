@@ -21,3 +21,11 @@ __pycache__/
 .ultralytics/
 Ultralytics/
 App/.insightface/
+
+
+#Chaves
+*.pem
+*.pub
+ssh-key.txt
+
+
