@@ -11,8 +11,8 @@ publica wheel Linux ARM64/aarch64 para essa versao.
 - Python: 3.11
 - MediaPipe: 0.10.18
 
-O `requirements.txt` principal continua voltado ao ambiente de desenvolvimento
-mais novo. Para o Pi, use `requirements-rpi-bookworm.txt`.
+O arquivo de dependencias desta branch e `requirements-rpi-bookworm.txt`.
+Ele instala a base da API; os modelos pesados continuam opcionais.
 
 ## Instalacao
 
@@ -20,24 +20,15 @@ mais novo. Para o Pi, use `requirements-rpi-bookworm.txt`.
 sudo apt update
 sudo apt install -y python3-venv python3-pip python3-opencv libatlas-base-dev
 
-python3 -m venv --system-site-packages .venv
+python3.11 -m venv --system-site-packages .venv
 source .venv/bin/activate
 
 python -m pip install --upgrade pip setuptools wheel
 python -m pip install -r requirements-rpi-bookworm.txt
 ```
 
-Copie o exemplo de variaveis:
-
-```bash
-cp .env.rpi.example .env
-```
-
-Teste a conexao com o Atlas antes de subir a API:
-
-```bash
-python tools/test_mongo_connection.py
-```
+Crie `.env` na raiz com `MONGO_DETAILS` e `MONGO_DB_NAME`, conforme o README.
+A inicializacao da API valida a conexao com MongoDB antes de carregar os modelos.
 
 Se a rede do Raspberry estiver usando IPv6 de forma instavel para o Atlas, tente
 forcar IPv4 no `.env`:
@@ -81,3 +72,7 @@ servico conforme as dependencias de visao forem instaladas e testadas no hardwar
 - OpenCV deve vir do `apt` (`python3-opencv`) para evitar builds longos no Pi.
 - `ultralytics`, `torch`, `insightface` e `onnxruntime` devem ser validados em
   separado. Para YOLO no Pi, prefira exportar modelos para NCNN quando possivel.
+
+## Medicao reproduzivel
+
+Consulte [BENCHMARK.md](BENCHMARK.md) para protocolo, metricas e limites da medicao.

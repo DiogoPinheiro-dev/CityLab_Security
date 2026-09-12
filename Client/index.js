@@ -36,7 +36,7 @@ const state = {
     inFlightFrames: 0,
     requestAnimationFrameId: null,
     lastRoundTripMs: null,
-    pendingSentAt: null,
+    pendingSentAt: [],
     lastSentAt: 0,
     results: {
         rostos: [],
@@ -344,7 +344,7 @@ function closeSocket() {
 
     state.ws = null;
     state.inFlightFrames = 0;
-    state.pendingSentAt = null;
+    state.pendingSentAt = [];
 }
 
 function scheduleReconnect() {
@@ -390,11 +390,10 @@ function conectarWebSocket() {
             console.error("Falha ao interpretar resposta websocket:", err);
         }
 
-        if (typeof state.pendingSentAt === "number") {
-            state.lastRoundTripMs = performance.now() - state.pendingSentAt;
+        const sentAt = state.pendingSentAt.shift();
+        if (typeof sentAt === "number") {
+            state.lastRoundTripMs = performance.now() - sentAt;
         }
-
-        state.pendingSentAt = null;
         state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
         updateMetrics();
     };
@@ -404,6 +403,7 @@ function conectarWebSocket() {
     };
 
     ws.onclose = () => {
+        state.pendingSentAt = [];
         state.inFlightFrames = 0;
         if (state.streamEnabled) {
             scheduleReconnect();
@@ -519,24 +519,27 @@ function sendFrameToBackend() {
     }
 
     captureCtx.drawImage(video, 0, 0, streamConfig.width, streamConfig.height);
-    state.pendingSentAt = now;
+    const socket = state.ws;
     state.lastSentAt = now;
     state.inFlightFrames += 1;
 
     captureCanvas.toBlob((blob) => {
-        if (!blob) {
-            state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
-            state.pendingSentAt = null;
+        // A callback from an old connection must not alter the new session.
+        if (state.ws !== socket) {
             return;
         }
-
-        if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
+        if (!blob || socket.readyState !== WebSocket.OPEN) {
             state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
-            state.pendingSentAt = null;
             return;
         }
-
-        state.ws.send(blob);
+        try {
+            socket.send(blob);
+            // Responses follow send order on the current sequential server.
+            state.pendingSentAt.push(performance.now());
+        } catch (err) {
+            state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
+            console.error("Falha ao enviar frame:", err);
+        }
     }, "image/jpeg", streamConfig.jpegQuality);
 }
 

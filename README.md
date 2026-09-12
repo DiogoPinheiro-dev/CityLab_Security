@@ -33,33 +33,19 @@ Arquivos principais do projeto:
 
 O projeto usa um fluxo leve, sem bloqueio local para commits na `main`. O guia esta em [CONTRIBUTING.md](/e:/Codigos/CityLab_Security/CONTRIBUTING.md).
 
-## Requisitos
+## Requisitos e instalacao
 
-- Python 3.13
-- MongoDB local ou MongoDB Atlas
-- Dependencias instaladas via `requirements.txt`
+O perfil versionado nesta branch usa Raspberry Pi OS Bookworm 64-bit e Python 3.11.
+Siga [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md) para instalar OpenCV do sistema,
+criar o ambiente e instalar `requirements-rpi-bookworm.txt`. As dependencias dos
+modelos sao opcionais nesse arquivo e precisam ser instaladas e validadas para
+executar o reconhecimento completo. MongoDB local ou Atlas e necessario.
 
-Modelos e arquivos esperados:
+O workflow de deploy usa o mesmo perfil e o ambiente `citylab_venv` com acesso aos
+pacotes do sistema. Ele exige que OpenCV ja esteja instalado no host. Se o ambiente
+existente usa outro Python, recrie-o com Python 3.11 antes do deploy.
 
-- `App/FaceRecon/yolov8n.pt`
-- `App/FaceRecon/base_dados_alunos.pkl`
-- `App/GestureRecon/yolov8n-pose.pt`
-
-Observacao sobre InsightFace:
-
-- O servidor usa modelos em `%USERPROFILE%\.insightface\models\buffalo_l` por padrao.
-- Se esse modelo nao existir, o InsightFace tenta baixar automaticamente na primeira execucao.
-
-## Configuracao do ambiente
-
-Na raiz do projeto:
-
-```powershell
-py -3.13 -m venv .venv
-.venv\Scripts\Activate.ps1
-py -m pip install --upgrade pip
-py -m pip install -r requirements.txt
-```
+Para medir o stream com videos fixos, consulte [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
 ## Variaveis de ambiente
 
@@ -78,7 +64,7 @@ MONGO_SERVER_SELECTION_TIMEOUT_MS=10000
 Com o ambiente virtual ativo:
 
 ```powershell
-py -m uvicorn Server.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn Server.main:app --reload --host 0.0.0.0 --port 8000
 
 ```
 

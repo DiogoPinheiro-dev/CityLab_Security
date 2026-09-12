@@ -7,12 +7,12 @@ on:
 
 jobs:
   build-and-deploy:
-    runs-on: [self-hosted, Linux, ARM64]  # Isso diz para rodar no Raspberry Pi, não na nuvem do GitHub
-    
+    runs-on: [self-hosted, Linux, ARM64]  # Runner local no Raspberry Pi
+
     steps:
     - name: Check out repository
       uses: actions/checkout@v4
-    
+
     - name: Sync files to Production Folder
       run: |
         rsync -av \
@@ -25,12 +25,16 @@ jobs:
     - name: Install Dependencies
       run: |
         cd /home/citylab/Desktop/Projects/CityLab_Security
-        
-        python3.13 -m venv citylab_venv 
-        
+
+        set -euo pipefail
+        python3.11 -m venv --system-site-packages citylab_venv
+
         source citylab_venv/bin/activate
-        
-        if [ -f requirements.txt ]; then python -m pip install -r requirements.txt; fi
+
+        python -c "import sys; assert sys.version_info[:2] == (3, 11), 'Recrie citylab_venv com Python 3.11'"
+        python -m pip install -r requirements-rpi-bookworm.txt
+        python -c "import cv2; import mediapipe"
+        python -m pip check
 
     # - name: Restart Application
     #   run: |

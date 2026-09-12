@@ -295,17 +295,21 @@ async def websocket_reconhecimento(websocket: WebSocket):
     await websocket.accept()
     print("[INFO] Cliente Web conectado ao stream de video.")
 
+    completed_frames = 0
+    stream_started_at = None
     try:
         while True:
+            receive_started_at = time.perf_counter()
+            bytes_frame = await websocket.receive_bytes()
+            frame_started_at = time.perf_counter()
+            receive_wait_ms = (frame_started_at - receive_started_at) * 1000.0
+            if stream_started_at is None:
+                stream_started_at = frame_started_at
             current_recognizer = recognizer
             if current_recognizer is None:
                 await websocket.send_json({"erro": "Pipeline de reconhecimento nao inicializada."})
                 await asyncio.sleep(0.2)
                 continue
-
-            frame_started_at = time.perf_counter()
-            bytes_frame = await websocket.receive_bytes()
-            receive_ms = (time.perf_counter() - frame_started_at) * 1000.0
 
             decode_started_at = time.perf_counter()
             nparr = np.frombuffer(bytes_frame, np.uint8)
@@ -313,6 +317,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
             decode_ms = (time.perf_counter() - decode_started_at) * 1000.0
 
             if frame is None:
+                await websocket.send_json({"erro": "Frame JPEG invalido."})
                 continue
 
             pipeline_started_at = time.perf_counter()
@@ -376,23 +381,32 @@ async def websocket_reconhecimento(websocket: WebSocket):
             }
 
             metrics = dict(results.get("metrics", {}))
-            metrics["receive_ms"] = receive_ms
+            # Waiting for the next message is not processing or network latency.
+            metrics.pop("total_ms", None)
+            metrics.pop("effective_fps", None)
+            metrics["receive_wait_ms"] = receive_wait_ms
             metrics["decode_ms"] = decode_ms
             metrics["pipeline_ms"] = pipeline_ms
             metrics["logs_ms"] = logs_ms
-            metrics["total_ms"] = (time.perf_counter() - frame_started_at) * 1000.0
-            if metrics["total_ms"] > 0:
-                metrics["effective_fps"] = 1000.0 / metrics["total_ms"]
-
-            system_monitor.record_frame_metrics(metrics)
-            system_monitor.maybe_log_snapshot()
+            metrics["response_ready_ms"] = (time.perf_counter() - frame_started_at) * 1000.0
+            if ENABLE_PERFORMANCE_METRICS:
+                metrics.update(system_monitor.resource_snapshot())
 
             if DEBUG_PIPELINE or ENABLE_PERFORMANCE_METRICS:
                 resposta["metrics"] = metrics
             if DEBUG_PIPELINE and "debug" in results:
                 resposta["debug"] = results["debug"]
 
+            send_started_at = time.perf_counter()
             await websocket.send_json(resposta)
+            finished_at = time.perf_counter()
+            completed_frames += 1
+            # These values exist only after sending; keep them in the server monitor.
+            metrics["send_ms"] = (finished_at - send_started_at) * 1000.0
+            metrics["total_ms"] = (finished_at - frame_started_at) * 1000.0
+            metrics["effective_fps"] = completed_frames / (finished_at - stream_started_at)
+            system_monitor.record_frame_metrics(metrics)
+            system_monitor.maybe_log_snapshot()
 
     except WebSocketDisconnect:
         print("[INFO] Cliente Web desconectado.")

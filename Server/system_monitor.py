@@ -64,6 +64,15 @@ class SystemMonitor:
             self._fmt(avg_frame_ms),
         )
 
+    def resource_snapshot(self) -> dict[str, float | None]:
+        rss_mb = None
+        if psutil:
+            try:
+                rss_mb = psutil.Process().memory_info().rss / (1024 * 1024)
+            except psutil.Error:
+                pass
+        return {"process_rss_mb": rss_mb, "temperature_c": self._read_temperature()}
+
     def _read_temperature(self) -> float | None:
         thermal_zone = Path("/sys/class/thermal/thermal_zone0/temp")
         if thermal_zone.exists():
