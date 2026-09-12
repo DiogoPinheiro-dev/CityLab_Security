@@ -12,17 +12,19 @@ const registrationQr = document.getElementById("registrationQr");
 const registrationQrLink = document.getElementById("registrationQrLink");
 const registrationUrlEl = document.getElementById("registrationUrl");
 
-const CAPTURE_WIDTH = 960;
-const CAPTURE_HEIGHT = 540;
-const JPEG_QUALITY = 0.9;
 const SERVER_PORT = 8000;
 const RECONNECT_BASE_DELAY = 1500;
 const RECONNECT_MAX_DELAY = 10000;
-const MAX_IN_FLIGHT_FRAMES = 2;
+
+const streamConfig = {
+    width: 640,
+    height: 480,
+    fps: 10,
+    jpegQuality: 0.65,
+    maxInFlightFrames: 2,
+};
 
 const captureCanvas = document.createElement("canvas");
-captureCanvas.width = CAPTURE_WIDTH;
-captureCanvas.height = CAPTURE_HEIGHT;
 const captureCtx = captureCanvas.getContext("2d");
 
 const state = {
@@ -31,17 +33,41 @@ const state = {
     reconnectTimer: null,
     streamEnabled: true,
     cameraReady: false,
-    waitingResponse: false,
     inFlightFrames: 0,
     requestAnimationFrameId: null,
     lastRoundTripMs: null,
     pendingSentAt: null,
+    lastSentAt: 0,
     results: {
         rostos: [],
         pessoas: [],
         gestos: [],
     },
 };
+
+async function carregarConfiguracaoStream() {
+    try {
+        const response = await fetch(`${buildHttpBaseUrl()}/config/client`, { cache: "no-store" });
+        if (!response.ok) {
+            return;
+        }
+
+        const payload = await response.json();
+        streamConfig.width = Number.isFinite(payload.stream_width) ? payload.stream_width : streamConfig.width;
+        streamConfig.height = Number.isFinite(payload.stream_height) ? payload.stream_height : streamConfig.height;
+        streamConfig.fps = Number.isFinite(payload.stream_fps) ? payload.stream_fps : streamConfig.fps;
+        streamConfig.jpegQuality = Number.isFinite(payload.jpeg_quality) ? payload.jpeg_quality : streamConfig.jpegQuality;
+        streamConfig.maxInFlightFrames = Number.isFinite(payload.max_in_flight_frames)
+            ? payload.max_in_flight_frames
+            : streamConfig.maxInFlightFrames;
+    } catch (err) {
+        console.warn("Falha ao carregar configuracao do stream. Usando padrao local.", err);
+    }
+}
+
+function getFrameIntervalMs() {
+    return 1000 / Math.max(1, streamConfig.fps);
+}
 
 async function listarCamerasDisponiveis() {
     if (!navigator.mediaDevices || !navigator.mediaDevices.enumerateDevices) {
@@ -114,16 +140,16 @@ async function obterStreamComFallback() {
     const tries = [
         {
             video: {
-                width: { ideal: CAPTURE_WIDTH },
-                height: { ideal: CAPTURE_HEIGHT },
+                width: { ideal: streamConfig.width },
+                height: { ideal: streamConfig.height },
                 facingMode: { ideal: "environment" },
             },
             audio: false,
         },
         {
             video: {
-                width: { ideal: CAPTURE_WIDTH },
-                height: { ideal: CAPTURE_HEIGHT },
+                width: { ideal: streamConfig.width },
+                height: { ideal: streamConfig.height },
             },
             audio: false,
         },
@@ -148,8 +174,8 @@ async function obterStreamComFallback() {
             return await navigator.mediaDevices.getUserMedia({
                 video: {
                     deviceId: { exact: camera.deviceId },
-                    width: { ideal: CAPTURE_WIDTH },
-                    height: { ideal: CAPTURE_HEIGHT },
+                    width: { ideal: streamConfig.width },
+                    height: { ideal: streamConfig.height },
                 },
                 audio: false,
             });
@@ -162,9 +188,18 @@ async function obterStreamComFallback() {
 }
 
 function buildWebSocketUrl() {
+    return `${buildWsBaseUrl()}/stream`;
+}
+
+function buildHttpBaseUrl() {
+    const host = window.location.hostname || "localhost";
+    return `${window.location.protocol}//${host}:${SERVER_PORT}`;
+}
+
+function buildWsBaseUrl() {
     const protocol = window.location.protocol === "https:" ? "wss" : "ws";
     const host = window.location.hostname || "localhost";
-    return `${protocol}://${host}:${SERVER_PORT}/stream`;
+    return `${protocol}://${host}:${SERVER_PORT}`;
 }
 
 function buildBackendHttpUrl(path) {
@@ -308,7 +343,6 @@ function closeSocket() {
     }
 
     state.ws = null;
-    state.waitingResponse = false;
     state.inFlightFrames = 0;
     state.pendingSentAt = null;
 }
@@ -361,7 +395,6 @@ function conectarWebSocket() {
         }
 
         state.pendingSentAt = null;
-        state.waitingResponse = false;
         state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
         updateMetrics();
     };
@@ -371,7 +404,6 @@ function conectarWebSocket() {
     };
 
     ws.onclose = () => {
-        state.waitingResponse = false;
         state.inFlightFrames = 0;
         if (state.streamEnabled) {
             scheduleReconnect();
@@ -450,10 +482,10 @@ function drawGestures(gestos) {
 
 function drawFrame() {
     if (video.readyState >= 2 && state.cameraReady) {
-        ctx.drawImage(video, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
     } else {
         ctx.fillStyle = "#08131a";
-        ctx.fillRect(0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
         ctx.fillStyle = "#9db4c2";
         ctx.font = "600 15px 'Space Grotesk', sans-serif";
         ctx.fillText("Camera local indisponivel", 20, 34);
@@ -477,32 +509,35 @@ function sendFrameToBackend() {
         return;
     }
 
-    if (state.inFlightFrames >= MAX_IN_FLIGHT_FRAMES) {
+    if (state.inFlightFrames >= streamConfig.maxInFlightFrames) {
         return;
     }
 
-    captureCtx.drawImage(video, 0, 0, CAPTURE_WIDTH, CAPTURE_HEIGHT);
-    state.waitingResponse = true;
-    state.pendingSentAt = performance.now();
+    const now = performance.now();
+    if ((now - state.lastSentAt) < getFrameIntervalMs()) {
+        return;
+    }
+
+    captureCtx.drawImage(video, 0, 0, streamConfig.width, streamConfig.height);
+    state.pendingSentAt = now;
+    state.lastSentAt = now;
     state.inFlightFrames += 1;
 
     captureCanvas.toBlob((blob) => {
         if (!blob) {
-            state.waitingResponse = false;
             state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
             state.pendingSentAt = null;
             return;
         }
 
         if (!state.ws || state.ws.readyState !== WebSocket.OPEN) {
-            state.waitingResponse = false;
             state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
             state.pendingSentAt = null;
             return;
         }
 
         state.ws.send(blob);
-    }, "image/jpeg", JPEG_QUALITY);
+    }, "image/jpeg", streamConfig.jpegQuality);
 }
 
 function frameLoop() {
@@ -564,8 +599,12 @@ function encerrarRecursos() {
 }
 
 async function bootstrap() {
-    canvas.width = CAPTURE_WIDTH;
-    canvas.height = CAPTURE_HEIGHT;
+    await carregarConfiguracaoStream();
+
+    canvas.width = streamConfig.width;
+    canvas.height = streamConfig.height;
+    captureCanvas.width = streamConfig.width;
+    captureCanvas.height = streamConfig.height;
     updateMetrics();
 
     toggleStreamBtn.addEventListener("click", handleToggleStream);
