@@ -45,7 +45,7 @@ O workflow de deploy usa o mesmo perfil e o ambiente `citylab_venv` com acesso a
 pacotes do sistema. Ele exige que OpenCV ja esteja instalado no host. Se o ambiente
 existente usa outro Python, recrie-o com Python 3.11 antes do deploy.
 
-Para medir o stream com videos fixos, consulte [docs/BENCHMARK.md](docs/BENCHMARK.md).
+Para medir o stream com webcam ou video fixo, consulte [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
 ## Variaveis de ambiente
 
