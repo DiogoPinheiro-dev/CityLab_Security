@@ -1,5 +1,12 @@
 # Benchmark do stream
 
+Na implementacao otimizada, cada amostra tambem inclui `persons_confidence` e
+`gestures_confidence` (somente numeros finitos, sem identidade). Esses campos
+nao existem nos JSON historicos. Use-os para investigar falsos positivos antes
+de alterar limiares. Registre a saida de `python tools/run_rpi.py --show-config`
+junto da rodada; ela informa a configuracao selecionada, nao comprova uso de
+CPU ou velocidade efetiva.
+
 O utilitario `tools/benchmark_stream.py` usa uma webcam local ou reproduz um
 video fixo contra a API real. Ele envia os frames em ordem, com uma pendencia
 por vez e sem pausa artificial. Mede a vazao desse perfil; nao simula o

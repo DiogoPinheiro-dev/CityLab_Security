@@ -7,7 +7,8 @@ import numpy as np
 from ultralytics import YOLO
 
 from App.frame_context import FrameContext
-from App.settings import GESTURE_ANALYZER_FPS
+from App.settings import (GESTURE_ANALYZER_FPS, GESTURE_MAX_OBSERVATION_GAP_SECONDS,
+                          POSE_MODEL_PATH, PROJECT_ROOT)
 
 try:
     from App.GestureRecon.detector import GestureAnalyzer
@@ -30,9 +31,10 @@ class GestureRecognitionService:
         fallback_match_distance: float = 120.0,
     ) -> None:
         self.base_dir = Path(base_dir) if base_dir else Path(__file__).resolve().parent
-        self.pose_model_path = Path(pose_model_path) if pose_model_path else (
-            self.base_dir / "yolov8n-pose.pt"
-        )
+        configured_path = pose_model_path or POSE_MODEL_PATH
+        self.pose_model_path = Path(configured_path).expanduser() if configured_path else self.base_dir / "yolov8n-pose.pt"
+        if configured_path and not self.pose_model_path.is_absolute():
+            self.pose_model_path = PROJECT_ROOT / self.pose_model_path
         self.tracker = tracker
         self.fallback_match_distance = fallback_match_distance
 
@@ -41,8 +43,8 @@ class GestureRecognitionService:
                 f"Modelo de pose nao encontrado: {self.pose_model_path}"
             )
 
-        self.pose_model = YOLO(str(self.pose_model_path))
-        self.analyzer = GestureAnalyzer(fps=fps)
+        self.pose_model = YOLO(str(self.pose_model_path), task="pose")
+        self.analyzer = GestureAnalyzer(fps=fps, max_observation_gap=GESTURE_MAX_OBSERVATION_GAP_SECONDS)
         self.hand_detector = HandDetector()
         self.last_track_centers: dict[int, tuple[float, float]] = {}
         self.next_track_id = 1
@@ -62,7 +64,7 @@ class GestureRecognitionService:
         import time
 
         total_started = time.perf_counter()
-        observed_at = time.monotonic()
+        observed_at = frame_context.observed_at
         self.latest_persons = []
         # None: a pose fornece as pessoas. []: gate legado sem pessoas.
         if person_bboxes == []:

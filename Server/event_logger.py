@@ -26,6 +26,7 @@ class EventLogger:
             "ALERTA_GESTO": COOLDOWN_ALERTA_GESTO_SECONDS,
         }
         self.last_logged: dict[str, float] = {}
+        self.in_flight: set[str] = set()
 
     async def log_face_events(
         self,
@@ -82,13 +83,19 @@ class EventLogger:
             await self._insert_event("ALERTA_GESTO", identity, payload)
 
     async def _insert_event(self, event_type: str, identity: str, payload: dict) -> None:
+        key = f"{event_type}:{identity}"
+        # Check + reserva sem await: atomico no event loop do servidor.
+        if key in self.in_flight or not self._should_log(event_type, identity):
+            return
+        self.in_flight.add(key)
         try:
             await self.logs_collection.insert_one(payload)
+            self.last_logged[key] = time.monotonic()
         except Exception:
             logger.exception("Falha ao gravar evento %s; stream preservado.", event_type)
-            return
-        # Uma falha nao consome cooldown nem bloqueia o proximo frame.
-        self.last_logged[f"{event_type}:{identity}"] = time.monotonic()
+        finally:
+            # Inclui cancelamento: a proxima deteccao pode tentar novamente.
+            self.in_flight.discard(key)
 
     def _should_log(self, event_type: str, identity: str) -> bool:
         cooldown = self.cooldowns.get(event_type, 0.0)
@@ -98,6 +105,8 @@ class EventLogger:
         for key in expired:
             del self.last_logged[key]
         key = f"{event_type}:{identity}"
+        if key in self.in_flight:
+            return False
         last = self.last_logged.get(key)
         if last is not None and (now - last) <= cooldown:
             return False

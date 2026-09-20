@@ -24,6 +24,16 @@ def capture_property(capture, property_id):
     return value if math.isfinite(value) and value > 0 else None
 
 
+def detection_confidences(payload):
+    # Confiancas de caixas, sem nomes, imagens ou embeddings.
+    return {output: [item["confidence"] for item in payload.get(source, [])
+                     if isinstance(item.get("confidence"), (int, float))
+                     and not isinstance(item["confidence"], bool)
+                     and math.isfinite(item["confidence"])]
+            for output, source in (("persons_confidence", "pessoas"),
+                                   ("gestures_confidence", "gestos"))}
+
+
 def open_source(args, cv2):
     if args.camera_index is not None:
         capture = cv2.VideoCapture(args.camera_index)
@@ -87,6 +97,7 @@ async def run(args):
                                  "faces_count": len(payload.get("rostos") or []),
                                  "gestures_count": len(gestures),
                                  "alerts_count": sum(len(item.get("alerts") or []) for item in gestures),
+                                 **detection_confidences(payload),
                                  "metrics": payload["metrics"]})
                     sent_bytes += len(jpeg)
                     received_bytes += len(raw.encode("utf-8") if isinstance(raw, str) else raw)

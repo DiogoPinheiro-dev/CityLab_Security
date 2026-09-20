@@ -4,11 +4,15 @@ from typing import Any
 from typing import Optional
 
 import insightface
+from insightface.app.common import Face
 import numpy as np
 from ultralytics import YOLO  # type: ignore
 
 from App.frame_context import FrameContext
-from App.settings import DEBUG_PIPELINE, FACE_MIN_CONFIDENCE, FACE_MIN_HEIGHT, FACE_MIN_WIDTH
+from App.settings import (DEBUG_PIPELINE, FACE_MIN_CONFIDENCE, FACE_MIN_HEIGHT,
+                          FACE_MIN_WIDTH, FACE_MINIMAL_MODULES, FACE_PREFILTER,
+                          ONNX_INTRA_OP_THREADS)
+from App.inference_runtime import configure_insight_threads
 
 
 class FaceRecognitionService:
@@ -26,6 +30,9 @@ class FaceRecognitionService:
         face_min_confidence: float = FACE_MIN_CONFIDENCE,
         debug_pipeline: bool = DEBUG_PIPELINE,
         lazy_person_model: bool = False,
+        minimal_modules: bool = FACE_MINIMAL_MODULES,
+        prefilter: bool = FACE_PREFILTER,
+        onnx_threads: int = ONNX_INTRA_OP_THREADS,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -45,6 +52,7 @@ class FaceRecognitionService:
         self.face_min_height = face_min_height
         self.face_min_confidence = face_min_confidence
         self.debug_pipeline = debug_pipeline
+        self.prefilter = prefilter
 
         self.known_face_embeddings = np.empty((0, 512), dtype=np.float32)
         self.known_face_names: list[str] = []
@@ -54,7 +62,9 @@ class FaceRecognitionService:
         self.app_insight = insightface.app.FaceAnalysis(
             name=face_model_name,
             providers=insight_providers or ["CPUExecutionProvider"],
+            allowed_modules=["detection", "recognition"] if minimal_modules else None,
         )
+        configure_insight_threads(self.app_insight, onnx_threads)
         self.app_insight.prepare(ctx_id=0, det_size=insight_det_size)
         self.latest_metrics: dict[str, float] = {
             "faces_ms": 0.0,
@@ -94,7 +104,16 @@ class FaceRecognitionService:
         import time
 
         started_at = time.perf_counter()
-        faces = self.app_insight.get(frame_context.processing_frame)
+        if self.prefilter:
+            # Mesmos argumentos e keypoints usados por FaceAnalysis.get.
+            bboxes, keypoints = self.app_insight.det_model.detect(
+                frame_context.processing_frame, max_num=0, metric="default"
+            )
+            faces = [Face(bbox=box[:4], det_score=box[4],
+                          kps=keypoints[index] if keypoints is not None else None)
+                     for index, box in enumerate(bboxes)]
+        else:
+            faces = self.app_insight.get(frame_context.processing_frame)
         results: list[dict[str, Any]] = []
         ignored_faces: list[dict[str, Any]] = []
 
@@ -115,6 +134,10 @@ class FaceRecognitionService:
                     )
                 continue
 
+            if self.prefilter:
+                for task, model in self.app_insight.models.items():
+                    if task != "detection":
+                        model.get(frame_context.processing_frame, face)
             name, best_score = self._match_face(face.normed_embedding)
 
             results.append(
@@ -126,7 +149,7 @@ class FaceRecognitionService:
                 }
             )
 
-        if self.debug_pipeline and ignored_faces:
+        if self.debug_pipeline:
             self.latest_metrics["ignored_faces"] = float(len(ignored_faces))
         self.latest_ignored_faces = ignored_faces
         self.latest_metrics["faces_ms"] = (time.perf_counter() - started_at) * 1000.0

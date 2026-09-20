@@ -3,7 +3,7 @@ import ast
 import asyncio
 import logging
 import unittest
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -81,7 +81,7 @@ class GestureTimeTests(unittest.TestCase):
         for timestamps in ([0, .05, .10, .15, .21], [0, .21]):
             analyzer, alerts = self.run_sequence(timestamps)
             self.assertIn("Mao Fechada", alerts)
-            self.assertAlmostEqual(analyzer.history[1]["fist_frames"], .21)
+            self.assertAlmostEqual(analyzer.history[1]["fist_frames"], .20)
         self.assertNotIn("Mao Fechada", self.run_sequence([0, .19])[1])
 
     def test_new_gesture_does_not_inherit_idle_interval(self):
@@ -107,7 +107,9 @@ class SharedPipelineTests(unittest.TestCase):
                          PIPELINE_RUN_IN_PARALLEL=True, PIPELINE_SHARED_PERSON_POSE=False,
                          PIPELINE_MAX_WORKERS=2, PROCESS_SCALE=.5, EXPERIMENTAL_GRAYSCALE=False,
                          DEBUG_PIPELINE=False, ENABLE_PERFORMANCE_METRICS=True,
-                         ThreadPoolExecutor=ThreadPoolExecutor, _env_bool=lambda name, default: default,
+                         TORCH_NUM_THREADS=0, configure_torch_threads=lambda count: None,
+                         OPENCV_NUM_THREADS=0, configure_opencv_threads=lambda count: None,
+                         ThreadPoolExecutor=ThreadPoolExecutor, wait=wait, _env_bool=lambda name, default: default,
                          build_frame_context=lambda *args, **kwargs: object())
         faces = SimpleNamespace(detect_persons=Mock(return_value=[{"bbox": [1, 2, 3, 4]}]),
                                 recognize_faces=Mock(return_value=[{"name": "Teste"}]),
@@ -169,7 +171,7 @@ class PoseOutputTests(unittest.TestCase):
         service.analyzer = Mock()
         service.last_track_centers = {1: (10, 20)}
         service._to_numpy = lambda value: value
-        context = SimpleNamespace(processing_frame=object(),
+        context = SimpleNamespace(processing_frame=object(), observed_at=0.0,
                                   map_bbox_to_original=lambda box: [v * 2 for v in box],
                                   clip_original_bbox=lambda box: box)
         return service, context

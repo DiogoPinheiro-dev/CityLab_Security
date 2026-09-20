@@ -28,6 +28,7 @@ from App.settings import (
     DEBUG_PIPELINE,
     ENABLE_PERFORMANCE_METRICS,
     ENABLE_SYSTEM_MONITOR,
+    GESTURE_IDLE_RESET_SECONDS,
     JPEG_QUALITY,
     MAX_IN_FLIGHT_FRAMES,
     PIPELINE_MAX_WORKERS,
@@ -297,6 +298,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
 
     completed_frames = 0
     stream_started_at = None
+    first_valid_frame = True
     try:
         while True:
             receive_started_at = time.perf_counter()
@@ -321,6 +323,9 @@ async def websocket_reconhecimento(websocket: WebSocket):
                 continue
 
             pipeline_started_at = time.perf_counter()
+            if first_valid_frame or receive_wait_ms > GESTURE_IDLE_RESET_SECONDS * 1000:
+                current_recognizer.reset_gesture_history()
+            first_valid_frame = False
             results = current_recognizer.process_frame(frame)
             pipeline_ms = (time.perf_counter() - pipeline_started_at) * 1000.0
 

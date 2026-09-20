@@ -1,4 +1,5 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+import time
 
 import cv2
 import numpy as np
@@ -11,6 +12,7 @@ class FrameContext:
     scale_x: float
     scale_y: float
     process_scale: float
+    observed_at: float = field(default_factory=time.monotonic)
 
     def map_bbox_to_original(self, bbox: list[int] | tuple[int, int, int, int]) -> list[int]:
         x1, y1, x2, y2 = bbox
@@ -44,6 +46,7 @@ def build_frame_context(
     process_scale: float,
     experimental_grayscale: bool = False,
 ) -> FrameContext:
+    observed_at = time.monotonic()
     frame_h, frame_w = frame.shape[:2]
     process_w = max(1, int(round(frame_w * process_scale)))
     process_h = max(1, int(round(frame_h * process_scale)))
@@ -59,4 +62,5 @@ def build_frame_context(
         scale_x=frame_w / float(process_w),
         scale_y=frame_h / float(process_h),
         process_scale=process_scale,
+        observed_at=observed_at,
     )

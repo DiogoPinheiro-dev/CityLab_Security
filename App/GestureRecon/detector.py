@@ -5,7 +5,7 @@ from typing import Any
 
 
 class GestureAnalyzer:
-    def __init__(self, fps=30, clock=time.monotonic):
+    def __init__(self, fps=30, clock=time.monotonic, max_observation_gap=60.0):
         self.history = defaultdict(
             lambda: {
                 "left_hidden_frames": 0,
@@ -20,6 +20,7 @@ class GestureAnalyzer:
         # fps mantido na assinatura por compatibilidade; duracoes em segundos.
         self.fps = fps
         self.clock = clock
+        self.max_observation_gap = max_observation_gap
         self.last_observed = {}
         self.active_states = {}
         self.elapsed = {}
@@ -89,7 +90,7 @@ class GestureAnalyzer:
             self.history[track_id][key] = 0
             self.active_states[(track_id, key)] = False
         else:
-            self._update_counter(track_id, key, active, cooldown=decay)
+            self._update_counter(track_id, key, active, cooldown=decay, limit=threshold)
 
         return self.history[track_id][key] >= threshold
 
@@ -101,6 +102,9 @@ class GestureAnalyzer:
         hand_context = hand_context or {}
         now = self.clock() if observed_at is None else observed_at
         previous = self.last_observed.get(track_id, now)
+        if now < previous or now - previous > self.max_observation_gap:
+            self._forget_track(track_id)
+            previous = now
         self.elapsed[track_id] = max(0.0, now - previous)
         self.last_observed[track_id] = now
 
@@ -344,8 +348,8 @@ class GestureAnalyzer:
             left_hidden = hand_hidden("left")
             right_hidden = hand_hidden("right")
 
-        self._update_counter(track_id, "left_hidden_frames", left_hidden, cooldown=6)
-        self._update_counter(track_id, "right_hidden_frames", right_hidden, cooldown=6)
+        self._update_counter(track_id, "left_hidden_frames", left_hidden, cooldown=6, limit=self.thresh_hidden)
+        self._update_counter(track_id, "right_hidden_frames", right_hidden, cooldown=6, limit=self.thresh_hidden)
 
         if (
             self.history[track_id]["left_hidden_frames"] >= self.thresh_hidden
@@ -359,13 +363,13 @@ class GestureAnalyzer:
             "hidden_debug": hidden_debug,
         }
 
-    def _update_counter(self, track_id, key, active, cooldown=1):
+    def _update_counter(self, track_id, key, active, cooldown=1, limit=1.0):
         elapsed = self.elapsed.get(track_id, 0.0)
         was_active = self.active_states.get((track_id, key), False)
         if active:
             # Nao atribuir o intervalo anterior a um gesto que acabou de aparecer.
             if was_active:
-                self.history[track_id][key] += elapsed
+                self.history[track_id][key] = min(limit, self.history[track_id][key] + elapsed)
         else:
             self.history[track_id][key] = max(0, self.history[track_id][key] - cooldown * elapsed)
         self.active_states[(track_id, key)] = active
@@ -373,8 +377,13 @@ class GestureAnalyzer:
     def clean_old_tracks(self, current_tracks):
         missing_tracks = set(self.history.keys()) - set(current_tracks)
         for track_id in missing_tracks:
-            del self.history[track_id]
-            self.last_observed.pop(track_id, None)
-            self.elapsed.pop(track_id, None)
+            self._forget_track(track_id)
         self.active_states = {key: value for key, value in self.active_states.items()
                               if key[0] in current_tracks}
+
+    def _forget_track(self, track_id):
+        self.history.pop(track_id, None)
+        self.last_observed.pop(track_id, None)
+        self.elapsed.pop(track_id, None)
+        self.active_states = {key: value for key, value in self.active_states.items()
+                              if key[0] != track_id}

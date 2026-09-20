@@ -1,6 +1,6 @@
 import logging
 import os
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, wait
 from typing import TYPE_CHECKING
 from typing import Any
 from typing import Optional
@@ -8,6 +8,7 @@ from typing import Optional
 import numpy as np
 
 from App.frame_context import build_frame_context
+from App.inference_runtime import configure_torch_threads, configure_opencv_threads
 from App.settings import (
     DEBUG_PIPELINE,
     ENABLE_PERFORMANCE_METRICS,
@@ -16,6 +17,8 @@ from App.settings import (
     PIPELINE_RUN_IN_PARALLEL,
     PIPELINE_SHARED_PERSON_POSE,
     PROCESS_SCALE,
+    TORCH_NUM_THREADS,
+    OPENCV_NUM_THREADS,
 )
 
 if TYPE_CHECKING:
@@ -69,11 +72,15 @@ class UnifiedRecognitionService:
         debug_pipeline: bool = DEBUG_PIPELINE,
         enable_performance_metrics: bool = ENABLE_PERFORMANCE_METRICS,
         shared_person_pose: bool = PIPELINE_SHARED_PERSON_POSE,
+        torch_threads: int = TORCH_NUM_THREADS,
+        opencv_threads: int = OPENCV_NUM_THREADS,
     ) -> None:
         self.allow_partial_pipeline = _env_bool("CITYLAB_ALLOW_PARTIAL_PIPELINE", False)
         self.shared_person_pose = shared_person_pose
         self.face_service = face_service or self._create_face_service()
         self.gesture_service = gesture_service or self._create_gesture_service()
+        configure_torch_threads(torch_threads)
+        configure_opencv_threads(opencv_threads)
         self.run_in_parallel = run_in_parallel
         self.process_scale = process_scale
         self.experimental_grayscale = experimental_grayscale
@@ -84,7 +91,11 @@ class UnifiedRecognitionService:
         self._last_frame_ended_at: Optional[float] = None
 
         if self.run_in_parallel:
-            self.executor = ThreadPoolExecutor(max_workers=self.max_workers)
+            self.executor = ThreadPoolExecutor(
+                max_workers=self.max_workers,
+                initializer=configure_torch_threads,
+                initargs=(torch_threads,),
+            )
 
     def _create_face_service(self) -> Optional["FaceRecognitionService"]:
         if not _env_bool("CITYLAB_ENABLE_FACE_SERVICE", True):
@@ -247,6 +258,8 @@ class UnifiedRecognitionService:
         faces: list[dict[str, Any]] = []
         gestures: list[dict[str, Any]] = []
 
+        # Mesmo com falha em um modelo, aguardar o outro antes de liberar estado.
+        wait([future for future in (face_future, gesture_future) if future is not None])
         if face_future is not None and self.face_service is not None:
             faces = face_future.result()
             metrics["faces_ms"] = self.face_service.latest_metrics.get("faces_ms", 0.0)
@@ -280,6 +293,11 @@ class UnifiedRecognitionService:
         if self.executor is not None:
             self.executor.shutdown(wait=True)
             self.executor = None
+
+    def reset_gesture_history(self) -> None:
+        if self.gesture_service is not None:
+            self.gesture_service.analyzer.clean_old_tracks([])
+            self.gesture_service.last_track_centers.clear()
 
 
 def create_unified_service(**kwargs: Any) -> UnifiedRecognitionService:

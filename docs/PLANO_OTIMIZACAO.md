@@ -38,6 +38,47 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
 
 ## Estado verificado em 20/09/2026
 
+### Fechamento da implementacao local para Pi 3 B+
+
+- `tools/run_rpi.py` inicia o perfil com um processo e sem reload. Prepara
+  limites de BLAS/OpenMP antes dos imports nativos, mantendo overrides.
+  `--show-config` imprime somente opcoes de desempenho, sem credenciais.
+- `NATIVE_NUM_THREADS` centralizado em settings: 1 no perfil rpi3, 0 no default.
+  PyTorch tambem configurado no inicializador dos workers de inferencia.
+- Falha em um modelo paralelo agora aguarda o outro terminar antes de liberar
+  o estado compartilhado, evitando inferencia pendente na proxima chamada.
+- Coletor inclui confiancas de caixas de pessoas/gestos por amostra, sem nomes
+  ou imagens; os limiares nao foram elevados. Isso prepara a avaliacao da caixa
+  fantasma com evidencia, em vez de supor um valor melhor.
+- Validacao final local: 39 testes Python e 3 testes do cliente, sintaxe 3.11
+  e diff-check OK. Modelos reais, MongoDB e camera nao foram exercitados aqui.
+- Responsavel nao conhece o endereco SSH do Pi nesta sessao. O pacote local
+  esta pronto para teste; concluir ganho de desempenho e recall exige medir no
+  dispositivo. Nao houve deploy, exportacao NCNN nem nova medicao real.
+  Inicializacao: `python tools/run_rpi.py`. Nao promover os experimentos de
+  passada unica/NCNN sem a comparacao de deteccoes descrita neste plano.
+
+### Ajuste especifico para Raspberry Pi 3 B+
+
+- Hardware confirmado pelos registros do projeto: Pi 3 B+, Cortex-A53 com
+  quatro nucleos a 1,4 GHz e 1 GB de RAM; Bookworm 64-bit, Python 3.11.
+- Adicionado perfil opt-in `CITYLAB_PROFILE=rpi3` e `.env.rpi.example`.
+  Defaults do perfil: ONNX intra-op 1, PyTorch intra-op 2, OpenCV 1 thread,
+  um frame pendente no cliente. Variaveis explicitas prevalecem sobre o perfil.
+  Sao candidatos para medicao, nao uma distribuicao garantida de todos os
+  threads do processo nem a configuracao vencedora comprovada no hardware.
+- Preservados pesos, resolucao, qualidade JPEG, filtros faciais e o detector
+  separado de pessoas como padrao. A passada unica permanece opt-in.
+- Corrigida a sobreposicao de sessoes ONNX durante o ajuste de threads: remover
+  a referencia antiga e coletar antes de construir a substituta. Teste com
+  weakref verifica a ordem; nao mede pico de RAM nativa ou devolucao ao SO.
+  Falha de recriacao interrompe o carregamento conforme a politica de pipeline.
+- Validacao atual: 35 testes Python e 3 do cliente passaram. Nao houve deploy
+  nem medicao nova no Raspberry. Comparar os ajustes individualmente antes de
+  adotar o perfil completo. O pipeline requer um worker e uma camera por processo.
+
+### Implementacao inicial
+
 - Pedido atual: implementar otimizacoes com base no PDF em branch nova.
   Branch local `codex/raspberry-stream-optimization`, criada a partir de
   `origin/otimizations-tests` (`53de153`), que contem a linha de base citada.
@@ -76,6 +117,103 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
   Proximo passo de medicao: comparar `PIPELINE_SHARED_PERSON_POSE=0` e `1`
   nesta mesma branch, com as regras temporais iguais nos dois casos, seguindo
   `docs/BENCHMARK.md`. Nao comparar contagens de alertas com a regra antiga.
+
+### Complemento implementado apos a revisao (20/09/2026)
+
+O responsavel autorizou as otimizacoes propostas, condicionadas a preservar o
+proposito do software. Este registro atualiza o estado acima; os registros da
+primeira implementacao e da revisao abaixo permanecem como historico.
+
+- P1 corrigido: acumuladores limitados ao limiar de cada gesto; intervalo
+  superior a 60 s ou timestamp regressivo limpa o track. O primeiro frame
+  valido de cada conexao limpa o historico de gestos (o cliente fecha o socket
+  ao pausar). Espera por frame superior a 5 s tambem limpa o historico, sem
+  contar tempo de inferencia nesse limite. Configuracao em
+  `GESTURE_MAX_OBSERVATION_GAP_SECONDS` e `GESTURE_IDLE_RESET_SECONDS`.
+  O timestamp e obtido ao preparar o frame, antes dos modelos, evitando incluir
+  variacoes do tempo de reconhecimento facial na observacao de gesto.
+- P2 corrigido: reserva por identidade enquanto o insert esta pendente, sem
+  bloquear outras identidades. Sucesso marca cooldown; falha/cancelamento
+  liberam a reserva. Continua sem garantia de entrega durante falha do banco.
+- InsightFace: `FACE_MINIMAL_MODULES=1` (novo padrao) mantem detection e
+  recognition. `FACE_PREFILTER=1` (novo padrao) executa os mesmos filtros de
+  tamanho/confianca antes dos embeddings. Nao muda pesos, escala, det_size,
+  filtros nem limiar de similaridade. O cadastro continua usando get na imagem
+  completa. As duas flags podem ser desligadas independentemente para A/B.
+- CPU: `ONNX_INTRA_OP_THREADS` e `TORCH_NUM_THREADS` configuraveis, padrao 0
+  preserva o comportamento da biblioteca. InsightFace 0.7 nao encaminha
+  sess_options; por isso o ajuste ONNX recria as sessoes explicitamente no
+  startup, antes de prepare, preservando pesos e providers. Ha custo transitorio
+  de RAM nesse startup; medir antes de adotar no Pi.
+- NCNN: `POSE_MODEL_PATH` aceita o diretorio exportado do mesmo modelo de pose.
+  `tools/export_pose_ncnn.py` prepara exportacao CPU/FP32 opcional. O padrao
+  continua sendo o arquivo .pt versionado; nao foi exportado ou ativado NCNN.
+- `tools/check_face_optimization.py` compara respostas, identidades, caixas e
+  embeddings nas mesmas imagens usando uma copia dos modelos. Nao salva dados
+  biometricos; uma rodada sem rostos aceitos e inconclusiva. Precisa ser rodado
+  no ambiente com modelos reais antes de validar equivalencia em producao.
+- Validacao local: 31 testes Python e 3 do cliente passaram; sintaxe Python
+  3.11 verificada em 18 arquivos. Inclui concorrencia, cancelamento, pausa,
+  inferencia de 17 s, retirada de alerta, resposta facial equivalente com
+  menos embeddings, limites dos filtros, construtor/cadastro e rollback.
+  Dependencias nativas continuam substituidas por doubles nesses testes.
+- Pendentes no hardware: equivalencia real dos embeddings, todos os gestos,
+  recall de pessoas/rostos, consumo de memoria e tres rodadas por cenario.
+  Nenhuma melhora de latencia foi medida nesta etapa. A passada unica continua
+  opt-in. Nao reduzir resolucao nem elevar confianca sem outra comparacao.
+- O pipeline ainda possui rastreador global e se destina a uma camera por
+  processo; isolamento completo de multiplas cameras nao faz parte desta etapa.
+
+### Revisao do commit 01153c0 (20/09/2026)
+
+Revisao solicitada apos o push. Nenhuma nova otimizacao implementada nesta
+revisao. Os 16 testes Python e 3 testes do cliente continuam passando, mas
+reproducoes adicionais encontraram dois defeitos nao cobertos:
+
+- P1, `App/GestureRecon/detector.py`: duas observacoes ativas do mesmo track
+  em t=0 e t=600 acumulam 600 segundos, mesmo se o stream ficou pausado nesse
+  intervalo. Em t=600,05, com mao nao detectada como fechada e nao visivel, o
+  acumulador ainda vale 599,7 e emite `Mao Fechada`. O estado nao expira por
+  inatividade e os acumuladores nao possuem teto. Corrigir descontinuidade de
+  sessao/pausa e limitar a evidencia acumulada; incluir testes de pausa,
+  retorno, perda de visibilidade e retirada de alerta. Nao escolher um timeout
+  menor que o intervalo normal de inferencia do Pi sem medir.
+- P2, `Server/event_logger.py`: duas chamadas concorrentes para a mesma
+  identidade passam por `_should_log` antes que o primeiro insert termine.
+  Reproduzido com `asyncio.gather` e insert que cede o event loop: duas
+  gravacoes dentro do cooldown. Proteger a identidade enquanto o insert esta
+  em andamento, liberando em sucesso, falha e cancelamento; manter cooldown
+  definitivo somente apos sucesso. O logger e global e aceita varios sockets.
+
+Os testes atuais extraem classes por AST e usam doubles; nao validam imports,
+construtores reais, qualidade de caixas da pose nem integracao dos modelos.
+Ainda falta a comparacao A/B no Pi. A passada unica segue experimental.
+
+Oportunidades para combinar e medir separadamente apos as correcoes:
+
+1. `allowed_modules=['detection', 'recognition']` no InsightFace (acao 6).
+   O codigo oficial v0.7 executa todos os modulos habilitados por rosto; o
+   ArcFace alinha usando `face.kps` fornecidos pelo detector. Conferir os
+   embeddings e o cadastro na versao instalada antes de promover a mudanca.
+2. Antecipar o filtro de qualidade facial existente: hoje `FaceAnalysis.get`
+   calcula embeddings antes de `_validate_face` descartar rostos. Separar
+   deteccao, filtro atual e reconhecimento evitaria trabalho em rostos que ja
+   seriam descartados, sem elevar limiares. Ganho depende da cena; nenhum
+   ganho esperado se todos os rostos passarem no filtro.
+3. Comparar paralelismo e limites de threads ONNX/PyTorch (acao 4), registrando
+   configuracao efetiva. O compartilhamento de pose ja permite submeter rosto
+   e pose sem esperar pelo detector separado; concorrencia nao garante ganho
+   nos quatro nucleos do Pi.
+4. Avaliar exportacao do mesmo YOLOv8-pose para NCNN em experimento posterior,
+   mantendo entrada e thresholds para comparar caixas, keypoints e tracking.
+   A documentacao atual lista suporte a pose YOLOv8, mas a compatibilidade com
+   as versoes instaladas no Pi ainda precisa ser validada.
+
+Fontes tecnicas consultadas:
+- https://raw.githubusercontent.com/deepinsight/insightface/v0.7/python-package/insightface/app/face_analysis.py
+- https://raw.githubusercontent.com/deepinsight/insightface/v0.7/python-package/insightface/model_zoo/arcface_onnx.py
+- https://onnxruntime.ai/docs/performance/tune-performance/threading.html
+- https://docs.ultralytics.com/integrations/ncnn/
 
 ### Registro historico de 19/09/2026
 
