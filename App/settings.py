@@ -38,6 +38,8 @@ FACE_MIN_HEIGHT = _get_int("FACE_MIN_HEIGHT", 40)
 FACE_MIN_CONFIDENCE = _get_float("FACE_MIN_CONFIDENCE", 0.45)
 
 PIPELINE_RUN_IN_PARALLEL = _get_bool("PIPELINE_RUN_IN_PARALLEL", True)
+# Comparar no Pi antes de promover a passada unica a padrao.
+PIPELINE_SHARED_PERSON_POSE = _get_bool("PIPELINE_SHARED_PERSON_POSE", False)
 PIPELINE_MAX_WORKERS = max(1, _get_int("PIPELINE_MAX_WORKERS", 2))
 GESTURE_ANALYZER_FPS = max(1, _get_int("GESTURE_ANALYZER_FPS", 12))
 

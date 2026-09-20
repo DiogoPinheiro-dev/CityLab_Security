@@ -25,6 +25,7 @@ class FaceRecognitionService:
         face_min_height: int = FACE_MIN_HEIGHT,
         face_min_confidence: float = FACE_MIN_CONFIDENCE,
         debug_pipeline: bool = DEBUG_PIPELINE,
+        lazy_person_model: bool = False,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -34,7 +35,7 @@ class FaceRecognitionService:
             self.base_dir, "yolov8n.pt"
         )
 
-        if not os.path.exists(self.yolo_model_path):
+        if not lazy_person_model and not os.path.exists(self.yolo_model_path):
             raise FileNotFoundError(
                 f"Modelo YOLO nao encontrado: {self.yolo_model_path}"
             )
@@ -49,7 +50,7 @@ class FaceRecognitionService:
         self.known_face_names: list[str] = []
         self._load_database()
 
-        self.model_yolo = YOLO(self.yolo_model_path)
+        self.model_yolo = None if lazy_person_model else YOLO(self.yolo_model_path)
         self.app_insight = insightface.app.FaceAnalysis(
             name=face_model_name,
             providers=insight_providers or ["CPUExecutionProvider"],
@@ -138,6 +139,10 @@ class FaceRecognitionService:
         import time
 
         started_at = time.perf_counter()
+        if self.model_yolo is None:
+            if not os.path.exists(self.yolo_model_path):
+                raise FileNotFoundError(f"Modelo YOLO nao encontrado: {self.yolo_model_path}")
+            self.model_yolo = YOLO(self.yolo_model_path)
         results_yolo = self.model_yolo(
             frame_context.processing_frame,
             classes=[0],

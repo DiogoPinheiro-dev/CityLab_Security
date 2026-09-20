@@ -1,4 +1,5 @@
 import base64
+import logging
 import time
 from collections.abc import Iterable
 from datetime import datetime
@@ -12,6 +13,8 @@ from App.settings import (
     COOLDOWN_ALUNO_SECONDS,
     COOLDOWN_NAO_ALUNO_SECONDS,
 )
+
+logger = logging.getLogger(__name__)
 
 
 class EventLogger:
@@ -49,7 +52,7 @@ class EventLogger:
             if event_type == "NAO_ALUNO":
                 payload["imagem_url"] = self._crop_to_base64(frame, bbox)
 
-            await self.logs_collection.insert_one(payload)
+            await self._insert_event(event_type, identity, payload)
 
     async def log_gesture_events(
         self,
@@ -76,17 +79,29 @@ class EventLogger:
             payload["alertas"] = alerts
             payload["track_id"] = track_id
             payload["imagem_url"] = self._crop_to_base64(frame, bbox)
+            await self._insert_event("ALERTA_GESTO", identity, payload)
+
+    async def _insert_event(self, event_type: str, identity: str, payload: dict) -> None:
+        try:
             await self.logs_collection.insert_one(payload)
+        except Exception:
+            logger.exception("Falha ao gravar evento %s; stream preservado.", event_type)
+            return
+        # Uma falha nao consome cooldown nem bloqueia o proximo frame.
+        self.last_logged[f"{event_type}:{identity}"] = time.monotonic()
 
     def _should_log(self, event_type: str, identity: str) -> bool:
         cooldown = self.cooldowns.get(event_type, 0.0)
-        now = time.time()
+        now = time.monotonic()
+        expired = [key for key, last in self.last_logged.items()
+                   if now - last > self.cooldowns.get(key.split(":", 1)[0], 0.0)]
+        for key in expired:
+            del self.last_logged[key]
         key = f"{event_type}:{identity}"
         last = self.last_logged.get(key)
         if last is not None and (now - last) <= cooldown:
             return False
 
-        self.last_logged[key] = now
         return True
 
     def _build_base_payload(

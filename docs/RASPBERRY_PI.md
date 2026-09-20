@@ -76,3 +76,39 @@ servico conforme as dependencias de visao forem instaladas e testadas no hardwar
 ## Medicao reproduzivel
 
 Consulte [BENCHMARK.md](BENCHMARK.md) para protocolo, metricas e limites da medicao.
+
+## Experimento de passada unica de pessoas e pose
+
+Na branch `codex/raspberry-stream-optimization`, configure no `.env`:
+
+```env
+CITYLAB_ALLOW_PARTIAL_PIPELINE=0
+CITYLAB_ENABLE_FACE_SERVICE=1
+CITYLAB_ENABLE_GESTURE_SERVICE=1
+PIPELINE_SHARED_PERSON_POSE=1
+ENABLE_PERFORMANCE_METRICS=1
+ENABLE_SYSTEM_MONITOR=1
+```
+
+Reinicie a API com um unico worker. O valor `0` restaura a deteccao separada
+de pessoas e e o padrao enquanto o experimento nao for validado. Evite definir
+a mesma chave em `Server/.env`, pois esse arquivo tem precedencia sobre o raiz.
+Mantenha `PIPELINE_RUN_IN_PARALLEL` e `PIPELINE_MAX_WORKERS` iguais nas duas
+configuracoes; use `DEBUG_PIPELINE=1` para conferir o modo efetivo no payload.
+
+Com a opcao ativa, `persons_ms` e zero: o custo compartilhado esta em `pose_ms`,
+dentro de `gestures_ms`. A cena vazia tambem executa pose e pode ficar mais lenta.
+Rostos continuam sendo analisados em todos os frames. O detector separado de
+pessoas e carregado sob demanda quando gestos estiverem desativados/indisponiveis.
+
+Compare primeiro `0` e depois `1`, tres rodadas por cenario (vazio, uma e duas
+pessoas), reiniciando a API a cada rodada. Exemplo no computador com webcam:
+
+```bash
+python tools/benchmark_stream.py --camera-index 0 --scenario many-persons --run-label pi3-shared-1-r1 --warmup 5 --frames 30 --output resultados/pi3-shared-1/duas-pessoas-r1.json
+```
+
+Anote o commit e a configuracao com cada rodada. Verifique pessoas distantes,
+de lado e rostos pequenos, alem dos gestos. So considerar ganho acima de 5%
+repetido nas tres rodadas e sem perda de deteccoes. As regras temporais de gesto
+mudaram nesta branch; mantenha essa versao nos dois lados da comparacao.

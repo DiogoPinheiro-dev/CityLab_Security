@@ -36,7 +36,48 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
    contagem de alertas entre versoes com desempenho diferente. Ver o "Balanco
    da fase 1".
 
-## Estado verificado em 19/09/2026
+## Estado verificado em 20/09/2026
+
+- Pedido atual: implementar otimizacoes com base no PDF em branch nova.
+  Branch local `codex/raspberry-stream-optimization`, criada a partir de
+  `origin/otimizations-tests` (`53de153`), que contem a linha de base citada.
+- Acao 1 implementada: falha de insert e registrada sem sair do stream;
+  cooldown so comeca apos sucesso, usa relogio monotono e remove entradas
+  expiradas na proxima consulta. Nao ha fila nem repeticao automatica do mesmo
+  payload; a proxima deteccao pode tentar novamente. Cancelamento continua
+  propagando. Eventos durante indisponibilidade do banco podem nao ser salvos.
+- Acao 2 implementada: acumuladores usam segundos entre observacoes do track,
+  com um timestamp por frame de gesto. Limiares: mao oculta 0,35 s, rendicao
+  0,30 s, braco estendido 0,40 s, mao fechada 0,20 s e ameaca 0,22 s.
+  `GESTURE_ANALYZER_FPS` permanece aceito por compatibilidade, mas nao determina
+  mais os limiares. Os nomes internos `*_frames` agora guardam segundos.
+  A primeira observacao ativa nao herda tempo anterior; a seguinte acumula o
+  intervalo se o gesto continuar ativo. Decaimentos tambem usam segundos, com
+  as mesmas taxas relativas anteriores. Tracks ausentes perdem o historico.
+  Isso supoe continuidade entre amostras ativas: nao recupera gestos que a
+  camera/servidor nao amostraram. Pausas longas com o mesmo track tambem entram
+  no intervalo. Os limiares exigem validacao funcional no Pi.
+- Acao 3 implementada como experimento reversivel:
+  `PIPELINE_SHARED_PERSON_POSE=1` usa caixas/confiancas da pose para pessoas,
+  mantendo coordenadas originais e a analise de maos. O YOLO separado de pessoas
+  so e carregado se um caminho de fallback precisar dele. A configuracao
+  funciona em modo sequencial e paralelo, inclusive em cena vazia. Sem gesto
+  ativo/disponivel, usa o detector de pessoas existente.
+  Padrao `0`, ate confirmar qualidade e desempenho no hardware.
+- Validacao local sem modelos: testes de falha/repeticao/cooldown/cancelamento,
+  tempo de gesto, passada unica, fallback, coordenadas e cena vazia.
+  Resultado: 16 testes Python e 3 testes do cliente passaram; sintaxe dos
+  arquivos Python validada para 3.11. Os testes Python rodam no host 3.13,
+  com dependencias nativas substituidas por doubles nos contratos de servico.
+  A execucao real dos modelos, o recall e o ganho no Raspberry ainda nao foram
+  medidos nesta branch; nao ha resultado de performance novo nem deploy.
+- Acoes 4 a 9 continuam pendentes. Nao foram alterados limiares dos detectores,
+  modulos do InsightFace, resolucoes, threads internas ou transporte.
+  Proximo passo de medicao: comparar `PIPELINE_SHARED_PERSON_POSE=0` e `1`
+  nesta mesma branch, com as regras temporais iguais nos dois casos, seguindo
+  `docs/BENCHMARK.md`. Nao comparar contagens de alertas com a regra antiga.
+
+### Registro historico de 19/09/2026
 
 - No inicio da validacao, branch `otimizations-tests`, commit `b05058f`,
   working tree limpo. As adaptacoes locais para webcam e este plano ainda

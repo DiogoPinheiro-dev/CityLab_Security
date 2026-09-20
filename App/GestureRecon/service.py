@@ -46,6 +46,7 @@ class GestureRecognitionService:
         self.hand_detector = HandDetector()
         self.last_track_centers: dict[int, tuple[float, float]] = {}
         self.next_track_id = 1
+        self.latest_persons: list[dict[str, Any]] = []
         self.latest_metrics: dict[str, float] = {
             "pose_ms": 0.0,
             "hands_ms": 0.0,
@@ -61,8 +62,12 @@ class GestureRecognitionService:
         import time
 
         total_started = time.perf_counter()
-        if not person_bboxes:
+        observed_at = time.monotonic()
+        self.latest_persons = []
+        # None: a pose fornece as pessoas. []: gate legado sem pessoas.
+        if person_bboxes == []:
             self.analyzer.clean_old_tracks([])
+            self.last_track_centers.clear()
             self.latest_metrics = {
                 "pose_ms": 0.0,
                 "hands_ms": 0.0,
@@ -86,6 +91,7 @@ class GestureRecognitionService:
 
         if not pose_results:
             self.analyzer.clean_old_tracks(current_tracks)
+            self.last_track_centers.clear()
             self.latest_metrics = {
                 "pose_ms": pose_ms,
                 "hands_ms": hands_total_ms,
@@ -94,8 +100,18 @@ class GestureRecognitionService:
             return people
 
         result = pose_results[0]
+        if result.boxes is not None:
+            boxes = self._to_numpy(result.boxes.xyxy)
+            confidences = self._to_numpy(result.boxes.conf)
+            self.latest_persons = [
+                {"bbox": frame_context.clip_original_bbox(
+                    frame_context.map_bbox_to_original([int(value) for value in box])),
+                 "confidence": float(confidence)}
+                for box, confidence in zip(boxes, confidences)
+            ]
         if result.boxes is None or result.keypoints is None:
             self.analyzer.clean_old_tracks(current_tracks)
+            self.last_track_centers.clear()
             self.latest_metrics = {
                 "pose_ms": pose_ms,
                 "hands_ms": hands_total_ms,
@@ -127,6 +143,7 @@ class GestureRecognitionService:
                 keypoints,
                 box,
                 hand_context=hand_context,
+                observed_at=observed_at,
             )
             alerts = analysis["alerts"]
 

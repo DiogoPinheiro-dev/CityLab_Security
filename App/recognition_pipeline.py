@@ -14,6 +14,7 @@ from App.settings import (
     EXPERIMENTAL_GRAYSCALE,
     PIPELINE_MAX_WORKERS,
     PIPELINE_RUN_IN_PARALLEL,
+    PIPELINE_SHARED_PERSON_POSE,
     PROCESS_SCALE,
 )
 
@@ -67,8 +68,10 @@ class UnifiedRecognitionService:
         experimental_grayscale: bool = EXPERIMENTAL_GRAYSCALE,
         debug_pipeline: bool = DEBUG_PIPELINE,
         enable_performance_metrics: bool = ENABLE_PERFORMANCE_METRICS,
+        shared_person_pose: bool = PIPELINE_SHARED_PERSON_POSE,
     ) -> None:
         self.allow_partial_pipeline = _env_bool("CITYLAB_ALLOW_PARTIAL_PIPELINE", False)
+        self.shared_person_pose = shared_person_pose
         self.face_service = face_service or self._create_face_service()
         self.gesture_service = gesture_service or self._create_gesture_service()
         self.run_in_parallel = run_in_parallel
@@ -89,7 +92,7 @@ class UnifiedRecognitionService:
             return None
 
         try:
-            return _load_face_service_class()()
+            return _load_face_service_class()(lazy_person_model=self.shared_person_pose)
         except Exception as exc:
             if not self.allow_partial_pipeline:
                 raise
@@ -132,7 +135,9 @@ class UnifiedRecognitionService:
         )
 
         persons: list[dict[str, Any]] = []
-        if detect_persons and self.face_service is not None:
+        use_shared_pose = (self.shared_person_pose and detect_gestures
+                           and self.gesture_service is not None)
+        if detect_persons and self.face_service is not None and not use_shared_pose:
             persons = self.face_service.detect_persons(frame_context)
             metrics["persons_ms"] = self.face_service.latest_metrics.get("persons_ms", 0.0)
         else:
@@ -148,6 +153,7 @@ class UnifiedRecognitionService:
                 detect_faces=detect_faces,
                 detect_gestures=detect_gestures,
                 metrics=metrics,
+                use_shared_pose=use_shared_pose,
             )
         else:
             if detect_faces and self.face_service is not None:
@@ -156,10 +162,10 @@ class UnifiedRecognitionService:
             else:
                 metrics["faces_ms"] = 0.0
 
-            if detect_gestures and persons and self.gesture_service is not None:
+            if detect_gestures and self.gesture_service is not None:
                 gestures = self.gesture_service.detect_gestures(
                     frame_context,
-                    person_bboxes=persons,
+                    person_bboxes=None if use_shared_pose else persons,
                 )
                 metrics["gestures_ms"] = self.gesture_service.latest_metrics.get("gestures_ms", 0.0)
                 metrics["hands_ms"] = self.gesture_service.latest_metrics.get("hands_ms", 0.0)
@@ -168,6 +174,9 @@ class UnifiedRecognitionService:
                 metrics["gestures_ms"] = 0.0
                 metrics["hands_ms"] = 0.0
                 metrics["pose_ms"] = 0.0
+
+        if use_shared_pose and detect_persons:
+            persons = self.gesture_service.latest_persons
 
         payload = self._merge_payloads(
             face_payload={"faces": faces, "persons": persons},
@@ -189,6 +198,8 @@ class UnifiedRecognitionService:
         if self.debug_pipeline:
             payload["debug"] = {
                 "process_scale": self.process_scale,
+                "shared_person_pose": use_shared_pose,
+                "run_in_parallel": self.run_in_parallel,
                 "processing_resolution": [
                     int(frame_context.processing_frame.shape[1]),
                     int(frame_context.processing_frame.shape[0]),
@@ -212,6 +223,7 @@ class UnifiedRecognitionService:
         detect_faces: bool,
         detect_gestures: bool,
         metrics: dict[str, float],
+        use_shared_pose: bool = False,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
         face_future = None
         gesture_future = None
@@ -223,14 +235,13 @@ class UnifiedRecognitionService:
             )
         if (
             detect_gestures
-            and persons
             and self.gesture_service is not None
             and self.executor is not None
         ):
             gesture_future = self.executor.submit(
                 self.gesture_service.detect_gestures,
                 frame_context,
-                persons,
+                None if use_shared_pose else persons,
             )
 
         faces: list[dict[str, Any]] = []
