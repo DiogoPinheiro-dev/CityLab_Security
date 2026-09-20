@@ -38,6 +38,15 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
 
 ## Estado verificado em 20/09/2026
 
+### Integracao na branch otimizations-tests
+
+- `codex/raspberry-stream-optimization` (`e1585e2`) foi integrada em
+  `otimizations-tests` por fast-forward a partir de `53de153`, sem conflitos.
+- Apos a integracao, passaram 39 testes Python e 3 testes do cliente;
+  `git diff --check 53de153..e1585e2` nao apontou erros.
+- Esta integracao nao alterou `main` nem executou deploy ou nova medicao no Pi.
+  Ganho de desempenho e recall ainda exigem validacao no dispositivo.
+
 ### Fechamento da implementacao local para Pi 3 B+
 
 - `tools/run_rpi.py` inicia o perfil com um processo e sem reload. Prepara
