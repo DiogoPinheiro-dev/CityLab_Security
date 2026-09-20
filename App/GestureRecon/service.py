@@ -6,6 +6,10 @@ from typing import cast
 import numpy as np
 from ultralytics import YOLO
 
+from App.frame_context import FrameContext
+from App.settings import (GESTURE_ANALYZER_FPS, GESTURE_MAX_OBSERVATION_GAP_SECONDS,
+                          POSE_MODEL_PATH, PROJECT_ROOT)
+
 try:
     from App.GestureRecon.detector import GestureAnalyzer
     from App.GestureRecon.hand_detector import HandDetector
@@ -22,14 +26,15 @@ class GestureRecognitionService:
         self,
         base_dir: Optional[str] = None,
         pose_model_path: Optional[str] = None,
-        fps: int = 12,
+        fps: int = GESTURE_ANALYZER_FPS,
         tracker: str = "bytetrack.yaml",
         fallback_match_distance: float = 120.0,
     ) -> None:
         self.base_dir = Path(base_dir) if base_dir else Path(__file__).resolve().parent
-        self.pose_model_path = Path(pose_model_path) if pose_model_path else (
-            self.base_dir / "yolov8n-pose.pt"
-        )
+        configured_path = pose_model_path or POSE_MODEL_PATH
+        self.pose_model_path = Path(configured_path).expanduser() if configured_path else self.base_dir / "yolov8n-pose.pt"
+        if configured_path and not self.pose_model_path.is_absolute():
+            self.pose_model_path = PROJECT_ROOT / self.pose_model_path
         self.tracker = tracker
         self.fallback_match_distance = fallback_match_distance
 
@@ -38,36 +43,82 @@ class GestureRecognitionService:
                 f"Modelo de pose nao encontrado: {self.pose_model_path}"
             )
 
-        self.pose_model = YOLO(str(self.pose_model_path))
-        self.analyzer = GestureAnalyzer(fps=fps)
+        self.pose_model = YOLO(str(self.pose_model_path), task="pose")
+        self.analyzer = GestureAnalyzer(fps=fps, max_observation_gap=GESTURE_MAX_OBSERVATION_GAP_SECONDS)
         self.hand_detector = HandDetector()
         self.last_track_centers: dict[int, tuple[float, float]] = {}
         self.next_track_id = 1
+        self.latest_persons: list[dict[str, Any]] = []
+        self.latest_metrics: dict[str, float] = {
+            "pose_ms": 0.0,
+            "hands_ms": 0.0,
+            "gestures_ms": 0.0,
+        }
 
     def detect_gestures(
         self,
-        frame: np.ndarray,
+        frame_context: FrameContext,
+        person_bboxes: Optional[list[dict[str, Any]]] = None,
         include_keypoints: bool = False,
     ) -> list[dict[str, Any]]:
-        hand_detections = self.hand_detector.detect(frame)
+        import time
+
+        total_started = time.perf_counter()
+        observed_at = frame_context.observed_at
+        self.latest_persons = []
+        # None: a pose fornece as pessoas. []: gate legado sem pessoas.
+        if person_bboxes == []:
+            self.analyzer.clean_old_tracks([])
+            self.last_track_centers.clear()
+            self.latest_metrics = {
+                "pose_ms": 0.0,
+                "hands_ms": 0.0,
+                "gestures_ms": 0.0,
+            }
+            return []
+
+        pose_started = time.perf_counter()
         pose_results = self.pose_model.track(
-            frame,
+            frame_context.processing_frame,
             persist=True,
             tracker=self.tracker,
             classes=[0],
             verbose=False,
         )
+        pose_ms = (time.perf_counter() - pose_started) * 1000.0
 
         people: list[dict[str, Any]] = []
         current_tracks: list[int] = []
+        hands_total_ms = 0.0
 
         if not pose_results:
             self.analyzer.clean_old_tracks(current_tracks)
+            self.last_track_centers.clear()
+            self.latest_metrics = {
+                "pose_ms": pose_ms,
+                "hands_ms": hands_total_ms,
+                "gestures_ms": (time.perf_counter() - total_started) * 1000.0,
+            }
             return people
 
         result = pose_results[0]
+        if result.boxes is not None:
+            boxes = self._to_numpy(result.boxes.xyxy)
+            confidences = self._to_numpy(result.boxes.conf)
+            self.latest_persons = [
+                {"bbox": frame_context.clip_original_bbox(
+                    frame_context.map_bbox_to_original([int(value) for value in box])),
+                 "confidence": float(confidence)}
+                for box, confidence in zip(boxes, confidences)
+            ]
         if result.boxes is None or result.keypoints is None:
             self.analyzer.clean_old_tracks(current_tracks)
+            self.last_track_centers.clear()
+            self.latest_metrics = {
+                "pose_ms": pose_ms,
+                "hands_ms": hands_total_ms,
+                "gestures_ms": (time.perf_counter() - total_started) * 1000.0,
+            }
             return people
 
         boxes = self._to_numpy(result.boxes.xyxy)
@@ -82,30 +133,59 @@ class GestureRecognitionService:
             zip(boxes, track_ids, keypoints_batch)
         ):
             current_tracks.append(track_id)
+            hand_started = time.perf_counter()
+            hand_detections = self._detect_hands_in_body_roi(
+                frame_context.processing_frame,
+                box,
+            )
+            hands_total_ms += (time.perf_counter() - hand_started) * 1000.0
             hand_context = self._associate_hands(box, keypoints, hand_detections)
             analysis = self.analyzer.analyze(
                 track_id,
                 keypoints,
                 box,
                 hand_context=hand_context,
+                observed_at=observed_at,
             )
             alerts = analysis["alerts"]
 
             people.append(
                 {
                     "track_id": track_id,
-                    "bbox": [int(value) for value in box],
+                    "bbox": frame_context.clip_original_bbox(
+                        frame_context.map_bbox_to_original([int(value) for value in box])
+                    ),
                     "alerts": alerts,
                     "confidence": float(confidences[index]),
                     "hand_context": analysis["hand_context"],
                     "hidden_debug": analysis["hidden_debug"],
                     **(
-                        {"matched_hands": hand_context["matched_hands"]}
+                        {
+                            "matched_hands": [
+                                {
+                                    **hand,
+                                    "bbox": frame_context.clip_original_bbox(
+                                        frame_context.map_bbox_to_original(hand["bbox"])
+                                    ),
+                                }
+                                for hand in hand_context["matched_hands"]
+                            ]
+                        }
                         if hand_context["matched_hands"]
                         else {}
                     ),
                     **(
-                        {"keypoints": keypoints.tolist()}
+                        {
+                            "keypoints": [
+                                [
+                                    *frame_context.map_point_to_original(
+                                        [float(point[0]), float(point[1])]
+                                    ),
+                                    float(point[2]),
+                                ]
+                                for point in keypoints.tolist()
+                            ]
+                        }
                         if include_keypoints
                         else {}
                     ),
@@ -113,23 +193,72 @@ class GestureRecognitionService:
             )
 
         self.analyzer.clean_old_tracks(current_tracks)
+        self.latest_metrics = {
+            "pose_ms": pose_ms,
+            "hands_ms": hands_total_ms,
+            "gestures_ms": (time.perf_counter() - total_started) * 1000.0,
+        }
         return people
 
     def process_frame(
         self,
-        frame: np.ndarray,
+        frame_context: FrameContext,
         detect_pose: bool = True,
+        person_bboxes: Optional[list[dict[str, Any]]] = None,
         include_keypoints: bool = False,
     ) -> dict[str, Any]:
         response: dict[str, Any] = {"gestures": []}
 
-        if detect_pose:
+        if detect_pose and person_bboxes:
             response["gestures"] = self.detect_gestures(
-                frame,
+                frame_context,
+                person_bboxes=person_bboxes,
                 include_keypoints=include_keypoints,
             )
 
         return response
+
+    def _detect_hands_in_body_roi(
+        self,
+        frame: np.ndarray,
+        box: np.ndarray,
+    ) -> list[dict[str, Any]]:
+        frame_h, frame_w = frame.shape[:2]
+        x1, y1, x2, y2 = [int(value) for value in box]
+        x1 = max(0, min(frame_w, x1))
+        y1 = max(0, min(frame_h, y1))
+        x2 = max(0, min(frame_w, x2))
+        y2 = max(0, min(frame_h, y2))
+        if x2 <= x1 or y2 <= y1:
+            return []
+
+        roi = frame[y1:y2, x1:x2]
+        if roi.size == 0:
+            return []
+
+        roi_hands = self.hand_detector.detect(roi)
+        remapped_hands: list[dict[str, Any]] = []
+        for hand in roi_hands:
+            remapped_hands.append(
+                {
+                    **hand,
+                    "bbox": [
+                        int(hand["bbox"][0] + x1),
+                        int(hand["bbox"][1] + y1),
+                        int(hand["bbox"][2] + x1),
+                        int(hand["bbox"][3] + y1),
+                    ],
+                    "center": [
+                        int(hand["center"][0] + x1),
+                        int(hand["center"][1] + y1),
+                    ],
+                    "landmarks": [
+                        (int(point[0] + x1), int(point[1] + y1))
+                        for point in hand.get("landmarks", [])
+                    ],
+                }
+            )
+        return remapped_hands
 
     def _associate_hands(
         self,

@@ -1,5 +1,4 @@
 import asyncio
-import base64
 import io
 import os
 import socket
@@ -8,7 +7,8 @@ import time
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import List
+from typing import Optional
 
 import cv2
 import numpy as np
@@ -24,8 +24,22 @@ if str(PROJECT_ROOT) not in sys.path:
 CLIENT_DIR = PROJECT_ROOT / "Client"
 
 from App.recognition_pipeline import UnifiedRecognitionService, create_unified_service
+from App.settings import (
+    DEBUG_PIPELINE,
+    ENABLE_PERFORMANCE_METRICS,
+    ENABLE_SYSTEM_MONITOR,
+    GESTURE_IDLE_RESET_SECONDS,
+    JPEG_QUALITY,
+    MAX_IN_FLIGHT_FRAMES,
+    PIPELINE_MAX_WORKERS,
+    PROCESS_SCALE,
+    STREAM_FPS,
+    STREAM_HEIGHT,
+    STREAM_WIDTH,
+)
 from Server.Db.database import MONGO_DB_NAME, colecao_alunos, colecao_logs, validar_conexao_mongo
-
+from Server.event_logger import EventLogger
+from Server.system_monitor import SystemMonitor
 
 class LogResponse(BaseModel):
     id: str
@@ -34,6 +48,12 @@ class LogResponse(BaseModel):
     data_hora: str
     imagem_url: Optional[str] = None
 
+class ClientStreamConfig(BaseModel):
+    stream_fps: int
+    jpeg_quality: float
+    stream_width: int
+    stream_height: int
+    max_in_flight_frames: int
 
 banco_rostos_memoria = {
     "nomes": [],
@@ -41,18 +61,18 @@ banco_rostos_memoria = {
 }
 
 recognizer: Optional[UnifiedRecognitionService] = None
-
+event_logger = EventLogger(colecao_logs)
+system_monitor = SystemMonitor(enabled=ENABLE_SYSTEM_MONITOR)
 
 def _sync_memoria_para_recognizer() -> None:
     current_recognizer = recognizer
-    if current_recognizer is None:
+    if current_recognizer is None or current_recognizer.face_service is None:
         return
 
     current_recognizer.face_service.replace_known_faces(
         banco_rostos_memoria["nomes"],
         banco_rostos_memoria["embeddings"],
     )
-
 
 def _get_local_network_ip() -> str:
     try:
@@ -64,7 +84,6 @@ def _get_local_network_ip() -> str:
             return socket.gethostbyname(socket.gethostname())
         except OSError:
             return "127.0.0.1"
-
 
 def _build_public_base_url(request: Request) -> str:
     configured_url = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
@@ -81,7 +100,6 @@ def _build_public_base_url(request: Request) -> str:
 
     return f"{request.url.scheme}://{host}{port_part}"
 
-
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     global recognizer
@@ -91,7 +109,12 @@ async def lifespan(_: FastAPI):
     print("[INFO] Conexao com MongoDB OK.")
 
     print("[INFO] API iniciada. Carregando pipeline unificado...")
-    recognizer = create_unified_service()
+    recognizer = create_unified_service(
+        max_workers=PIPELINE_MAX_WORKERS,
+        process_scale=PROCESS_SCALE,
+        enable_performance_metrics=ENABLE_PERFORMANCE_METRICS,
+        debug_pipeline=DEBUG_PIPELINE,
+    )
 
     print("[INFO] Carregando alunos do MongoDB para memoria...")
     banco_rostos_memoria["nomes"].clear()
@@ -106,17 +129,32 @@ async def lifespan(_: FastAPI):
     print(f"[INFO] {len(banco_rostos_memoria['nomes'])} alunos carregados.")
 
     yield
-    print("[INFO] API desligada.")
 
+    if recognizer is not None:
+        recognizer.close()
+    print("[INFO] API desligada.")
 
 app = FastAPI(title="API FaceRecon", lifespan=lifespan)
 
 if CLIENT_DIR.exists():
     app.mount("/client", StaticFiles(directory=CLIENT_DIR), name="client")
 
+
 @app.get("/")
 async def home():
     return {"status": "online", "banco": MONGO_DB_NAME}
+
+
+@app.get("/config/client", response_model=ClientStreamConfig)
+async def client_stream_config():
+    return ClientStreamConfig(
+        stream_fps=STREAM_FPS,
+        jpeg_quality=JPEG_QUALITY,
+        stream_width=STREAM_WIDTH,
+        stream_height=STREAM_HEIGHT,
+        max_in_flight_frames=MAX_IN_FLIGHT_FRAMES,
+    )
+
 
 @app.get("/cadastros")
 @app.get("/cadastro")
@@ -127,6 +165,7 @@ async def pagina_cadastros():
 
     return FileResponse(cadastro_page)
 
+
 @app.get("/access-info")
 async def access_info(request: Request):
     public_base_url = _build_public_base_url(request)
@@ -134,6 +173,7 @@ async def access_info(request: Request):
         "base_url": public_base_url,
         "cadastro_url": f"{public_base_url}/cadastros",
     }
+
 
 @app.get("/qrcode/cadastro.png")
 async def qrcode_cadastro(request: Request, url: Optional[str] = None):
@@ -166,6 +206,7 @@ async def qrcode_cadastro(request: Request, url: Optional[str] = None):
 
     return StreamingResponse(buffer, media_type="image/png")
 
+
 @app.post("/cadastro")
 async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
     if not foto.filename or not foto.filename.lower().endswith((".jpg", ".jpeg", ".png")):
@@ -174,6 +215,8 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
     current_recognizer = recognizer
     if current_recognizer is None:
         raise HTTPException(status_code=503, detail="Pipeline de reconhecimento nao esta pronta.")
+    if current_recognizer.face_service is None:
+        raise HTTPException(status_code=503, detail="Servico facial nao esta disponivel neste ambiente.")
 
     try:
         conteudo_arquivo = await foto.read()
@@ -216,6 +259,7 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Erro interno no servidor: {exc}")
 
+
 @app.get("/logs", response_model=List[LogResponse])
 async def visualizar_logs(limite: int = 50):
     logs_db = []
@@ -234,6 +278,7 @@ async def visualizar_logs(limite: int = 50):
 
     return logs_db
 
+
 @app.get("/stream")
 async def pagina_stream():
     stream_page = CLIENT_DIR / "teste_websocket.html"
@@ -245,71 +290,66 @@ async def pagina_stream():
         headers={"Cache-Control": "no-store"},
     )
 
+
 @app.websocket("/stream")
 async def websocket_reconhecimento(websocket: WebSocket):
     await websocket.accept()
     print("[INFO] Cliente Web conectado ao stream de video.")
 
-    recently_logged: Dict[str, float] = {}
-    log_cooldown_seconds = 5
-
+    completed_frames = 0
+    stream_started_at = None
+    first_valid_frame = True
     try:
         while True:
+            receive_started_at = time.perf_counter()
+            bytes_frame = await websocket.receive_bytes()
+            frame_started_at = time.perf_counter()
+            receive_wait_ms = (frame_started_at - receive_started_at) * 1000.0
+            if stream_started_at is None:
+                stream_started_at = frame_started_at
             current_recognizer = recognizer
             if current_recognizer is None:
                 await websocket.send_json({"erro": "Pipeline de reconhecimento nao inicializada."})
                 await asyncio.sleep(0.2)
                 continue
 
-            bytes_frame = await websocket.receive_bytes()
+            decode_started_at = time.perf_counter()
             nparr = np.frombuffer(bytes_frame, np.uint8)
             frame = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            decode_ms = (time.perf_counter() - decode_started_at) * 1000.0
 
             if frame is None:
+                await websocket.send_json({"erro": "Frame JPEG invalido."})
                 continue
 
+            pipeline_started_at = time.perf_counter()
+            if first_valid_frame or receive_wait_ms > GESTURE_IDLE_RESET_SECONDS * 1000:
+                current_recognizer.reset_gesture_history()
+            first_valid_frame = False
             results = current_recognizer.process_frame(frame)
+            pipeline_ms = (time.perf_counter() - pipeline_started_at) * 1000.0
+
+            faces = [face for face in results.get("faces", []) if not face.get("debug_only")]
+            gestures = results.get("gestures", [])
+
+            log_started_at = time.perf_counter()
+            await event_logger.log_face_events(frame, faces)
+            await event_logger.log_gesture_events(frame, gestures)
+            logs_ms = (time.perf_counter() - log_started_at) * 1000.0
 
             resultados_faces = []
-            for face in results.get("faces", []):
+            for face in faces:
                 bbox = face.get("bbox")
                 if not bbox or len(bbox) != 4:
                     continue
 
-                nome_detectado = face.get("name", "NAO ALUNO")
-                resultado_face = {
-                    "nome": nome_detectado,
-                    "bbox": bbox,
-                    "confidence": face.get("confidence"),
-                }
-                resultados_faces.append(resultado_face)
-
-                tempo_atual = time.time()
-                if nome_detectado in recently_logged and (tempo_atual - recently_logged[nome_detectado] <= log_cooldown_seconds):
-                    continue
-
-                recently_logged[nome_detectado] = tempo_atual
-
-                x1, y1, x2, y2 = [int(valor) for valor in bbox]
-                h_full, w_full = frame.shape[:2]
-                crop_x1, crop_y1 = max(0, x1), max(0, y1)
-                crop_x2, crop_y2 = min(w_full, x2), min(h_full, y2)
-                rosto_recortado = frame[crop_y1:crop_y2, crop_x1:crop_x2]
-
-                imagem_base64 = ""
-                if rosto_recortado.size > 0:
-                    _, buffer = cv2.imencode(".jpg", rosto_recortado)
-                    imagem_base64 = base64.b64encode(buffer).decode("utf-8")
-                    imagem_base64 = f"data:image/jpeg;base64,{imagem_base64}"
-
-                novo_log = {
-                    "nome": nome_detectado,
-                    "tipo": "RECONHECIDO" if nome_detectado != "NAO ALUNO" else "NAO_ALUNO",
-                    "data_hora_formatada": datetime.now().strftime("%d/%m/%Y - %H:%M:%S"),
-                    "data_hora_raw": datetime.now(),
-                    "imagem_rosto": imagem_base64,
-                }
-                await colecao_logs.insert_one(novo_log)
+                resultados_faces.append(
+                    {
+                        "nome": face.get("name", "NAO ALUNO"),
+                        "bbox": bbox,
+                        "confidence": face.get("confidence"),
+                    }
+                )
 
             resultados_pessoas = []
             for person in results.get("persons", []):
@@ -325,7 +365,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
                 )
 
             resultados_gestos = []
-            for gesture in results.get("gestures", []):
+            for gesture in gestures:
                 bbox = gesture.get("bbox")
                 if not bbox or len(bbox) != 4:
                     continue
@@ -334,10 +374,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
                     {
                         "track_id": int(gesture.get("track_id", -1)),
                         "bbox": [int(valor) for valor in bbox],
-                        "alerts": [
-                            str(alert)
-                            for alert in gesture.get("alerts", [])
-                        ],
+                        "alerts": [str(alert) for alert in gesture.get("alerts", [])],
                         "confidence": gesture.get("confidence"),
                     }
                 )
@@ -347,7 +384,34 @@ async def websocket_reconhecimento(websocket: WebSocket):
                 "pessoas": resultados_pessoas,
                 "gestos": resultados_gestos,
             }
+
+            metrics = dict(results.get("metrics", {}))
+            # Waiting for the next message is not processing or network latency.
+            metrics.pop("total_ms", None)
+            metrics.pop("effective_fps", None)
+            metrics["receive_wait_ms"] = receive_wait_ms
+            metrics["decode_ms"] = decode_ms
+            metrics["pipeline_ms"] = pipeline_ms
+            metrics["logs_ms"] = logs_ms
+            metrics["response_ready_ms"] = (time.perf_counter() - frame_started_at) * 1000.0
+            if ENABLE_PERFORMANCE_METRICS:
+                metrics.update(system_monitor.resource_snapshot())
+
+            if DEBUG_PIPELINE or ENABLE_PERFORMANCE_METRICS:
+                resposta["metrics"] = metrics
+            if DEBUG_PIPELINE and "debug" in results:
+                resposta["debug"] = results["debug"]
+
+            send_started_at = time.perf_counter()
             await websocket.send_json(resposta)
+            finished_at = time.perf_counter()
+            completed_frames += 1
+            # These values exist only after sending; keep them in the server monitor.
+            metrics["send_ms"] = (finished_at - send_started_at) * 1000.0
+            metrics["total_ms"] = (finished_at - frame_started_at) * 1000.0
+            metrics["effective_fps"] = completed_frames / (finished_at - stream_started_at)
+            system_monitor.record_frame_metrics(metrics)
+            system_monitor.maybe_log_snapshot()
 
     except WebSocketDisconnect:
         print("[INFO] Cliente Web desconectado.")

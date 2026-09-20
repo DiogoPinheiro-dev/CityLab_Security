@@ -1,6 +1,7 @@
 .env
 .env.*
 !.env.example
+!.env.rpi.example
 
 # Python cache/bytecode
 __pycache__/
@@ -19,4 +20,11 @@ __pycache__/
 .mplconfig/
 .ultralytics/
 Ultralytics/
+*_ncnn_model/
 App/.insightface/
+
+
+#Chaves
+*.pem
+*.pub
+ssh-key.txt

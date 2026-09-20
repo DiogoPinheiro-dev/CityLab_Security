@@ -5,7 +5,7 @@ API FastAPI para reconhecimento em tempo real com:
 - reconhecimento facial
 - deteccao de pessoas
 - analise de gestos suspeitos
-- deteccao de objetos suspeitos
+- deteccao de maos para refinar gestos
 
 Hoje o servidor sobe usando diretamente a pipeline unificada em [App/recognition_pipeline.py](/e:/Codigos/CityLab_Security/App/recognition_pipeline.py), que orquestra:
 
@@ -20,7 +20,7 @@ Arquivos principais do projeto:
 - [Server/Db/database.py](/e:/Codigos/CityLab_Security/Server/Db/database.py): conexao com MongoDB
 - [App/recognition_pipeline.py](/e:/Codigos/CityLab_Security/App/recognition_pipeline.py): pipeline unificada
 - [App/FaceRecon/service.py](/e:/Codigos/CityLab_Security/App/FaceRecon/service.py): reconhecimento facial e deteccao de pessoas
-- [App/GestureRecon/service.py](/e:/Codigos/CityLab_Security/App/GestureRecon/service.py): gestos e objetos suspeitos
+- [App/GestureRecon/service.py](/e:/Codigos/CityLab_Security/App/GestureRecon/service.py): gestos, pose e maos
 - [App/GestureRecon/detector.py](/e:/Codigos/CityLab_Security/App/GestureRecon/detector.py): regras de interpretacao de pose
 - [App/camera_auto_config.py](/e:/Codigos/CityLab_Security/App/camera_auto_config.py): ajuste automatico de imagem
 - [Client/teste_websocket.html](/e:/Codigos/CityLab_Security/Client/teste_websocket.html): cliente web simples para teste
@@ -33,40 +33,19 @@ Arquivos principais do projeto:
 
 O projeto usa um fluxo leve, sem bloqueio local para commits na `main`. O guia esta em [CONTRIBUTING.md](/e:/Codigos/CityLab_Security/CONTRIBUTING.md).
 
-## Requisitos
+## Requisitos e instalacao
 
-- Python 3.13
-- MongoDB local ou MongoDB Atlas
-- Dependencias instaladas via `requirements.txt`
+O perfil versionado nesta branch usa Raspberry Pi OS Bookworm 64-bit e Python 3.11.
+Siga [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md) para instalar OpenCV do sistema,
+criar o ambiente e instalar `requirements-rpi-bookworm.txt`. As dependencias dos
+modelos sao opcionais nesse arquivo e precisam ser instaladas e validadas para
+executar o reconhecimento completo. MongoDB local ou Atlas e necessario.
 
-Para Raspberry Pi 3 B+ use o perfil separado:
+O workflow de deploy usa o mesmo perfil e o ambiente `citylab_venv` com acesso aos
+pacotes do sistema. Ele exige que OpenCV ja esteja instalado no host. Se o ambiente
+existente usa outro Python, recrie-o com Python 3.11 antes do deploy.
 
-- Raspberry Pi OS Legacy 64-bit Bookworm
-- Python 3.11
-- Dependencias de `requirements-rpi-bookworm.txt`
-- Guia em [docs/RASPBERRY_PI.md](/e:/Codigos/CityLab_Security/docs/RASPBERRY_PI.md)
-
-Modelos e arquivos esperados:
-
-- `App/FaceRecon/yolov8n.pt`
-- `App/FaceRecon/base_dados_alunos.pkl`
-- `App/GestureRecon/yolov8n-pose.pt`
-
-Observacao sobre InsightFace:
-
-- O servidor usa modelos em `%USERPROFILE%\.insightface\models\buffalo_l` por padrao.
-- Se esse modelo nao existir, o InsightFace tenta baixar automaticamente na primeira execucao.
-
-## Configuracao do ambiente
-
-Na raiz do projeto:
-
-```powershell
-py -3.13 -m venv .venv
-.venv\Scripts\Activate.ps1
-py -m pip install --upgrade pip
-py -m pip install -r requirements.txt
-```
+Para medir o stream com webcam ou video fixo, consulte [docs/BENCHMARK.md](docs/BENCHMARK.md).
 
 ## Variaveis de ambiente
 
@@ -85,7 +64,7 @@ MONGO_SERVER_SELECTION_TIMEOUT_MS=10000
 Com o ambiente virtual ativo:
 
 ```powershell
-py -m uvicorn Server.main:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn Server.main:app --reload --host 0.0.0.0 --port 8000
 
 ```
 
@@ -112,7 +91,7 @@ Durante o stream websocket:
 
 1. o cliente envia um frame JPEG
 2. o servidor decodifica o frame
-3. a pipeline roda face + pessoas + gestos + objetos
+3. a pipeline roda face + pessoas + gestos
 4. o servidor responde com o payload consolidado
 
 ## Rotas da API
@@ -181,7 +160,7 @@ Resposta de exemplo:
   {
     "id": "67f0...",
     "nome": "Joao Silva",
-    "tipo": "RECONHECIDO",
+    "tipo": "ALUNO",
     "data_hora": "28/03/2026 - 19:20:11",
     "imagem_url": "data:image/jpeg;base64,..."
   }
@@ -220,15 +199,6 @@ Saida do servidor:
       "alerts": ["Rendicao"]
     }
   ],
-  "objetos": [
-    {
-      "class_id": 43,
-      "label": "Arma Branca (Faca)",
-      "bbox": [310, 180, 380, 290],
-      "confidence": 0.76,
-      "center": [345, 235]
-    }
-  ]
 }
 ```
 

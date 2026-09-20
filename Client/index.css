@@ -286,10 +286,6 @@ button:disabled {
     background: var(--danger);
 }
 
-.chip-object {
-    background: #f97316;
-}
-
 .cadastro-layout {
     grid-template-columns: minmax(0, 1fr) 320px;
 }
