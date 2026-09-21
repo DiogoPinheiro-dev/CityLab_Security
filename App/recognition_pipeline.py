@@ -193,6 +193,11 @@ class UnifiedRecognitionService:
         if use_shared_pose and detect_persons:
             persons = self.gesture_service.latest_persons
 
+        if self.gesture_service is not None:
+            # Rosto visto agora protege o proximo frame do gate de movimento:
+            # quem esta parado na cena nao pode sumir por falta de movimento.
+            self.gesture_service.note_external_presence(bool(faces))
+
         payload = self._merge_payloads(
             face_payload={"faces": faces, "persons": persons},
             gesture_payload={"gestures": gestures},

@@ -64,6 +64,9 @@ class GestureRecognitionService:
         self.motion_max_skip_seconds = motion_max_skip_seconds
         self.motion_reference: Optional[np.ndarray] = None
         self.last_pose_at: Optional[float] = None
+        # Cena ja ocupada nao pode ser pulada: pessoa parada quase nao gera
+        # movimento, e pular a pose a tornaria invisivel para gesto.
+        self.scene_occupied = False
         self.latest_metrics: dict[str, float] = {}
         self._store_metrics(0.0, 0.0, 0.0, 0.0, False)
 
@@ -76,6 +79,15 @@ class GestureRecognitionService:
             "motion_ratio": motion_ratio,
             "pose_skipped": 1.0 if pose_skipped else 0.0,
         }
+
+    def note_external_presence(self, present: bool) -> None:
+        """Presenca vista por outro estagio, como o reconhecimento facial.
+
+        Rosto e gesto correm em paralelo, entao o resultado do rosto do frame
+        atual nao chega a tempo do gate; o do frame anterior chega.
+        """
+        if present:
+            self.scene_occupied = True
 
     def _motion_ratio(self, frame: np.ndarray) -> float:
         """Fracao de pixels alterados desde o frame anterior, em escala reduzida."""
@@ -115,7 +127,8 @@ class GestureRecognitionService:
             motion_ratio = self._motion_ratio(frame_context.processing_frame)
             recente = (self.last_pose_at is not None
                        and (observed_at - self.last_pose_at) < self.motion_max_skip_seconds)
-            if motion_ratio < self.motion_min_ratio and recente:
+            parada = motion_ratio < self.motion_min_ratio
+            if parada and recente and not self.scene_occupied:
                 # Cena parada: pular a pose evita o track fantasma e o custo dela.
                 # O teto de tempo acima garante uma passada mesmo sem movimento.
                 self.analyzer.clean_old_tracks([])
@@ -143,6 +156,7 @@ class GestureRecognitionService:
         if not pose_results:
             self.analyzer.clean_old_tracks(current_tracks)
             self.last_track_centers.clear()
+            self.scene_occupied = bool(people)
             self._store_metrics(
                 pose_ms, hands_total_ms,
                 (time.perf_counter() - total_started) * 1000.0, motion_ratio, False)
@@ -162,6 +176,7 @@ class GestureRecognitionService:
         if result.boxes is None or result.keypoints is None:
             self.analyzer.clean_old_tracks(current_tracks)
             self.last_track_centers.clear()
+            self.scene_occupied = bool(people)
             self._store_metrics(
                 pose_ms, hands_total_ms,
                 (time.perf_counter() - total_started) * 1000.0, motion_ratio, False)
@@ -243,6 +258,8 @@ class GestureRecognitionService:
                 }
             )
 
+        # A passada de pose e a unica leitura confiavel de ocupacao da cena.
+        self.scene_occupied = bool(people)
         self.analyzer.clean_old_tracks(current_tracks)
         self._store_metrics(
             pose_ms, hands_total_ms,

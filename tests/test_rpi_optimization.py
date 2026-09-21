@@ -116,11 +116,23 @@ class SharedPipelineTests(unittest.TestCase):
                                 latest_metrics={"faces_ms": 2, "persons_ms": 3})
         gestures = SimpleNamespace(detect_gestures=Mock(return_value=[]),
                                    latest_persons=persons or [],
+                                   note_external_presence=Mock(),
                                    latest_metrics={"pose_ms": 5, "hands_ms": 0, "gestures_ms": 5})
         pipeline = cls(face_service=faces, gesture_service=gestures,
                        run_in_parallel=parallel, shared_person_pose=shared)
         self.addCleanup(pipeline.close)
         return pipeline, faces, gestures
+
+    def test_pipeline_reports_face_presence_to_the_gesture_gate(self):
+        for parallel in (False, True):
+            pipeline, face, gesture = self.make_pipeline(parallel, True)
+            pipeline.process_frame(None)
+            gesture.note_external_presence.assert_called_once_with(True)
+            # Sem rosto o sinal vai como falso e o gate volta a poder pular.
+            face.recognize_faces.return_value = []
+            gesture.note_external_presence.reset_mock()
+            pipeline.process_frame(None)
+            gesture.note_external_presence.assert_called_once_with(False)
 
     def test_single_pass_in_both_execution_modes(self):
         for parallel in (False, True):
@@ -181,6 +193,7 @@ class PoseOutputTests(unittest.TestCase):
         service.motion_max_skip_seconds = 30.
         service.motion_reference = None
         service.last_pose_at = None
+        service.scene_occupied = False
         service.latest_metrics = {}
         context = SimpleNamespace(processing_frame=object(), observed_at=0.0,
                                   map_bbox_to_original=lambda box: [v * 2 for v in box],
@@ -250,6 +263,46 @@ class PoseOutputTests(unittest.TestCase):
         service.detect_gestures(context)
         self.assertEqual(service.pose_model.track.call_count, 2)
         self.assertEqual(service.latest_metrics["pose_skipped"], 0.)
+
+    def test_motion_gate_never_skips_while_the_scene_is_occupied(self):
+        """Pessoa parada quase nao gera movimento: pular a cegaria para gesto."""
+        service, context = self.make_service([])
+        service.motion_gate = True
+        service.last_pose_at = 0.
+        service._motion_ratio = lambda frame: 0.
+        context.observed_at = 10.
+        service.scene_occupied = True
+        service.detect_gestures(context)
+        service.pose_model.track.assert_called_once()
+        self.assertEqual(service.latest_metrics["pose_skipped"], 0.)
+
+    def test_face_presence_protects_the_next_frame_from_the_gate(self):
+        service, context = self.make_service([])
+        service.motion_gate = True
+        service.last_pose_at = 0.
+        service._motion_ratio = lambda frame: 0.
+        context.observed_at = 10.
+        # Sem sinal de rosto a cena parada e pulada...
+        service.detect_gestures(context)
+        self.assertEqual(service.latest_metrics["pose_skipped"], 1.)
+        # ...mas um rosto visto pelo estagio paralelo protege o frame seguinte.
+        service.note_external_presence(True)
+        service.detect_gestures(context)
+        self.assertEqual(service.latest_metrics["pose_skipped"], 0.)
+        service.pose_model.track.assert_called_once()
+
+    def test_pose_without_people_releases_the_gate_again(self):
+        service, context = self.make_service([])
+        service.motion_gate = True
+        service.scene_occupied = True
+        service.last_pose_at = 0.
+        service._motion_ratio = lambda frame: 0.
+        context.observed_at = 10.
+        # A passada de pose e a leitura confiavel: sem ninguem, o gate volta.
+        service.detect_gestures(context)
+        self.assertFalse(service.scene_occupied)
+        service.detect_gestures(context)
+        self.assertEqual(service.latest_metrics["pose_skipped"], 1.)
 
     def test_motion_gate_disabled_never_skips(self):
         service, context = self.make_service([])
