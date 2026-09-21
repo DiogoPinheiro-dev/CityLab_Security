@@ -3,7 +3,12 @@
 Documento compartilhado entre os agentes que trabalham neste repositorio (Codex e
 Claude) e o responsavel pelo projeto. Quem for mexer em performance le este
 arquivo antes e atualiza o estado aqui depois. Nao duplicar o plano em outro
-lugar: este e a fonte unica.
+lugar: este e a fonte unica **de latencia e vazao**.
+
+As regras de gesto, ou seja, quando um alerta dispara e o que ele significa,
+ficam em `docs/PLANO_GESTOS.md`. A medicao de 21/09/2026 mostrou que aquilo e
+problema de comportamento do produto, nao de desempenho, e que ficar mais
+rapido nao resolve.
 
 ## Objetivo
 
@@ -32,9 +37,10 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
 6. Criterio de significancia: so tratar como ganho real uma variacao de
    latencia acima de 5% que se repita nas tres rodadas do mesmo cenario. Com 30
    amostras o p95 serve para observar caudas, nao para decidir.
-7. Enquanto as regras de gesto contarem analises em vez de tempo, nao comparar
-   contagem de alertas entre versoes com desempenho diferente. Ver o "Balanco
-   da fase 1".
+7. Nao comparar contagem de alertas entre versoes com desempenho diferente. A
+   conversao para tempo decorrido nao resolveu isso: com o frame custando muito
+   mais que os limiares, as cinco regras colapsaram em "gesto presente em duas
+   observacoes". Ver `docs/PLANO_GESTOS.md`.
 
 
 ## Estado verificado em 21/09/2026

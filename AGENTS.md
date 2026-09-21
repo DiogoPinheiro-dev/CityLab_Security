@@ -7,7 +7,11 @@ Vale para qualquer agente que abrir este repositorio.
 A branch `otimizations-tests` esta no meio de um plano faseado de otimizacao do
 stream para Raspberry Pi 3 B+. **Leia `docs/PLANO_OTIMIZACAO.md` antes de mexer
 em performance** e atualize a secao "Estado verificado" de la ao concluir uma
-etapa. Esse arquivo e a fonte unica do plano.
+etapa. Esse arquivo e a fonte unica do plano de desempenho.
+
+**Antes de mexer em regras de gesto ou em quando um alerta dispara, leia
+`docs/PLANO_GESTOS.md`.** Sao problemas diferentes: desempenho nao conserta
+comportamento.
 
 Regras que valem agora:
 
