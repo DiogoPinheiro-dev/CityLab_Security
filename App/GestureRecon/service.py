@@ -8,6 +8,9 @@ from ultralytics import YOLO
 
 from App.frame_context import FrameContext
 from App.settings import (GESTURE_ANALYZER_FPS, GESTURE_MAX_OBSERVATION_GAP_SECONDS,
+                          GESTURE_MOTION_GATE, GESTURE_MOTION_MAX_SKIP_SECONDS,
+                          GESTURE_MOTION_MIN_RATIO, GESTURE_MOTION_PIXEL_DELTA,
+                          GESTURE_PUBLISH_MIN_CONFIDENCE,
                           POSE_MODEL_PATH, PROJECT_ROOT)
 
 try:
@@ -29,6 +32,11 @@ class GestureRecognitionService:
         fps: int = GESTURE_ANALYZER_FPS,
         tracker: str = "bytetrack.yaml",
         fallback_match_distance: float = 120.0,
+        publish_min_confidence: float = GESTURE_PUBLISH_MIN_CONFIDENCE,
+        motion_gate: bool = GESTURE_MOTION_GATE,
+        motion_min_ratio: float = GESTURE_MOTION_MIN_RATIO,
+        motion_pixel_delta: int = GESTURE_MOTION_PIXEL_DELTA,
+        motion_max_skip_seconds: float = GESTURE_MOTION_MAX_SKIP_SECONDS,
     ) -> None:
         self.base_dir = Path(base_dir) if base_dir else Path(__file__).resolve().parent
         configured_path = pose_model_path or POSE_MODEL_PATH
@@ -49,11 +57,40 @@ class GestureRecognitionService:
         self.last_track_centers: dict[int, tuple[float, float]] = {}
         self.next_track_id = 1
         self.latest_persons: list[dict[str, Any]] = []
-        self.latest_metrics: dict[str, float] = {
-            "pose_ms": 0.0,
-            "hands_ms": 0.0,
-            "gestures_ms": 0.0,
+        self.publish_min_confidence = publish_min_confidence
+        self.motion_gate = motion_gate
+        self.motion_min_ratio = motion_min_ratio
+        self.motion_pixel_delta = motion_pixel_delta
+        self.motion_max_skip_seconds = motion_max_skip_seconds
+        self.motion_reference: Optional[np.ndarray] = None
+        self.last_pose_at: Optional[float] = None
+        self.latest_metrics: dict[str, float] = {}
+        self._store_metrics(0.0, 0.0, 0.0, 0.0, False)
+
+    def _store_metrics(self, pose_ms: float, hands_ms: float, gestures_ms: float,
+                       motion_ratio: float, pose_skipped: bool) -> None:
+        self.latest_metrics = {
+            "pose_ms": pose_ms,
+            "hands_ms": hands_ms,
+            "gestures_ms": gestures_ms,
+            "motion_ratio": motion_ratio,
+            "pose_skipped": 1.0 if pose_skipped else 0.0,
         }
+
+    def _motion_ratio(self, frame: np.ndarray) -> float:
+        """Fracao de pixels alterados desde o frame anterior, em escala reduzida."""
+        import cv2
+
+        reduced = cv2.resize(frame, (160, 120), interpolation=cv2.INTER_AREA)
+        if reduced.ndim == 3:
+            reduced = cv2.cvtColor(reduced, cv2.COLOR_BGR2GRAY)
+        previous = self.motion_reference
+        self.motion_reference = reduced
+        if previous is None or previous.shape != reduced.shape:
+            # Sem referencia nao da para afirmar que a cena esta parada.
+            return 1.0
+        delta = cv2.absdiff(previous, reduced)
+        return float(np.count_nonzero(delta >= self.motion_pixel_delta)) / float(delta.size)
 
     def detect_gestures(
         self,
@@ -70,13 +107,25 @@ class GestureRecognitionService:
         if person_bboxes == []:
             self.analyzer.clean_old_tracks([])
             self.last_track_centers.clear()
-            self.latest_metrics = {
-                "pose_ms": 0.0,
-                "hands_ms": 0.0,
-                "gestures_ms": 0.0,
-            }
+            self._store_metrics(0.0, 0.0, 0.0, 0.0, False)
             return []
 
+        motion_ratio = 1.0
+        if self.motion_gate:
+            motion_ratio = self._motion_ratio(frame_context.processing_frame)
+            recente = (self.last_pose_at is not None
+                       and (observed_at - self.last_pose_at) < self.motion_max_skip_seconds)
+            if motion_ratio < self.motion_min_ratio and recente:
+                # Cena parada: pular a pose evita o track fantasma e o custo dela.
+                # O teto de tempo acima garante uma passada mesmo sem movimento.
+                self.analyzer.clean_old_tracks([])
+                self.last_track_centers.clear()
+                self._store_metrics(
+                    0.0, 0.0, (time.perf_counter() - total_started) * 1000.0,
+                    motion_ratio, True)
+                return []
+
+        self.last_pose_at = observed_at
         pose_started = time.perf_counter()
         pose_results = self.pose_model.track(
             frame_context.processing_frame,
@@ -94,11 +143,9 @@ class GestureRecognitionService:
         if not pose_results:
             self.analyzer.clean_old_tracks(current_tracks)
             self.last_track_centers.clear()
-            self.latest_metrics = {
-                "pose_ms": pose_ms,
-                "hands_ms": hands_total_ms,
-                "gestures_ms": (time.perf_counter() - total_started) * 1000.0,
-            }
+            self._store_metrics(
+                pose_ms, hands_total_ms,
+                (time.perf_counter() - total_started) * 1000.0, motion_ratio, False)
             return people
 
         result = pose_results[0]
@@ -110,15 +157,14 @@ class GestureRecognitionService:
                     frame_context.map_bbox_to_original([int(value) for value in box])),
                  "confidence": float(confidence)}
                 for box, confidence in zip(boxes, confidences)
+                if float(confidence) >= self.publish_min_confidence
             ]
         if result.boxes is None or result.keypoints is None:
             self.analyzer.clean_old_tracks(current_tracks)
             self.last_track_centers.clear()
-            self.latest_metrics = {
-                "pose_ms": pose_ms,
-                "hands_ms": hands_total_ms,
-                "gestures_ms": (time.perf_counter() - total_started) * 1000.0,
-            }
+            self._store_metrics(
+                pose_ms, hands_total_ms,
+                (time.perf_counter() - total_started) * 1000.0, motion_ratio, False)
             return people
 
         boxes = self._to_numpy(result.boxes.xyxy)
@@ -133,6 +179,11 @@ class GestureRecognitionService:
             zip(boxes, track_ids, keypoints_batch)
         ):
             current_tracks.append(track_id)
+            if float(confidences[index]) < self.publish_min_confidence:
+                # A caixa fraca sustenta o track no ByteTrack, mas nao vira pessoa
+                # publicada nem entra na analise de gesto. O track segue conhecido
+                # para nao perder o historico de quem so oscilou abaixo do limiar.
+                continue
             hand_started = time.perf_counter()
             hand_detections = self._detect_hands_in_body_roi(
                 frame_context.processing_frame,
@@ -193,11 +244,9 @@ class GestureRecognitionService:
             )
 
         self.analyzer.clean_old_tracks(current_tracks)
-        self.latest_metrics = {
-            "pose_ms": pose_ms,
-            "hands_ms": hands_total_ms,
-            "gestures_ms": (time.perf_counter() - total_started) * 1000.0,
-        }
+        self._store_metrics(
+            pose_ms, hands_total_ms,
+            (time.perf_counter() - total_started) * 1000.0, motion_ratio, False)
         return people
 
     def process_frame(

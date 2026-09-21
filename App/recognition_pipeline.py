@@ -181,10 +181,14 @@ class UnifiedRecognitionService:
                 metrics["gestures_ms"] = self.gesture_service.latest_metrics.get("gestures_ms", 0.0)
                 metrics["hands_ms"] = self.gesture_service.latest_metrics.get("hands_ms", 0.0)
                 metrics["pose_ms"] = self.gesture_service.latest_metrics.get("pose_ms", 0.0)
+                metrics["motion_ratio"] = self.gesture_service.latest_metrics.get("motion_ratio", 0.0)
+                metrics["pose_skipped"] = self.gesture_service.latest_metrics.get("pose_skipped", 0.0)
             else:
                 metrics["gestures_ms"] = 0.0
                 metrics["hands_ms"] = 0.0
                 metrics["pose_ms"] = 0.0
+                metrics["motion_ratio"] = 0.0
+                metrics["pose_skipped"] = 0.0
 
         if use_shared_pose and detect_persons:
             persons = self.gesture_service.latest_persons
@@ -271,10 +275,14 @@ class UnifiedRecognitionService:
             metrics["gestures_ms"] = self.gesture_service.latest_metrics.get("gestures_ms", 0.0)
             metrics["hands_ms"] = self.gesture_service.latest_metrics.get("hands_ms", 0.0)
             metrics["pose_ms"] = self.gesture_service.latest_metrics.get("pose_ms", 0.0)
+            metrics["motion_ratio"] = self.gesture_service.latest_metrics.get("motion_ratio", 0.0)
+            metrics["pose_skipped"] = self.gesture_service.latest_metrics.get("pose_skipped", 0.0)
         else:
             metrics["gestures_ms"] = 0.0
             metrics["hands_ms"] = 0.0
             metrics["pose_ms"] = 0.0
+            metrics["motion_ratio"] = 0.0
+            metrics["pose_skipped"] = 0.0
 
         return faces, gestures
 

@@ -59,6 +59,16 @@ GESTURE_ANALYZER_FPS = max(1, _get_int("GESTURE_ANALYZER_FPS", 12))
 # Espera sem frames, excluindo o tempo gasto em inferencia.
 GESTURE_IDLE_RESET_SECONDS = max(0.1, _get_float("GESTURE_IDLE_RESET_SECONDS", 5.0))
 GESTURE_MAX_OBSERVATION_GAP_SECONDS = max(1.0, _get_float("GESTURE_MAX_OBSERVATION_GAP_SECONDS", 60.0))
+# Caixa fraca alimenta o ByteTrack, mas nao deve sair publicada como pessoa.
+# O track() do Ultralytics forca conf=0.1; a passada dupla usava 0,25.
+GESTURE_PUBLISH_MIN_CONFIDENCE = max(0.0, min(1.0, _get_float("GESTURE_PUBLISH_MIN_CONFIDENCE", 0.25)))
+# Gate de movimento antes da pose. Opt-in: medir antes de promover a padrao.
+GESTURE_MOTION_GATE = _get_bool("GESTURE_MOTION_GATE", False)
+# Fracao de pixels alterados que ja conta como cena em movimento.
+GESTURE_MOTION_MIN_RATIO = max(0.0, _get_float("GESTURE_MOTION_MIN_RATIO", 0.002))
+GESTURE_MOTION_PIXEL_DELTA = max(1, _get_int("GESTURE_MOTION_PIXEL_DELTA", 25))
+# Teto de tempo sem rodar a pose: protege quem entra em cena e fica parado.
+GESTURE_MOTION_MAX_SKIP_SECONDS = max(0.0, _get_float("GESTURE_MOTION_MAX_SKIP_SECONDS", 30.0))
 
 COOLDOWN_ALUNO_SECONDS = max(0.0, _get_float("COOLDOWN_ALUNO_SECONDS", 5.0))
 COOLDOWN_NAO_ALUNO_SECONDS = max(0.0, _get_float("COOLDOWN_NAO_ALUNO_SECONDS", 5.0))

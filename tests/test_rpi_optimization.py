@@ -164,13 +164,24 @@ class SharedPipelineTests(unittest.TestCase):
 class PoseOutputTests(unittest.TestCase):
     def make_service(self, results):
         cls = load_class("App/GestureRecon/service.py", "GestureRecognitionService",
-                         GESTURE_ANALYZER_FPS=12)
+                         GESTURE_ANALYZER_FPS=12, GESTURE_PUBLISH_MIN_CONFIDENCE=.25,
+                         GESTURE_MOTION_GATE=False, GESTURE_MOTION_MIN_RATIO=.002,
+                         GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.)
         service = cls.__new__(cls)
         service.pose_model = SimpleNamespace(track=Mock(return_value=results))
         service.tracker = "bytetrack.yaml"
         service.analyzer = Mock()
         service.last_track_centers = {1: (10, 20)}
         service._to_numpy = lambda value: value
+        # __new__ pula o __init__: o estado novo precisa ser posto a mao.
+        service.publish_min_confidence = .25
+        service.motion_gate = False
+        service.motion_min_ratio = .002
+        service.motion_pixel_delta = 25
+        service.motion_max_skip_seconds = 30.
+        service.motion_reference = None
+        service.last_pose_at = None
+        service.latest_metrics = {}
         context = SimpleNamespace(processing_frame=object(), observed_at=0.0,
                                   map_bbox_to_original=lambda box: [v * 2 for v in box],
                                   clip_original_bbox=lambda box: box)
@@ -190,6 +201,64 @@ class PoseOutputTests(unittest.TestCase):
         service.detect_gestures(context)
         self.assertEqual(service.latest_persons, [])
         self.assertFalse(service.last_track_centers)
+
+    def analisavel(self, service):
+        """Deixa o laco de people rodar sem modelo de maos nem analisador real."""
+        service._resolve_track_ids = lambda boxes, ids: list(range(1, len(boxes) + 1))
+        service._detect_hands_in_body_roi = Mock(return_value=[])
+        service._associate_hands = Mock(return_value={"matched_hands": []})
+        service.analyzer.analyze = Mock(return_value={
+            "alerts": [], "hand_context": {"matched_hands": []}, "hidden_debug": {}})
+
+    def test_weak_boxes_feed_the_tracker_without_being_published(self):
+        result = SimpleNamespace(
+            boxes=SimpleNamespace(xyxy=[[1, 2, 3, 4], [5, 6, 7, 8]], conf=[.8, .1], id=None),
+            keypoints=SimpleNamespace(data=[[[0, 0, 0]], [[0, 0, 0]]]))
+        service, context = self.make_service([result])
+        self.analisavel(service)
+        people = service.detect_gestures(context)
+        # A caixa de 0,1 existe so para o ByteTrack: nao vira pessoa nem gesto.
+        self.assertEqual([person["confidence"] for person in people], [.8])
+        self.assertEqual([person["confidence"] for person in service.latest_persons], [.8])
+        service.analyzer.analyze.assert_called_once()
+        # O track segue conhecido, senao quem oscila abaixo do limiar perde historico.
+        service.analyzer.clean_old_tracks.assert_called_once_with([1, 2])
+
+    def test_motion_gate_skips_pose_while_the_scene_is_still(self):
+        service, context = self.make_service([])
+        service.motion_gate = True
+        service.last_pose_at = 0.
+        service._motion_ratio = lambda frame: 0.
+        context.observed_at = 10.
+        self.assertEqual(service.detect_gestures(context), [])
+        service.pose_model.track.assert_not_called()
+        service.analyzer.clean_old_tracks.assert_called_once_with([])
+        self.assertEqual(service.latest_metrics["pose_skipped"], 1.)
+
+    def test_motion_gate_runs_pose_on_movement_and_after_the_time_ceiling(self):
+        service, context = self.make_service([])
+        service.motion_gate = True
+        service.last_pose_at = 0.
+        service._motion_ratio = lambda frame: .5
+        context.observed_at = 1.
+        service.detect_gestures(context)
+        self.assertEqual(service.pose_model.track.call_count, 1)
+        # Cena parada, mas o teto de tempo estourou: roda para nao perder quem
+        # entrou em cena e ficou imovel.
+        service._motion_ratio = lambda frame: 0.
+        context.observed_at = 100.
+        service.detect_gestures(context)
+        self.assertEqual(service.pose_model.track.call_count, 2)
+        self.assertEqual(service.latest_metrics["pose_skipped"], 0.)
+
+    def test_motion_gate_disabled_never_skips(self):
+        service, context = self.make_service([])
+        service._motion_ratio = Mock(return_value=0.)
+        service.last_pose_at = 0.
+        context.observed_at = 1.
+        service.detect_gestures(context)
+        service.pose_model.track.assert_called_once()
+        service._motion_ratio.assert_not_called()
 
     def test_legacy_empty_gate_skips_model_and_cleans_history(self):
         service, context = self.make_service([])
