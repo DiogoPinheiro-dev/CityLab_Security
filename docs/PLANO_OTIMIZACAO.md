@@ -38,6 +38,127 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
 
 ## Estado verificado em 20/09/2026
 
+### Perfil rpi3 completo - ganho confirmado com uma pessoa
+
+- **As medicoes anteriores deste dia rodaram com as otimizacoes desligadas.** O
+  `.env` do Pi, que nao e versionado, tinha `PIPELINE_RUN_IN_PARALLEL=0`,
+  `PIPELINE_MAX_WORKERS=1`, nenhum `CITYLAB_PROFILE` e a passada unica desligada.
+  A API tambem subia por uvicorn direto, sem os limites BLAS/OpenMP que o
+  `tools/run_rpi.py` aplica antes dos imports nativos. Das acoes implementadas,
+  so as de rosto e as de gesto estavam ativas.
+- Correcao do registro anterior: o paralelismo nao estava falhando por
+  contencao, estava desligado na configuracao. Com a flag em 0 o
+  `ThreadPoolExecutor` nem chega a ser criado.
+- Configuracao medida agora, conferida com `tools/run_rpi.py --show-config`:
+  `CITYLAB_PROFILE=rpi3`, ONNX 1, PyTorch 2, OpenCV 1, nativas 1,
+  `PIPELINE_RUN_IN_PARALLEL=1`, `PIPELINE_MAX_WORKERS=2`,
+  `PIPELINE_SHARED_PERSON_POSE=1`, `MAX_IN_FLIGHT_FRAMES=1`.
+- Tres rodadas com uma pessoa, protocolo da fase 1, resultados em
+  `resultados/pi3-970a384-rpi3full/`. Medianas de `rtt_ms`: 7380,0; 7359,1;
+  7527,3 ms contra 13413,5 da linha de base. **Ganho de 43,9% a 45,1% repetido
+  nas tres rodadas**, com 2,3% de amplitude. Vazao de 0,075 para 0,132 a 0,135 FPS.
+- **Recall preservado nas tres**: rosto em 30/30 frames, gesto em 30/30, zero
+  alertas, caixa de pessoa entre 0,877 e 0,914.
+- `persons_ms` foi a zero: a passada unica eliminou o detector separado. O
+  paralelismo passou a sobrepor de fato, com `pipeline_ms` menos
+  `persons_ms + max(faces_ms, gestures_ms)` em 3,2 ms nas tres rodadas. No
+  perfil default o mesmo calculo dava 1986 ms e batia com a soma dos estagios.
+- p95 entre 7554 e 7708 ms contra mediana entre 7359 e 7527: dispersao de 2,4%.
+  No perfil default o p95 chegava a 15188 contra mediana de 13328, 14%.
+- **Risco aberto: RAM.** `process_rss_mb` chegou a 748,5 MB numa placa de 906 MB,
+  acima do teto de 719 MB da fase 1. Rosto e pose sobrepostos mantem buffers dos
+  dois modelos vivos ao mesmo tempo.
+- Falta medir com este perfil: cena vazia e duas pessoas. A cena vazia pode
+  piorar por construcao, porque passa a pagar a pose no lugar do detector de
+  pessoas, e e a condicao mais comum de uma camera ociosa. **Nao promover este
+  perfil a padrao antes dessas duas medicoes.**
+
+### Cenario de uma pessoa no perfil default - sem ganho
+
+- Tres rodadas em `resultados/pi3-970a384-webcam/uma-pessoa-r1.json` a `r3.json`.
+  Medianas 12927,4; 13328,3; 13360,6 ms, entre -3,6% e -0,4% contra a linha de
+  base. Nao atinge os 5% exigidos.
+- Ganho estavel por estagio: `pose_ms` em 4852,6; 4867,9; 4860,7 ms contra
+  5204,5 a 5299,0, ou -7,0% a -8,3% com 0,3% de amplitude. `logs_ms` caiu de
+  cerca de 52,8 para 35 ms. Somados, cerca de 0,5 s, ou 3,8% do frame.
+- `faces_ms` nao e estavel entre rodadas: 1983,6; 2710,5; 1952,6 ms com o mesmo
+  codigo e enquadramento equivalente. Depende do tamanho e do angulo do rosto.
+  Nao atribuir ganho a esse estagio com webcam ao vivo.
+- Duas rodadas foram descartadas como medicao de latencia por cena
+  inconsistente e ficaram em `resultados/pi3-970a384-webcam/descartadas/`.
+- Protocolo acrescentado: antes de cada rodada cheia, uma sondagem de 3 frames
+  sem aquecimento confirma o enquadramento pela confianca da caixa. Custa cerca
+  de 40 s e evita perder uma rodada inteira por cena fora do padrao.
+
+### Regras de gesto por tempo decorrido - efeito medido (acao 2)
+
+- A conversao esta implementada, mas **nao tornou os alertas comparaveis**. Os
+  limiares sao de 0,20 a 0,40 s e o intervalo real entre analises e de 13,2 s no
+  perfil default e 7,4 s no perfil rpi3. Em `_update_counter`,
+  `history = min(limit, history + elapsed)` satura no primeiro incremento.
+- Efeito pratico: as cinco regras colapsam em "gesto presente em dois frames
+  consecutivos". A distincao entre punho, rendicao, mira e ameaca deixa de
+  existir neste hardware, e o ganho de 45% nao resolve: as regras so voltam a
+  discriminar perto de 3 a 5 FPS.
+- Na linha de base, contando frames, o limiar equivalia a 10 frames, ou 132 s de
+  gesto continuo, e por isso ela nunca alertava. A rodada `uma-pessoa-r3.json`
+  do perfil default registrou 7 alertas em 7 frames consecutivos, confirmados
+  pelo responsavel como gesto real. O cooldown de 5 s nao deduplica quando o
+  frame custa 13 s: cada frame gravou um evento com recorte de imagem.
+- A contagem de alertas continua sem servir para comparar versoes, agora por
+  excesso de sensibilidade em vez de falta.
+
+### Caixa fantasma - evidencia medida (acao 5)
+
+- `detect_persons` chama o YOLO sem `conf=`, entao vale o default do Ultralytics,
+  0,25. As caixas falsas medidas ficaram entre 0,252 e 0,692.
+- Custo com uma pessoa em cena: desprezivel. Frames com duas caixas contra
+  frames com uma diferiram em +97,9 ms de `faces_ms`, +40,6 ms de `pose_ms` e
+  +1,0 ms de `hands_ms`, tudo dentro do ruido.
+- Custo em cena vazia: alto. Os 5 frames com caixa falsa da rodada vazia r1
+  pularam de 5,3 s para 10,3 a 14,8 s, porque a caixa liga a pose num frame que
+  senao pularia o gesto inteiro. Penalidade de 2x a 3x.
+- Nenhum limiar unico se sustentou: 0,50 nao perdeu frame na cena bem enquadrada
+  e perderia 4 de 30 na cena fraca. Com enquadramento bom a separacao e limpa
+  abaixo de 0,40.
+- A acao 5 se reposiciona: nao e otimizacao de latencia com gente em cena, e
+  protecao de cena ociosa e de alerta falso. Fica obsoleta se a passada unica for
+  promovida, porque as caixas passam a vir do modelo de pose.
+
+### Ferramenta
+
+- `tools/run_rpi.py` aceita `--ssl-certfile` e `--ssl-keyfile`. Sem isso o
+  launcher oficial do perfil do Pi nao subia HTTPS, e a alternativa era exportar
+  `OMP_NUM_THREADS`, `OPENBLAS_NUM_THREADS`, `MKL_NUM_THREADS` e
+  `NUMEXPR_NUM_THREADS` no shell antes do uvicorn. Esquecer o export faz o
+  servidor subir sem erro e sem os limites, que foi o que mascarou as medicoes
+  deste dia. O par e validado antes do dotenv e o JSON reporta so o booleano
+  `tls`, nunca os caminhos.
+
+### Medicao apos deploy - cena vazia
+
+- O workflow da `main` (`970a384`) concluiu com sucesso. A API foi iniciada
+  manualmente no Pi com HTTPS e `.venv`; o workflow nao reinicia a API. O startup
+  completo confirmou rosto e gesto ativos, MongoDB de teste `recon-db` e 4
+  cadastros. `CITYLAB_ALLOW_PARTIAL_PIPELINE=0`, `ENABLE_PERFORMANCE_METRICS=1`
+  e `ENABLE_SYSTEM_MONITOR=1`. O hash do arquivo de codigo no Pi ainda nao foi
+  conferido; o SHA nos rotulos identifica o deploy esperado.
+- Tres rodadas com webcam local (indice 0), cena vazia declarada pelo responsavel,
+  640x480, JPEG 65, 5 frames de aquecimento e 30 medidos, uma pendencia por vez.
+  A API foi reiniciada antes de cada rodada. Resultados em
+  `resultados/pi3-970a384-webcam/vazia-r1.json` a `vazia-r3.json`.
+- Medianas de `rtt_ms`: 5995,50; 5296,94; 5259,38 ms. Vazao: 0,145; 0,175;
+  0,186 FPS. A linha de base `b05058f` teve 5300,14; 5409,98; 5412,11 ms.
+  Nao houve ganho acima de 5% repetido nas tres rodadas.
+- Na primeira rodada, 5 de 30 frames retornaram uma pessoa e um track de gesto
+  na cena vazia, com confianca de pessoa entre 0,253 e 0,382; nenhum alerta.
+  Esses frames executaram pose e elevaram o p95 a 12010,40 ms. As rodadas 2 e 3
+  nao tiveram deteccoes. A linha de base teve zero nas tres rodadas vazias.
+  A webcam nao repete frames; investigar a caixa falsa sem elevar o limiar antes
+  de testar pessoas reais e recall. P95 nao decide ganho com 30 amostras.
+- A API permaneceu online ao fim das tres rodadas. Ainda faltam os cenarios com
+  uma e duas pessoas, a comparacao da passada unica e a verificacao de recall.
+
 ### Integracao na main
 
 - `otimizations-tests` (`5618a6e`) foi integrada a `main` a partir de

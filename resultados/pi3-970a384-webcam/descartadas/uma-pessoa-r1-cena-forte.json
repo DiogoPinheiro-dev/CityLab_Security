@@ -1,0 +1,1002 @@
+{
+  "scenario": "one-person",
+  "source_type": "webcam",
+  "camera_index": 0,
+  "capture_width": 640.0,
+  "capture_height": 480.0,
+  "capture_fps": 30.0,
+  "video_sha256": null,
+  "started_at_utc": "2026-09-20T23:31:40.055795+00:00",
+  "client_python": "3.13.15",
+  "client_platform": "Windows-11-10.0.26200-SP0",
+  "server_run_label": "pi3-main-970a384-full-webcam-one-person-r1",
+  "config": {
+    "width": 640,
+    "height": 480,
+    "jpeg_quality": 65,
+    "warmup_frames": 5,
+    "frames": 30,
+    "max_in_flight": 1
+  },
+  "elapsed_seconds": 388.6691014000007,
+  "completed_fps": 0.07718648045841275,
+  "rtt_ms": {
+    "count": 30,
+    "median": 13152.910750000046,
+    "p95": 14552.592199999708
+  },
+  "detections": {
+    "persons_count": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 3
+    },
+    "faces_count": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 1
+    },
+    "gestures_count": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 1
+    },
+    "alerts_count": {
+      "count": 30,
+      "median": 0.0,
+      "p95": 0
+    }
+  },
+  "metrics": {
+    "decode_ms": {
+      "count": 30,
+      "median": 7.37191400003212,
+      "p95": 15.85303699994256
+    },
+    "faces_ms": {
+      "count": 30,
+      "median": 1959.4318075000956,
+      "p95": 3474.9936359999083
+    },
+    "frame_interval_ms": {
+      "count": 30,
+      "median": 13176.853750999953,
+      "p95": 14607.541928000046
+    },
+    "gestures_ms": {
+      "count": 30,
+      "median": 5153.525114999866,
+      "p95": 5814.496169999984
+    },
+    "hands_ms": {
+      "count": 30,
+      "median": 259.7490040000139,
+      "p95": 951.2533040001472
+    },
+    "logs_ms": {
+      "count": 30,
+      "median": 35.488722499849246,
+      "p95": 60.304205999727856
+    },
+    "persons_ms": {
+      "count": 30,
+      "median": 4598.832886999844,
+      "p95": 5981.443807999767
+    },
+    "pipeline_ms": {
+      "count": 30,
+      "median": 13090.422171499995,
+      "p95": 14494.239128999652
+    },
+    "pose_ms": {
+      "count": 30,
+      "median": 4846.750380999993,
+      "p95": 4900.128685000254
+    },
+    "process_rss_mb": {
+      "count": 30,
+      "median": 644.212890625,
+      "p95": 645.35546875
+    },
+    "receive_wait_ms": {
+      "count": 30,
+      "median": 16.473135499836644,
+      "p95": 80.18902999992861
+    },
+    "response_ready_ms": {
+      "count": 30,
+      "median": 13140.66058100002,
+      "p95": 14540.571168000042
+    },
+    "temperature_c": {
+      "count": 30,
+      "median": 56.92,
+      "p95": 57.996
+    }
+  },
+  "application_bytes_sent": 498076,
+  "application_bytes_received": 20797,
+  "application_bytes_per_second": 1334.9993558299334,
+  "samples": [
+    {
+      "frame": 5,
+      "rtt_ms": 13172.553099999277,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7903953194618225
+      ],
+      "gestures_confidence": [
+        0.7441635131835938
+      ],
+      "metrics": {
+        "persons_ms": 5877.142176999769,
+        "faces_ms": 1943.9390020002065,
+        "gestures_ms": 5280.57823600011,
+        "hands_ms": 440.9849530002248,
+        "pose_ms": 4838.318605999575,
+        "frame_interval_ms": 13246.742455000003,
+        "receive_wait_ms": 59.62655600023936,
+        "decode_ms": 15.780328999881021,
+        "pipeline_ms": 13106.740360000003,
+        "logs_ms": 37.826800999937404,
+        "response_ready_ms": 13160.458373999973,
+        "process_rss_mb": 642.1171875,
+        "temperature_c": 53.692
+      }
+    },
+    {
+      "frame": 6,
+      "rtt_ms": 11966.533000000709,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7573023438453674
+      ],
+      "gestures_confidence": [
+        0.47857701778411865
+      ],
+      "metrics": {
+        "persons_ms": 4511.1375419996875,
+        "faces_ms": 1973.132858000099,
+        "gestures_ms": 5424.115924000034,
+        "hands_ms": 553.2232829996246,
+        "pose_ms": 4868.44057899998,
+        "frame_interval_ms": 12015.16001500022,
+        "receive_wait_ms": 55.12112699989302,
+        "decode_ms": 7.358892999945965,
+        "pipeline_ms": 11911.097135000091,
+        "logs_ms": 37.52044900011242,
+        "response_ready_ms": 11956.134184000348,
+        "process_rss_mb": 642.1171875,
+        "temperature_c": 53.692
+      }
+    },
+    {
+      "frame": 7,
+      "rtt_ms": 13014.208500000677,
+      "persons_count": 3,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7452130913734436,
+        0.692028284072876,
+        0.5383138060569763
+      ],
+      "gestures_confidence": [
+        0.6285876631736755
+      ],
+      "metrics": {
+        "persons_ms": 5876.35463200013,
+        "faces_ms": 1942.6244830001451,
+        "gestures_ms": 5123.236659000213,
+        "hands_ms": 259.04187500009357,
+        "pose_ms": 4862.569693999831,
+        "frame_interval_ms": 13025.413787999696,
+        "receive_wait_ms": 17.93932100008533,
+        "decode_ms": 15.85069399970962,
+        "pipeline_ms": 12947.337083000093,
+        "logs_ms": 37.793781000345916,
+        "response_ready_ms": 13001.086293999833,
+        "process_rss_mb": 642.125,
+        "temperature_c": 54.768
+      }
+    },
+    {
+      "frame": 8,
+      "rtt_ms": 11688.636799999585,
+      "persons_count": 2,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.6100066900253296,
+        0.31263360381126404
+      ],
+      "gestures_confidence": [
+        0.23121005296707153
+      ],
+      "metrics": {
+        "persons_ms": 4525.30585400018,
+        "faces_ms": 1948.9906240000892,
+        "gestures_ms": 5132.934750000004,
+        "hands_ms": 259.29244600001766,
+        "pose_ms": 4872.437002999959,
+        "frame_interval_ms": 11712.71430600018,
+        "receive_wait_ms": 52.89354300020932,
+        "decode_ms": 7.342903999870032,
+        "pipeline_ms": 11609.825164000085,
+        "logs_ms": 60.304205999727856,
+        "response_ready_ms": 11677.576856000087,
+        "process_rss_mb": 642.71484375,
+        "temperature_c": 55.844
+      }
+    },
+    {
+      "frame": 9,
+      "rtt_ms": 11892.947899999854,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7171338796615601
+      ],
+      "gestures_confidence": [
+        0.43037986755371094
+      ],
+      "metrics": {
+        "persons_ms": 4514.421212000343,
+        "faces_ms": 1938.3580100002291,
+        "gestures_ms": 5381.550571999924,
+        "hands_ms": 551.1967909997111,
+        "pose_ms": 4828.04739500034,
+        "frame_interval_ms": 11953.90545400005,
+        "receive_wait_ms": 45.62938799972471,
+        "decode_ms": 7.372017999841773,
+        "pipeline_ms": 11836.972529999912,
+        "logs_ms": 35.69749700000102,
+        "response_ready_ms": 11880.264594999971,
+        "process_rss_mb": 642.71484375,
+        "temperature_c": 54.768
+      }
+    },
+    {
+      "frame": 10,
+      "rtt_ms": 13749.906099999862,
+      "persons_count": 3,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.719884991645813,
+        0.2775014638900757,
+        0.2544829845428467
+      ],
+      "gestures_confidence": [
+        0.44152864813804626
+      ],
+      "metrics": {
+        "persons_ms": 5882.9114500003925,
+        "faces_ms": 1951.4082590003454,
+        "gestures_ms": 5814.359138999862,
+        "hands_ms": 949.7751920002884,
+        "pose_ms": 4862.26907199989,
+        "frame_interval_ms": 13770.15058500001,
+        "receive_wait_ms": 58.233443000062834,
+        "decode_ms": 15.85303699994256,
+        "pipeline_ms": 13653.73390600007,
+        "logs_ms": 37.176545999955124,
+        "response_ready_ms": 13706.93187400002,
+        "process_rss_mb": 643.05078125,
+        "temperature_c": 54.768
+      }
+    },
+    {
+      "frame": 11,
+      "rtt_ms": 14518.972099998791,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7801947593688965
+      ],
+      "gestures_confidence": [
+        0.45014598965644836
+      ],
+      "metrics": {
+        "persons_ms": 5743.699296000159,
+        "faces_ms": 3425.4573019998134,
+        "gestures_ms": 5283.724405999692,
+        "hands_ms": 440.35667799971634,
+        "pose_ms": 4842.171229000087,
+        "frame_interval_ms": 14607.541928000046,
+        "receive_wait_ms": 89.69967500024723,
+        "decode_ms": 15.742933000183257,
+        "pipeline_ms": 14457.967000999815,
+        "logs_ms": 31.1593599999469,
+        "response_ready_ms": 14504.975907999778,
+        "process_rss_mb": 643.05859375,
+        "temperature_c": 55.844
+      }
+    },
+    {
+      "frame": 12,
+      "rtt_ms": 11795.731299998806,
+      "persons_count": 2,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7077892422676086,
+        0.27062439918518066
+      ],
+      "gestures_confidence": [
+        0.5666146278381348
+      ],
+      "metrics": {
+        "persons_ms": 4515.492712000196,
+        "faces_ms": 1950.794254000357,
+        "gestures_ms": 5280.01574100017,
+        "hands_ms": 441.4303660000769,
+        "pose_ms": 4837.421895999796,
+        "frame_interval_ms": 11847.958838999602,
+        "receive_wait_ms": 57.144650999816804,
+        "decode_ms": 7.340872999975545,
+        "pipeline_ms": 11748.740550000093,
+        "logs_ms": 29.905361000146513,
+        "response_ready_ms": 11786.088189000111,
+        "process_rss_mb": 643.63671875,
+        "temperature_c": 56.92
+      }
+    },
+    {
+      "frame": 13,
+      "rtt_ms": 13959.728100000575,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7916817665100098
+      ],
+      "gestures_confidence": [
+        0.4716724753379822
+      ],
+      "metrics": {
+        "persons_ms": 4623.227176,
+        "faces_ms": 3463.083844999801,
+        "gestures_ms": 5814.496169999984,
+        "hands_ms": 951.2533040001472,
+        "pose_ms": 4860.934656000154,
+        "frame_interval_ms": 14012.195840000004,
+        "receive_wait_ms": 67.95611799998369,
+        "decode_ms": 7.383216000107495,
+        "pipeline_ms": 13903.384928000378,
+        "logs_ms": 36.29525199994532,
+        "response_ready_ms": 13947.219643999688,
+        "process_rss_mb": 644.2109375,
+        "temperature_c": 54.768
+      }
+    },
+    {
+      "frame": 14,
+      "rtt_ms": 14435.801400000855,
+      "persons_count": 2,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.8223151564598083,
+        0.42858487367630005
+      ],
+      "gestures_confidence": [
+        0.13379736244678497
+      ],
+      "metrics": {
+        "persons_ms": 5747.062337999978,
+        "faces_ms": 3460.1846519999526,
+        "gestures_ms": 5159.186236999631,
+        "hands_ms": 259.03937600014615,
+        "pose_ms": 4898.51130399984,
+        "frame_interval_ms": 14446.46272900036,
+        "receive_wait_ms": 16.404020999743807,
+        "decode_ms": 15.77210000004925,
+        "pipeline_ms": 14371.44927700001,
+        "logs_ms": 36.34566799973982,
+        "response_ready_ms": 14423.67027399996,
+        "process_rss_mb": 644.2109375,
+        "temperature_c": 55.844
+      }
+    },
+    {
+      "frame": 15,
+      "rtt_ms": 12022.83559999887,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.6666375398635864
+      ],
+      "gestures_confidence": [
+        0.45974135398864746
+      ],
+      "metrics": {
+        "persons_ms": 4561.635532999844,
+        "faces_ms": 1948.0632360000527,
+        "gestures_ms": 5449.247213000035,
+        "hands_ms": 551.7279319997215,
+        "pose_ms": 4895.089563000056,
+        "frame_interval_ms": 12024.308007999934,
+        "receive_wait_ms": 15.521841999998287,
+        "decode_ms": 7.356289000199467,
+        "pipeline_ms": 11961.55022999983,
+        "logs_ms": 41.225573000247095,
+        "response_ready_ms": 12010.293444999661,
+        "process_rss_mb": 644.2109375,
+        "temperature_c": 55.844
+      }
+    },
+    {
+      "frame": 16,
+      "rtt_ms": 14929.961600000752,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.8318936228752136
+      ],
+      "gestures_confidence": [
+        0.4289577603340149
+      ],
+      "metrics": {
+        "persons_ms": 5983.753683000032,
+        "faces_ms": 3413.730479000151,
+        "gestures_ms": 5460.845703999894,
+        "hands_ms": 552.8913069997543,
+        "pose_ms": 4905.587960000048,
+        "frame_interval_ms": 14943.131512000036,
+        "receive_wait_ms": 16.193189999739843,
+        "decode_ms": 15.823765999812167,
+        "pipeline_ms": 14863.39346700015,
+        "logs_ms": 36.37988699983907,
+        "response_ready_ms": 14915.771077000045,
+        "process_rss_mb": 644.2109375,
+        "temperature_c": 55.306
+      }
+    },
+    {
+      "frame": 17,
+      "rtt_ms": 13133.268400000816,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7727702856063843
+      ],
+      "gestures_confidence": [
+        0.4337470829486847
+      ],
+      "metrics": {
+        "persons_ms": 5848.958260000018,
+        "faces_ms": 1934.7712180001508,
+        "gestures_ms": 5285.257673999695,
+        "hands_ms": 439.61324700012483,
+        "pose_ms": 4844.474593999621,
+        "frame_interval_ms": 13146.943650999674,
+        "receive_wait_ms": 14.213779999863618,
+        "decode_ms": 15.761943999677896,
+        "pipeline_ms": 13074.103982999986,
+        "logs_ms": 30.898841000180255,
+        "response_ready_ms": 13120.862788000068,
+        "process_rss_mb": 644.2109375,
+        "temperature_c": 56.382
+      }
+    },
+    {
+      "frame": 18,
+      "rtt_ms": 11621.267399999851,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7548580765724182
+      ],
+      "gestures_confidence": [
+        0.44255271553993225
+      ],
+      "metrics": {
+        "persons_ms": 4532.65912300003,
+        "faces_ms": 1952.475019999838,
+        "gestures_ms": 5082.087180000144,
+        "hands_ms": 258.52760899988425,
+        "pose_ms": 4822.376508000161,
+        "frame_interval_ms": 11627.66115300019,
+        "receive_wait_ms": 16.111523999825295,
+        "decode_ms": 7.434412999828055,
+        "pipeline_ms": 11569.656978999774,
+        "logs_ms": 32.38351599975431,
+        "response_ready_ms": 11609.569593999822,
+        "process_rss_mb": 644.2109375,
+        "temperature_c": 56.92
+      }
+    },
+    {
+      "frame": 19,
+      "rtt_ms": 13219.46620000017,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7562127113342285
+      ],
+      "gestures_confidence": [
+        0.4280101954936981
+      ],
+      "metrics": {
+        "persons_ms": 4579.658760000257,
+        "faces_ms": 3474.9936359999083,
+        "gestures_ms": 5089.760185000159,
+        "hands_ms": 260.2055620000101,
+        "pose_ms": 4828.305623000233,
+        "frame_interval_ms": 13206.763851000233,
+        "receive_wait_ms": 16.54224999992948,
+        "decode_ms": 7.316965999962122,
+        "pipeline_ms": 13146.907714000008,
+        "logs_ms": 53.958428999976604,
+        "response_ready_ms": 13208.276702000148,
+        "process_rss_mb": 644.2109375,
+        "temperature_c": 56.382
+      }
+    },
+    {
+      "frame": 20,
+      "rtt_ms": 11668.316799999957,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.8162457942962646
+      ],
+      "gestures_confidence": [
+        0.4275982677936554
+      ],
+      "metrics": {
+        "persons_ms": 4521.734167999966,
+        "faces_ms": 1947.0418389996667,
+        "gestures_ms": 5141.86727599963,
+        "hands_ms": 258.55458800015185,
+        "pose_ms": 4882.137907000015,
+        "frame_interval_ms": 11696.463409999978,
+        "receive_wait_ms": 18.55264799996803,
+        "decode_ms": 7.376861000011559,
+        "pipeline_ms": 11613.055083999825,
+        "logs_ms": 35.041044000081456,
+        "response_ready_ms": 11655.571948000215,
+        "process_rss_mb": 644.21484375,
+        "temperature_c": 57.996
+      }
+    },
+    {
+      "frame": 21,
+      "rtt_ms": 13203.215700001238,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.776771605014801
+      ],
+      "gestures_confidence": [
+        0.40879157185554504
+      ],
+      "metrics": {
+        "persons_ms": 4589.569244999893,
+        "faces_ms": 3454.2309539997404,
+        "gestures_ms": 5103.084285000023,
+        "hands_ms": 258.47719300008976,
+        "pose_ms": 4843.298197999957,
+        "frame_interval_ms": 13210.826262999944,
+        "receive_wait_ms": 15.45298900009584,
+        "decode_ms": 7.371810000222467,
+        "pipeline_ms": 13149.405817000115,
+        "logs_ms": 35.27994799969747,
+        "response_ready_ms": 13192.15825099991,
+        "process_rss_mb": 644.21875,
+        "temperature_c": 56.92
+      }
+    },
+    {
+      "frame": 22,
+      "rtt_ms": 11969.580899998618,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.6950547099113464
+      ],
+      "gestures_confidence": [
+        0.45837700366973877
+      ],
+      "metrics": {
+        "persons_ms": 4545.7910379996065,
+        "faces_ms": 1948.1091220000053,
+        "gestures_ms": 5415.34985699991,
+        "hands_ms": 550.2448720003486,
+        "pose_ms": 4862.793964000048,
+        "frame_interval_ms": 11973.537468999893,
+        "receive_wait_ms": 15.574081000067963,
+        "decode_ms": 7.337486999858811,
+        "pipeline_ms": 11911.791973999698,
+        "logs_ms": 39.076581000244914,
+        "response_ready_ms": 11958.361456999683,
+        "process_rss_mb": 644.2265625,
+        "temperature_c": 56.92
+      }
+    },
+    {
+      "frame": 23,
+      "rtt_ms": 13018.500000000131,
+      "persons_count": 2,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.6890130639076233,
+        0.25912976264953613
+      ],
+      "gestures_confidence": [
+        0.4456636905670166
+      ],
+      "metrics": {
+        "persons_ms": 5895.26222700033,
+        "faces_ms": 1966.3885950003532,
+        "gestures_ms": 5085.479544999998,
+        "hands_ms": 258.6289619998752,
+        "pose_ms": 4825.629812999978,
+        "frame_interval_ms": 13030.351556999904,
+        "receive_wait_ms": 16.20131500021671,
+        "decode_ms": 15.856213999995816,
+        "pipeline_ms": 12952.123863999986,
+        "logs_ms": 36.51134400024603,
+        "response_ready_ms": 13004.597618999924,
+        "process_rss_mb": 644.2265625,
+        "temperature_c": 57.996
+      }
+    },
+    {
+      "frame": 24,
+      "rtt_ms": 13202.03709999987,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7497226595878601
+      ],
+      "gestures_confidence": [
+        0.44533953070640564
+      ],
+      "metrics": {
+        "persons_ms": 4613.967153999965,
+        "faces_ms": 3433.7616570001046,
+        "gestures_ms": 5099.489942000218,
+        "hands_ms": 258.52812999983144,
+        "pose_ms": 4839.78302100013,
+        "frame_interval_ms": 13214.274462000049,
+        "receive_wait_ms": 17.165368999940256,
+        "decode_ms": 7.336133000080736,
+        "pipeline_ms": 13149.722897000174,
+        "logs_ms": 33.76084699993953,
+        "response_ready_ms": 13190.916334999656,
+        "process_rss_mb": 644.2265625,
+        "temperature_c": 57.996
+      }
+    },
+    {
+      "frame": 25,
+      "rtt_ms": 11979.484199999206,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7952395081520081
+      ],
+      "gestures_confidence": [
+        0.4396054446697235
+      ],
+      "metrics": {
+        "persons_ms": 4526.913809000234,
+        "faces_ms": 1939.104253000096,
+        "gestures_ms": 5456.346057000246,
+        "hands_ms": 553.8326010000674,
+        "pose_ms": 4900.128685000254,
+        "frame_interval_ms": 11986.632353000005,
+        "receive_wait_ms": 17.148337999969954,
+        "decode_ms": 7.4231640001016785,
+        "pipeline_ms": 11924.839618000078,
+        "logs_ms": 35.252396000032604,
+        "response_ready_ms": 11967.67236400001,
+        "process_rss_mb": 644.2265625,
+        "temperature_c": 56.92
+      }
+    },
+    {
+      "frame": 26,
+      "rtt_ms": 14552.592199999708,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7452578544616699
+      ],
+      "gestures_confidence": [
+        0.44742196798324585
+      ],
+      "metrics": {
+        "persons_ms": 5981.443807999767,
+        "faces_ms": 3410.789828000361,
+        "gestures_ms": 5097.007829000177,
+        "hands_ms": 258.78734600019015,
+        "pose_ms": 4836.9799209999655,
+        "frame_interval_ms": 14567.052704000162,
+        "receive_wait_ms": 15.508299999964947,
+        "decode_ms": 15.713871000116342,
+        "pipeline_ms": 14494.239128999652,
+        "logs_ms": 30.516604999775154,
+        "response_ready_ms": 14540.571168000042,
+        "process_rss_mb": 644.2265625,
+        "temperature_c": 57.458
+      }
+    },
+    {
+      "frame": 27,
+      "rtt_ms": 13207.92640000036,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7370506525039673
+      ],
+      "gestures_confidence": [
+        0.44642823934555054
+      ],
+      "metrics": {
+        "persons_ms": 4564.400247999856,
+        "faces_ms": 3493.4586280000985,
+        "gestures_ms": 5095.57758200026,
+        "hands_ms": 259.00203199989846,
+        "pose_ms": 4835.400872000264,
+        "frame_interval_ms": 13212.810726000043,
+        "receive_wait_ms": 15.396842999962246,
+        "decode_ms": 7.326550000016141,
+        "pipeline_ms": 13155.960291000156,
+        "logs_ms": 34.08568800023204,
+        "response_ready_ms": 13197.466174000056,
+        "process_rss_mb": 644.2265625,
+        "temperature_c": 57.458
+      }
+    },
+    {
+      "frame": 28,
+      "rtt_ms": 11618.905699999232,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7961376905441284
+      ],
+      "gestures_confidence": [
+        0.4513297975063324
+      ],
+      "metrics": {
+        "persons_ms": 4535.483421000208,
+        "faces_ms": 1940.4551259999607,
+        "gestures_ms": 5087.8866589996505,
+        "hands_ms": 258.7447939999947,
+        "pose_ms": 4827.986823000174,
+        "frame_interval_ms": 11625.971219999883,
+        "receive_wait_ms": 13.143217000106233,
+        "decode_ms": 7.361601999946288,
+        "pipeline_ms": 11566.249770000013,
+        "logs_ms": 35.196250999888434,
+        "response_ready_ms": 11608.902361000219,
+        "process_rss_mb": 644.2265625,
+        "temperature_c": 57.996
+      }
+    },
+    {
+      "frame": 29,
+      "rtt_ms": 11688.857900000585,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7570083141326904
+      ],
+      "gestures_confidence": [
+        0.47628846764564514
+      ],
+      "metrics": {
+        "persons_ms": 4551.00937799989,
+        "faces_ms": 1950.3495179997117,
+        "gestures_ms": 5133.26927900016,
+        "hands_ms": 258.90041799993924,
+        "pose_ms": 4873.1278820000625,
+        "frame_interval_ms": 11697.507462999965,
+        "receive_wait_ms": 14.274456999828544,
+        "decode_ms": 7.307278999633127,
+        "pipeline_ms": 11637.111173999983,
+        "logs_ms": 34.199020999949425,
+        "response_ready_ms": 11678.714087000117,
+        "process_rss_mb": 644.2265625,
+        "temperature_c": 57.996
+      }
+    },
+    {
+      "frame": 30,
+      "rtt_ms": 13246.800400000211,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.8422489762306213
+      ],
+      "gestures_confidence": [
+        0.4778853952884674
+      ],
+      "metrics": {
+        "persons_ms": 4608.096528999795,
+        "faces_ms": 3430.0367939999887,
+        "gestures_ms": 5147.863993000101,
+        "hands_ms": 259.0096359999734,
+        "pose_ms": 4887.669680999807,
+        "frame_interval_ms": 13313.818372999776,
+        "receive_wait_ms": 80.18902999992861,
+        "decode_ms": 7.341289000123652,
+        "pipeline_ms": 13188.508596999782,
+        "logs_ms": 40.17266499977268,
+        "response_ready_ms": 13236.114790000101,
+        "process_rss_mb": 644.23046875,
+        "temperature_c": 57.996
+      }
+    },
+    {
+      "frame": 31,
+      "rtt_ms": 13401.434299999892,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.7216721177101135
+      ],
+      "gestures_confidence": [
+        0.4781211018562317
+      ],
+      "metrics": {
+        "persons_ms": 4667.004080999959,
+        "faces_ms": 3389.2015299998093,
+        "gestures_ms": 5287.867963999815,
+        "hands_ms": 440.80823600006624,
+        "pose_ms": 4845.829685999888,
+        "frame_interval_ms": 13462.159978000273,
+        "receive_wait_ms": 64.50448099985806,
+        "decode_ms": 7.324882999910187,
+        "pipeline_ms": 13346.593239999947,
+        "logs_ms": 34.96161800012487,
+        "response_ready_ms": 13388.975782000216,
+        "process_rss_mb": 644.3671875,
+        "temperature_c": 57.996
+      }
+    },
+    {
+      "frame": 32,
+      "rtt_ms": 11625.53360000129,
+      "persons_count": 1,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.8097647428512573
+      ],
+      "gestures_confidence": [
+        0.5032464861869812
+      ],
+      "metrics": {
+        "persons_ms": 4522.583847999613,
+        "faces_ms": 1948.9767699997174,
+        "gestures_ms": 5107.481383000049,
+        "hands_ms": 258.4806820000267,
+        "pose_ms": 4847.671076000097,
+        "frame_interval_ms": 11643.878301999848,
+        "receive_wait_ms": 16.336157999830903,
+        "decode_ms": 7.324206000248523,
+        "pipeline_ms": 11581.567343000188,
+        "logs_ms": 26.114821000192023,
+        "response_ready_ms": 11615.101472999868,
+        "process_rss_mb": 644.3671875,
+        "temperature_c": 58.534
+      }
+    },
+    {
+      "frame": 33,
+      "rtt_ms": 14367.839499998809,
+      "persons_count": 2,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.8969932198524475,
+        0.34234002232551575
+      ],
+      "gestures_confidence": [
+        0.4970993995666504
+      ],
+      "metrics": {
+        "persons_ms": 4613.655907000066,
+        "faces_ms": 3451.1512420003783,
+        "gestures_ms": 6217.686821999905,
+        "hands_ms": 1337.5507199998538,
+        "pose_ms": 4877.682061000087,
+        "frame_interval_ms": 14336.361828999998,
+        "receive_wait_ms": 14.177166000081343,
+        "decode_ms": 7.291134000297461,
+        "pipeline_ms": 14285.102906000247,
+        "logs_ms": 63.37876199995662,
+        "response_ready_ms": 14355.94274899995,
+        "process_rss_mb": 645.35546875,
+        "temperature_c": 55.844
+      }
+    },
+    {
+      "frame": 34,
+      "rtt_ms": 14143.966800000271,
+      "persons_count": 2,
+      "faces_count": 1,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "persons_confidence": [
+        0.5387692451477051,
+        0.4226778745651245
+      ],
+      "gestures_confidence": [
+        0.5787320733070374
+      ],
+      "metrics": {
+        "persons_ms": 5511.077551000199,
+        "faces_ms": 3461.4153699999406,
+        "gestures_ms": 5105.229943999802,
+        "hands_ms": 258.8592730007804,
+        "pose_ms": 4844.853757999772,
+        "frame_interval_ms": 14182.686311999987,
+        "receive_wait_ms": 14.326226999855862,
+        "decode_ms": 15.757725000185019,
+        "pipeline_ms": 14082.754696999473,
+        "logs_ms": 33.18673800004035,
+        "response_ready_ms": 14131.804783999996,
+        "process_rss_mb": 645.35546875,
+        "temperature_c": 56.92
+      }
+    }
+  ]
+}
