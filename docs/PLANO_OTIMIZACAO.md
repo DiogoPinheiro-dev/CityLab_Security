@@ -36,6 +36,66 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
    contagem de alertas entre versoes com desempenho diferente. Ver o "Balanco
    da fase 1".
 
+
+## Estado verificado em 21/09/2026
+
+### Gate de movimento e limiar de publicacao - ganho confirmado nos dois cenarios
+
+Commit medido: `3e67f56`, perfil rpi3 completo, `GESTURE_MOTION_GATE=1`,
+`GESTURE_PUBLISH_MIN_CONFIDENCE=0.25`. Resultados em
+`resultados/pi3-3e67f56-gate/`. API reiniciada antes de cada rodada, iniciada
+por `tools/run_rpi.py` com TLS.
+
+| Cenario | Linha de base | Agora | Ganho |
+|---|---|---|---|
+| Uma pessoa | 13413,5 ms | 7276,8 / 7271,7 / 7287,7 | **-45,7% a -45,8%** |
+| Cena vazia | 5409,98 ms | 1676,3 / 1679,1 / 1677,2 | **-69,0% nas tres** |
+
+- Amplitude entre rodadas: 0,22% com uma pessoa e 0,17% na cena vazia. A linha
+  de base tinha 1,7% e 2,1%. A configuracao e mais reprodutivel que ela.
+- Vazao: 0,075 para 0,137 FPS com uma pessoa; 0,184 para 0,491 FPS na cena vazia.
+- **Recall preservado nas 90 amostras com uma pessoa**: rosto 30/30, pessoa
+  30/30 e gesto 30/30 nas tres rodadas, caixa entre 0,844 e 0,917, zero alertas.
+- **Caixa fantasma eliminada**: zero pessoa, zero gesto e zero alerta nas 90
+  amostras de cena vazia, contra 74 de 90 antes das correcoes.
+- `process_rss_mb` entre 641,4 e 694,0 MB, abaixo do teto de 719 MB da fase 1 e
+  bem abaixo dos 748,5 MB medidos sem o gate. Nao rodar a pose libera os buffers
+  do modelo, o que tambem reduz o risco de OOM na placa de 906 MB.
+- `temperature_c` entre 47,2 e 55,8 C, contra 59 a 60 C da linha de base.
+
+### Defeito do gate, medido e corrigido no mesmo dia
+
+- A primeira versao decidia so por movimento. Com uma pessoa sentada parada, o
+  `motion_ratio` ficou entre 0,00000 e 0,0017, abaixo do limiar de 0,002, e a
+  pose foi pulada em 22 de 30 frames. O rosto apareceu em 30 de 30, entao a
+  pessoa estava presente o tempo todo: em 73% dos frames ela nao existia para o
+  pipeline de pose, sem caixa, sem track e sem analise de gesto. A evidencia
+  esta em `resultados/pi3-5325cff-gate/evidencia/`.
+- Correcao: o gate passou a exigir tambem que a cena nao esteja ocupada. A
+  passada de pose e a leitura confiavel de ocupacao, e o pipeline repassa o
+  rosto do frame via `note_external_presence`, porque rosto e gesto correm em
+  paralelo e so o resultado do frame anterior chega a tempo da decisao.
+- Verificacao no hardware: nas tres rodadas com uma pessoa, `pose_skipped` ficou
+  em 0 de 30 mesmo com 26, 20 e 3 frames abaixo do limiar de movimento. A r3,
+  com a pessoa se movendo mais, deu a mesma latencia das outras duas: o
+  resultado nao depende de quanto a pessoa fica parada.
+- Na cena vazia o gate segue pulando 28 de 30 frames. Os outros 2 sao a passada
+  forcada por `GESTURE_MOTION_MAX_SKIP_SECONDS`, e explicam o p95 alto: nao e
+  cauda anomala, e a protecao funcionando.
+
+### O que fica aberto
+
+1. **Cenario de duas pessoas nunca foi medido com este perfil.** E onde o
+   reconhecimento facial escala e onde a RAM aperta.
+2. **Limiares de gesto continuam colapsados.** A 7,4 s por frame o intervalo
+   entre analises ainda e 18 vezes maior que o maior limiar, de 0,40 s. Punho,
+   rendicao, mira e ameaca permanecem indistinguiveis, e o ganho de desempenho
+   nao resolve: as regras so voltam a discriminar perto de 3 a 5 FPS. E defeito
+   de comportamento do produto, nao de latencia.
+3. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao. A acao 5 ficou obsoleta:
+   com a passada unica as caixas vem do modelo de pose, e o limiar de publicacao
+   ja cobre o caso.
+
 ## Estado verificado em 20/09/2026
 
 ### Cena vazia no perfil rpi3 - latencia neutra, deteccao reprovada
