@@ -2,10 +2,12 @@
 import os
 import runpy
 import sys
+import tempfile
 import unittest
 import weakref
 import io
 import contextlib
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -97,6 +99,37 @@ class RpiProfileTests(unittest.TestCase):
             uvicorn.run.assert_not_called()
             run_rpi(["--host", "127.0.0.1"])
             uvicorn.run.assert_called_once()
+
+    def test_launcher_validates_and_forwards_the_tls_pair(self):
+        settings = SimpleNamespace(**self.settings(CITYLAB_PROFILE="rpi3"))
+        uvicorn = SimpleNamespace(run=Mock())
+        import App
+        with patch.object(App, "settings", settings, create=True), patch.dict(
+            sys.modules, {"App.settings": settings, "uvicorn": uvicorn,
+                          "dotenv": SimpleNamespace(load_dotenv=lambda *a, **kw: None)}
+        ), patch.dict(os.environ, {}, clear=True), contextlib.redirect_stdout(io.StringIO()):
+            with tempfile.TemporaryDirectory() as pasta:
+                cert = Path(pasta) / "cert.pem"
+                key = Path(pasta) / "key.pem"
+                cert.write_text("cert", encoding="utf-8")
+                key.write_text("key", encoding="utf-8")
+                # Par incompleto ou caminho ausente falha antes de carregar modelos.
+                with contextlib.redirect_stderr(io.StringIO()):
+                    for argv in (["--ssl-certfile", str(cert)],
+                                 ["--ssl-keyfile", str(key)],
+                                 ["--ssl-certfile", str(Path(pasta) / "ausente.pem"),
+                                  "--ssl-keyfile", str(key)]):
+                        with self.assertRaises(SystemExit):
+                            run_rpi(argv)
+                uvicorn.run.assert_not_called()
+                run_rpi(["--ssl-certfile", str(cert), "--ssl-keyfile", str(key)])
+                forwarded = uvicorn.run.call_args.kwargs
+                self.assertEqual(forwarded["ssl_certfile"], str(cert))
+                self.assertEqual(forwarded["ssl_keyfile"], str(key))
+                # Sem TLS o launcher segue valido, com o par vazio.
+                run_rpi([])
+                self.assertIsNone(uvicorn.run.call_args.kwargs["ssl_certfile"])
+                self.assertIsNone(uvicorn.run.call_args.kwargs["ssl_keyfile"])
 
     def test_benchmark_records_confidence_without_identity(self):
         data = detection_confidences({"pessoas": [{"confidence": .8, "nome": "privado"},
