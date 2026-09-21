@@ -38,6 +38,49 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
 
 ## Estado verificado em 20/09/2026
 
+### Cena vazia no perfil rpi3 - latencia neutra, deteccao reprovada
+
+- Tres rodadas em `resultados/pi3-970a384-rpi3full/vazia-r1.json` a `r3.json`.
+  Medianas 5179,4; 5200,8; 5175,1 ms contra 5409,98 da linha de base: -3,9% a
+  -4,3%, com 0,5% de amplitude. **Nao atinge os 5%: a cena vazia nao melhorou
+  nem piorou.** A previsao de que a passada unica a deixaria mais lenta nao se
+  confirmou, porque o paralelismo absorveu a troca do detector pela pose.
+- **Caixa fantasma reprova o cenario.** 74 de 90 frames reportaram uma pessoa
+  numa cena declarada vazia pelo responsavel, contra 0 de 90 na linha de base.
+  Zero rostos nos 90 frames confirma que nao havia ninguem. Foram criados 74
+  tracks de gesto numa sala vazia. Os alertas ficaram em zero, mas por
+  coincidencia dos keypoints, nao por protecao.
+- Causa identificada: `GestureRecognitionService` chama `pose_model.track()` sem
+  `conf=`, e o Ultralytics 8.3.226 forca `conf=0.1` nesse modo, porque o
+  ByteTrack precisa de deteccoes fracas na associacao de segundo estagio. O
+  `detect_persons` da passada dupla usava o default de predict, 0,25. **Trocar a
+  passada dupla pela unica baixou o limiar de deteccao de 0,25 para 0,10 como
+  efeito colateral da API, sem decisao de projeto.**
+- Agravante: `latest_persons` e o laco de `people` em `App/GestureRecon/service.py`
+  sao montados direto de `result.boxes`, sem filtro. As caixas que existem so
+  para alimentar o tracker saem publicadas como pessoas detectadas, e a analise
+  de maos e as regras de gesto rodam sobre elas.
+- **Um limiar de publicacao nao resolve sozinho.** Simulacao sobre os dados:
+  a 0,25 sobrariam 17/30 frames na r1, 3/30 na r2 e 1/30 na r3; a 0,50 ainda
+  sobrariam 14/30 na r1, com caixas chegando a 0,804. O modelo de pose produz
+  falso positivo de alta confianca onde o `yolov8n.pt` nao produz na mesma cena.
+- `process_rss_mb` ficou entre 721,8 e 743,9 MB mesmo sem ninguem em cena,
+  acima do teto de 719 MB da fase 1.
+- Combinado com o cenario de uma pessoa: a passada unica entrega -45% com gente
+  e neutralidade com a cena vazia, ao custo de um track fantasma em 82% dos
+  frames ociosos. **Nao promover a padrao sem tratar o fantasma.**
+
+### Acoes combinadas com o responsavel em 20/09/2026
+
+1. Gate barato antes da pose, por diferenca de frames. Camera ociosa nao tem
+   movimento, entao a pose nao roda e o fantasma nao aparece; o ganho com gente
+   e preservado. Risco a cobrir: pessoa parada nao pode ficar invisivel.
+2. Limiar de publicacao separado da entrada do tracker: manter `conf=0.1`
+   alimentando o ByteTrack e filtrar o que e publicado como pessoa e o que entra
+   na analise de gesto. Corrige um limiar que mudou sem decisao.
+
+Ambas combinadas apos a medicao da cena vazia, para serem medidas em seguida.
+
 ### Perfil rpi3 completo - ganho confirmado com uma pessoa
 
 - **As medicoes anteriores deste dia rodaram com as otimizacoes desligadas.** O
