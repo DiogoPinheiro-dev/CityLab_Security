@@ -43,6 +43,84 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
    observacoes". Ver `docs/PLANO_GESTOS.md`.
 
 
+## Estado verificado em 26/09/2026
+
+### Duas pessoas no perfil rpi3 com gate - ganho confirmado
+
+Commit medido: `3e67f56`. O Pi recebeu o deploy de `ea97065`, que so muda
+documentacao e resultados; os hashes de `App/settings.py`,
+`App/recognition_pipeline.py` e `App/GestureRecon/service.py` foram conferidos
+no dispositivo. Mesma configuracao da serie de 21/09, conferida com
+`tools/run_rpi.py --show-config` e com `GESTURE_MOTION_GATE=1` no `.env`, que o
+`--show-config` nao exibe. Resultados em
+`resultados/pi3-3e67f56-gate/duas-pessoas-r1.json` a `r3.json`. Cena igual a da
+linha de base: duas pessoas reais, uma de frente e outra de lado. API
+reiniciada antes de cada rodada.
+
+| Cenario | Linha de base | Agora | Ganho |
+|---|---|---|---|
+| Duas pessoas | 16615,63 ms | 7597,0 / 7568,6 / 7740,2 | **-53,4% a -54,4%** |
+
+- Amplitude entre rodadas: 2,3%, contra 2,7% da linha de base.
+- Vazao: 0,059 a 0,062 FPS para 0,135 a 0,144 FPS.
+- **Recall preservado nas 90 amostras**: 2 pessoas em 90/90, 2 tracks de gesto
+  em 90/90, 1 rosto em 89/90 e 2 rostos em 1/90. A linha de base tambem tinha
+  mediana de 1 rosto, porque a pessoa de lado nao gera rosto aceito. Nenhuma
+  terceira caixa, contra a pessoa a mais sistematica da linha de base.
+  Confianca da segunda pessoa entre 0,430 e 0,894.
+- Duas pessoas custam 4,4% a mais que uma: 7597,0 contra 7276,8 ms, mediana das
+  medianas. O rosto, entre 5,3 e 5,5 s, roda inteiro em paralelo com a pose, com
+  residuo de 3,1 ms nas tres rodadas. O caminho critico agora e a pose.
+- `process_rss_mb` entre 628,2 e 692,3 MB, abaixo do teto de 719 MB da fase 1.
+  **Mas o sistema ja usa swap**: `vmstat 5` durante a r2 mostrou cerca de
+  236 MB em swap e 59 MB livres, com rajadas de ate 2,4 MB/s de saida para o
+  swap. Na maior parte dos intervalos a troca ficou em zero, entao nao e
+  thrashing continuo. O runner do GitHub Actions estava ligado e ocupa parte
+  dessa memoria. O RSS do processo sozinho subestima o risco de OOM.
+- `temperature_c` entre 52,6 e 59,1 C. `vcgencmd get_throttled` devolveu `0x0`:
+  nenhuma reducao de frequencia por temperatura ou alimentacao desde o boot.
+- Alertas: 56, 52 e 42 por rodada, presentes em 85 de 90 frames. E o colapso
+  descrito em `docs/PLANO_GESTOS.md` e nao serve para comparar versoes.
+
+### Pose bimodal - a latencia depende de qual worker roda o gesto
+
+- A pose tem duas velocidades, sem meio-termo: entre 5,0 e 5,3 s ou entre 6,94
+  e 6,99 s. Com a pose rapida o frame fica em 6,0 a 6,3 s; com a lenta, em 7,6
+  a 7,8 s. Foram 30 de 90 frames na fase rapida, 5, 14 e 11 por rodada.
+- Nao e processador mais lento: quando a pose fica lenta, o rosto fica mais
+  rapido, de cerca de 5,7 para 5,3 s. `get_throttled` descarta temperatura e
+  alimentacao, e no `vmstat` a rajada de swap veio antes da troca de fase da
+  r2, com a pose ainda rapida.
+- Mecanismo observado: `_process_parallel` submete primeiro o rosto e depois o
+  gesto ao `ThreadPoolExecutor` de 2 workers. O worker que terminou por ultimo
+  no frame anterior recebe o gesto no frame seguinte, entao os papeis ficam
+  presos e so trocam quando o rosto termina depois do gesto. Essa regra previu
+  85 de 87 transicoes nas tres rodadas; as duas falhas sao os primeiros frames
+  da r2. A troca da r1 (frame 10) e a da r3 (frame 24, logo apos o unico frame
+  com 2 rostos, com 8806 ms de rosto) vem exatamente depois de um frame em que o
+  rosto terminou por ultimo.
+- Leitura: um dos dois workers roda a pose cerca de 1,4 vez mais rapido que o
+  outro, embora os dois executem `configure_torch_threads(2)` no inicializador.
+  A causa nao foi isolada; a hipotese principal e o numero efetivo de threads
+  do PyTorch em cada worker. A serie de uma pessoa de 21/09 confirma a regra:
+  pose entre 6934 e 7138 ms em todos os 90 frames, e em nenhum deles o rosto
+  terminou depois do gesto, entao os papeis nunca trocaram.
+- Oportunidade, nao ganho medido: com o gesto sempre na configuracao rapida, o
+  frame de duas pessoas cairia de cerca de 7,6 s para 6,0 a 6,3 s, perto de 20%.
+  Exige registrar worker e threads por frame antes de mexer em qualquer coisa.
+
+### O que fica aberto
+
+1. **Promover a configuracao a padrao.** Os tres cenarios estao medidos, com
+   ganho e recall preservado. Hoje ela so existe no `.env` do Pi:
+   `App/settings.py` e `.env.rpi.example` ainda desligam
+   `PIPELINE_SHARED_PERSON_POSE` e `GESTURE_MOTION_GATE`. Decisao do responsavel.
+2. **Pose bimodal**, acima. Proxima acao candidata de desempenho, a combinar.
+3. **Memoria do sistema.** Medir com o runner parado para separar o que e dele,
+   e decidir se o runner fica ligado como servico.
+4. Limiares de gesto, em `docs/PLANO_GESTOS.md`.
+5. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada.
+
 ## Estado verificado em 21/09/2026
 
 ### Gate de movimento e limiar de publicacao - ganho confirmado nos dois cenarios

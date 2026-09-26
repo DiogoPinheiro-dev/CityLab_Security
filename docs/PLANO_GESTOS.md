@@ -56,6 +56,9 @@ hardware**. Todas exigem o mesmo: gesto presente em dois frames seguidos.
 - `COOLDOWN_ALERTA_GESTO_SECONDS` e 5 s e o frame custa 7,4 s. O cooldown
   **nunca deduplica**: todo frame com o gesto ativo grava um evento novo no
   MongoDB, com recorte de imagem.
+- Nas tres rodadas de duas pessoas de 26/09/2026, com o frame em cerca de
+  7,6 s, foram **56, 52 e 42 alertas**, presentes em 85 de 90 frames, quase
+  sempre 1 ou 2 por frame. Nao houve confirmacao de que os gestos eram reais.
 - A contagem de alertas continua **sem servir para comparar versoes**, agora por
   excesso de sensibilidade em vez de falta. O plano de otimizacao tratava a
   conversao para tempo como pre-requisito cumprido para essa comparacao; nao e.
