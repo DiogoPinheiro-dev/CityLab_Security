@@ -52,8 +52,9 @@ NATIVE_NUM_THREADS = max(0, _get_int("NATIVE_NUM_THREADS", 1 if _RPI3 else 0))
 POSE_MODEL_PATH = os.getenv("POSE_MODEL_PATH", "").strip()
 
 PIPELINE_RUN_IN_PARALLEL = _get_bool("PIPELINE_RUN_IN_PARALLEL", True)
-# Comparar no Pi antes de promover a passada unica a padrao.
-PIPELINE_SHARED_PERSON_POSE = _get_bool("PIPELINE_SHARED_PERSON_POSE", False)
+# Passada unica: pessoas saem da pose. Padrao no rpi3, medido nos tres cenarios
+# em 26/09/2026; no perfil default segue opt-in porque nao foi medido.
+PIPELINE_SHARED_PERSON_POSE = _get_bool("PIPELINE_SHARED_PERSON_POSE", _RPI3)
 PIPELINE_MAX_WORKERS = max(1, _get_int("PIPELINE_MAX_WORKERS", 2))
 GESTURE_ANALYZER_FPS = max(1, _get_int("GESTURE_ANALYZER_FPS", 12))
 # Espera sem frames, excluindo o tempo gasto em inferencia.
@@ -62,8 +63,8 @@ GESTURE_MAX_OBSERVATION_GAP_SECONDS = max(1.0, _get_float("GESTURE_MAX_OBSERVATI
 # Caixa fraca alimenta o ByteTrack, mas nao deve sair publicada como pessoa.
 # O track() do Ultralytics forca conf=0.1; a passada dupla usava 0,25.
 GESTURE_PUBLISH_MIN_CONFIDENCE = max(0.0, min(1.0, _get_float("GESTURE_PUBLISH_MIN_CONFIDENCE", 0.25)))
-# Gate de movimento antes da pose. Opt-in: medir antes de promover a padrao.
-GESTURE_MOTION_GATE = _get_bool("GESTURE_MOTION_GATE", False)
+# Gate de movimento antes da pose. Padrao no rpi3 junto com a passada unica.
+GESTURE_MOTION_GATE = _get_bool("GESTURE_MOTION_GATE", _RPI3)
 # Fracao de pixels alterados que ja conta como cena em movimento.
 GESTURE_MOTION_MIN_RATIO = max(0.0, _get_float("GESTURE_MOTION_MIN_RATIO", 0.002))
 GESTURE_MOTION_PIXEL_DELTA = max(1, _get_int("GESTURE_MOTION_PIXEL_DELTA", 25))

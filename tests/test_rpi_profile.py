@@ -1,4 +1,5 @@
 """Valida o perfil sem importar bibliotecas de inferencia."""
+import json
 import os
 import runpy
 import sys
@@ -23,7 +24,7 @@ class RpiProfileTests(unittest.TestCase):
         ):
             return runpy.run_path("App/settings.py")
 
-    def test_pi_defaults_preserve_image_quality_and_detectors(self):
+    def test_pi_defaults_preserve_image_quality(self):
         normal = self.settings()
         pi = self.settings(CITYLAB_PROFILE="rpi3")
         self.assertEqual([pi[name] for name in ("ONNX_INTRA_OP_THREADS", "TORCH_NUM_THREADS",
@@ -31,8 +32,19 @@ class RpiProfileTests(unittest.TestCase):
                          [1, 2, 1, 1])
         for name in ("PROCESS_SCALE", "STREAM_WIDTH", "STREAM_HEIGHT", "JPEG_QUALITY",
                      "FACE_MIN_CONFIDENCE", "FACE_MIN_WIDTH", "FACE_MIN_HEIGHT",
-                     "PIPELINE_SHARED_PERSON_POSE", "POSE_MODEL_PATH"):
+                     "GESTURE_PUBLISH_MIN_CONFIDENCE", "POSE_MODEL_PATH"):
             self.assertEqual(pi[name], normal[name])
+
+    def test_pi_profile_enables_the_measured_pose_path(self):
+        names = ("PIPELINE_SHARED_PERSON_POSE", "GESTURE_MOTION_GATE")
+        # Medido nos tres cenarios so no rpi3; o perfil default segue opt-in.
+        self.assertEqual([self.settings()[name] for name in names], [False, False])
+        self.assertEqual([self.settings(CITYLAB_PROFILE="rpi3")[name] for name in names],
+                         [True, True])
+        # Valor explicito prevalece, para comparar cada ajuste no Pi.
+        off = self.settings(CITYLAB_PROFILE="rpi3", PIPELINE_SHARED_PERSON_POSE="0",
+                            GESTURE_MOTION_GATE="0")
+        self.assertEqual([off[name] for name in names], [False, False])
 
     def test_explicit_overrides_and_typo(self):
         values = self.settings(CITYLAB_PROFILE="rpi3", ONNX_INTRA_OP_THREADS="0",
@@ -99,6 +111,23 @@ class RpiProfileTests(unittest.TestCase):
             uvicorn.run.assert_not_called()
             run_rpi(["--host", "127.0.0.1"])
             uvicorn.run.assert_called_once()
+
+    def test_show_config_reports_the_pose_path_without_credentials(self):
+        settings = SimpleNamespace(**self.settings(CITYLAB_PROFILE="rpi3"))
+        output = io.StringIO()
+        import App
+        with patch.object(App, "settings", settings, create=True), patch.dict(
+            sys.modules, {"App.settings": settings,
+                          "dotenv": SimpleNamespace(load_dotenv=lambda *a, **kw: None)}
+        ), patch.dict(os.environ, {"MONGO_DETAILS": "mongodb://usuario:segredo@host"},
+                      clear=True), contextlib.redirect_stdout(output):
+            run_rpi(["--show-config"])
+        # O gate decide o ganho da cena vazia e nao aparecia nesta saida.
+        configured = json.loads(output.getvalue())["configured"]
+        self.assertIs(configured["PIPELINE_SHARED_PERSON_POSE"], True)
+        self.assertIs(configured["GESTURE_MOTION_GATE"], True)
+        self.assertEqual(configured["GESTURE_PUBLISH_MIN_CONFIDENCE"], 0.25)
+        self.assertNotIn("segredo", output.getvalue())
 
     def test_launcher_validates_and_forwards_the_tls_pair(self):
         settings = SimpleNamespace(**self.settings(CITYLAB_PROFILE="rpi3"))

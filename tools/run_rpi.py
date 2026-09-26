@@ -52,8 +52,9 @@ def main(argv=None):
     config = {name: getattr(settings, name) for name in (
         "CITYLAB_PROFILE", "ONNX_INTRA_OP_THREADS", "TORCH_NUM_THREADS",
         "OPENCV_NUM_THREADS", "NATIVE_NUM_THREADS", "PIPELINE_RUN_IN_PARALLEL",
-        "PIPELINE_MAX_WORKERS", "PIPELINE_SHARED_PERSON_POSE", "FACE_MINIMAL_MODULES",
-        "FACE_PREFILTER", "MAX_IN_FLIGHT_FRAMES", "PROCESS_SCALE",
+        "PIPELINE_MAX_WORKERS", "PIPELINE_SHARED_PERSON_POSE", "GESTURE_MOTION_GATE",
+        "GESTURE_PUBLISH_MIN_CONFIDENCE", "FACE_MINIMAL_MODULES", "FACE_PREFILTER",
+        "MAX_IN_FLIGHT_FRAMES", "PROCESS_SCALE",
     )}
     # Somente o estado do TLS: o par aponta para a chave privada do servidor.
     print(json.dumps({"configured": config, "native_environment": native,

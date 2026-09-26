@@ -109,17 +109,27 @@ reiniciada antes de cada rodada.
   frame de duas pessoas cairia de cerca de 7,6 s para 6,0 a 6,3 s, perto de 20%.
   Exige registrar worker e threads por frame antes de mexer em qualquer coisa.
 
+### Promocao a padrao do perfil rpi3
+
+Combinada com o responsavel apos a serie de duas pessoas. No perfil rpi3,
+`PIPELINE_SHARED_PERSON_POSE` e `GESTURE_MOTION_GATE` passam a vir ligados por
+padrao em `App/settings.py`, e `.env.rpi.example` deixa de desliga-los. O
+perfil default nao muda, porque nao foi medido. Valor explicito no ambiente
+continua prevalecendo, entao `=0` volta ao caminho anterior para comparar.
+`tools/run_rpi.py --show-config` passou a exibir `GESTURE_MOTION_GATE` e
+`GESTURE_PUBLISH_MIN_CONFIDENCE`; antes, o gate que decide o ganho da cena
+vazia so aparecia com `grep` no `.env`. No Pi o comportamento nao muda, porque
+o `.env` de la ja define as duas chaves como `1`.
+
 ### O que fica aberto
 
-1. **Promover a configuracao a padrao.** Os tres cenarios estao medidos, com
-   ganho e recall preservado. Hoje ela so existe no `.env` do Pi:
-   `App/settings.py` e `.env.rpi.example` ainda desligam
-   `PIPELINE_SHARED_PERSON_POSE` e `GESTURE_MOTION_GATE`. Decisao do responsavel.
-2. **Pose bimodal**, acima. Proxima acao candidata de desempenho, a combinar.
-3. **Memoria do sistema.** Medir com o runner parado para separar o que e dele,
+1. **Pose bimodal**, acima. Proxima acao candidata de desempenho, a combinar.
+2. **Memoria do sistema.** Medir com o runner parado para separar o que e dele,
    e decidir se o runner fica ligado como servico.
-4. Limiares de gesto, em `docs/PLANO_GESTOS.md`.
-5. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada.
+3. Limiares de gesto, em `docs/PLANO_GESTOS.md`.
+4. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada. A equivalencia dos
+   embeddings da acao 6, ligada por padrao desde 20/09, nunca foi conferida com
+   `tools/check_face_optimization.py` nos modelos reais.
 
 ## Estado verificado em 21/09/2026
 
