@@ -315,4 +315,3 @@ node --test tests/client_stream.test.cjs
 - [docs/BENCHMARK.md](docs/BENCHMARK.md): protocolo de medicao do stream no Pi
 - [docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md): plano e historico de desempenho, com o estado verificado
 - [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md): plano das regras de gesto e de quando um alerta dispara
-- [AGENTS.md](AGENTS.md): regras para os agentes que trabalham no repositorio

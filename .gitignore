@@ -48,3 +48,9 @@ Ultralytics/
 
 # Rascunhos locais
 .tmp/
+
+# Instrucoes locais para agentes
+AGENTS.md
+CLAUDE.md
+.agents/
+.claude/
