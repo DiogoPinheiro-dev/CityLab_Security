@@ -2,6 +2,7 @@
 import ast
 import asyncio
 import logging
+import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor, wait
 from datetime import datetime
@@ -103,11 +104,18 @@ class GestureTimeTests(unittest.TestCase):
 
 class SharedPipelineTests(unittest.TestCase):
     def make_pipeline(self, parallel, shared, persons=None):
+        self.ensure_calls = []
+
+        def ensure_torch_threads(count):
+            self.ensure_calls.append((count, threading.current_thread().name))
+            return count
+
         cls = load_class("App/recognition_pipeline.py", "UnifiedRecognitionService",
                          PIPELINE_RUN_IN_PARALLEL=True, PIPELINE_SHARED_PERSON_POSE=False,
                          PIPELINE_MAX_WORKERS=2, PROCESS_SCALE=.5, EXPERIMENTAL_GRAYSCALE=False,
                          DEBUG_PIPELINE=False, ENABLE_PERFORMANCE_METRICS=True,
                          TORCH_NUM_THREADS=0, configure_torch_threads=lambda count: None,
+                         ensure_torch_threads=ensure_torch_threads, threading=threading,
                          OPENCV_NUM_THREADS=0, configure_opencv_threads=lambda count: None,
                          ThreadPoolExecutor=ThreadPoolExecutor, wait=wait, _env_bool=lambda name, default: default,
                          build_frame_context=lambda *args, **kwargs: object())
@@ -171,6 +179,27 @@ class SharedPipelineTests(unittest.TestCase):
         result = pipeline.process_frame(None)
         face.detect_persons.assert_called_once()
         self.assertEqual(result["persons"], [{"bbox": [1, 2, 3, 4]}])
+
+    def test_gesture_task_reapplies_torch_threads_where_the_pose_runs(self):
+        for parallel in (False, True):
+            pipeline, _, _ = self.make_pipeline(parallel, True)
+            pipeline.torch_threads = 3
+            metrics = pipeline.process_frame(None)["metrics"]
+            # O Ultralytics troca o limite da thread do primeiro track(); o
+            # pipeline reaplica o configurado na thread da pose, a cada frame.
+            self.assertEqual([count for count, _ in self.ensure_calls], [3])
+            self.assertEqual(metrics["gesture_torch_threads"], 3)
+            if parallel:
+                self.assertTrue(self.ensure_calls[0][1].startswith("pipeline_"))
+                self.assertIn(metrics["gesture_worker"], (0, 1))
+                self.assertIn(metrics["face_worker"], (0, 1))
+            else:
+                self.assertEqual((metrics["gesture_worker"], metrics["face_worker"]), (-1, -1))
+        # Sem gesto as chaves continuam no frame, para o coletor contar todos.
+        pipeline, _, _ = self.make_pipeline(True, True)
+        metrics = pipeline.process_frame(None, detect_gestures=False)["metrics"]
+        self.assertEqual((metrics["gesture_worker"], metrics["gesture_torch_threads"]), (-1, 0))
+        self.assertEqual(self.ensure_calls, [])
 
 
 class PoseOutputTests(unittest.TestCase):

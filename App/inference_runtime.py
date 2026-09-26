@@ -33,6 +33,20 @@ def configure_torch_threads(count: int) -> None:
     logger.info("PyTorch intra-op threads: %s", torch.get_num_threads())
 
 
+def ensure_torch_threads(count: int) -> int:
+    """Reaplica o limite do PyTorch na thread atual e devolve o valor em uso."""
+    import torch
+
+    current = torch.get_num_threads()
+    if count > 0 and current != count:
+        # O select_device do Ultralytics chama torch.set_num_threads na thread do
+        # primeiro predict, e o limite do OpenMP vale por thread: sem reaplicar,
+        # cada worker do pipeline roda a pose com um numero diferente de threads.
+        torch.set_num_threads(count)
+        current = torch.get_num_threads()
+    return current
+
+
 def configure_insight_threads(app, count: int) -> None:
     if count <= 0:
         return

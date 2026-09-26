@@ -101,13 +101,41 @@ reiniciada antes de cada rodada.
   rosto terminou por ultimo.
 - Leitura: um dos dois workers roda a pose cerca de 1,4 vez mais rapido que o
   outro, embora os dois executem `configure_torch_threads(2)` no inicializador.
-  A causa nao foi isolada; a hipotese principal e o numero efetivo de threads
-  do PyTorch em cada worker. A serie de uma pessoa de 21/09 confirma a regra:
+  A causa esta na secao seguinte. A serie de uma pessoa de 21/09 confirma a regra:
   pose entre 6934 e 7138 ms em todos os 90 frames, e em nenhum deles o rosto
   terminou depois do gesto, entao os papeis nunca trocaram.
 - Oportunidade, nao ganho medido: com o gesto sempre na configuracao rapida, o
   frame de duas pessoas cairia de cerca de 7,6 s para 6,0 a 6,3 s, perto de 20%.
   Exige registrar worker e threads por frame antes de mexer em qualquer coisa.
+
+### Causa da pose bimodal - limite de threads trocado pelo Ultralytics
+
+- Causa: na primeira chamada de `track()`, o `setup_model` do Ultralytics chama
+  `select_device`, que executa `torch.set_num_threads(NUM_THREADS)`, com
+  `NUM_THREADS = min(8, nucleos - 1)`: 3 no Pi. O limite vale por thread, entao
+  so o worker que rodou o primeiro `track()` passa a 3; o outro fica nos 2
+  configurados pelo inicializador. A fase rapida e a pose com 3 threads; a
+  lenta e a pose com 2, que era o valor do perfil.
+- Reproduzido no PC com as versoes do projeto (Ultralytics 8.3.226, torch
+  2.9.0) e o mesmo inicializador: o worker do primeiro `track()` terminou com 8
+  threads, o `NUM_THREADS` do PC, e o outro com 2. No pipeline real, com o
+  servico de gesto real e o rosto simulado para forcar a troca de workers, a
+  pose alternou entre cerca de 54 ms com 8 threads e 80 ms com 2, conforme o
+  worker.
+- Correcao: o pipeline reaplica `TORCH_NUM_THREADS` no inicio de cada tarefa de
+  gesto (`ensure_torch_threads`), so quando o valor da thread diverge, porque
+  `set_num_threads` limpa o cache do oneDNN. No mesmo teste do PC, os dois
+  workers ficaram em 2 threads e a pose entre 76 e 83 ms em todos os frames.
+- O perfil rpi3 passou de 2 para 3 threads do PyTorch, o valor da fase rapida.
+  Nos frames dessa fase em 26/09, a pose ficou entre 5,0 e 5,3 s e o frame
+  entre 6,0 e 6,3 s, contra 6,94 a 6,99 s e 7,6 a 7,8 s com 2 threads.
+- O pipeline passou a publicar `gesture_worker`, `face_worker` e
+  `gesture_torch_threads` por frame, para a medicao mostrar qual worker rodou a
+  pose e com quantas threads.
+- Falta medir no Pi. Risco a observar: com 3 threads na pose e 1 no rosto, os
+  quatro nucleos ficam ocupados. A temperatura chegou a 59,1 C nas rodadas de
+  26/09, e o Pi 3 B+ reduz o clock perto de 60 C: conferir
+  `vcgencmd get_throttled` depois das rodadas.
 
 ### Promocao a padrao do perfil rpi3
 
@@ -123,7 +151,8 @@ o `.env` de la ja define as duas chaves como `1`.
 
 ### O que fica aberto
 
-1. **Pose bimodal**, acima. Proxima acao candidata de desempenho, a combinar.
+1. **Pose bimodal**: causa encontrada e corrigida em codigo, acima. Falta medir
+   no Pi, com uma e duas pessoas.
 2. **Memoria do sistema.** Medir com o runner parado para separar o que e dele,
    e decidir se o runner fica ligado como servico.
 3. Limiares de gesto, em `docs/PLANO_GESTOS.md`.

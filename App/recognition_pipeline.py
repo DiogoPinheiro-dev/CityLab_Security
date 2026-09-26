@@ -1,5 +1,6 @@
 import logging
 import os
+import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import TYPE_CHECKING
 from typing import Any
@@ -8,7 +9,7 @@ from typing import Optional
 import numpy as np
 
 from App.frame_context import build_frame_context
-from App.inference_runtime import configure_torch_threads, configure_opencv_threads
+from App.inference_runtime import configure_torch_threads, configure_opencv_threads, ensure_torch_threads
 from App.settings import (
     DEBUG_PIPELINE,
     ENABLE_PERFORMANCE_METRICS,
@@ -81,6 +82,7 @@ class UnifiedRecognitionService:
         self.gesture_service = gesture_service or self._create_gesture_service()
         configure_torch_threads(torch_threads)
         configure_opencv_threads(opencv_threads)
+        self.torch_threads = torch_threads
         self.run_in_parallel = run_in_parallel
         self.process_scale = process_scale
         self.experimental_grayscale = experimental_grayscale
@@ -93,6 +95,7 @@ class UnifiedRecognitionService:
         if self.run_in_parallel:
             self.executor = ThreadPoolExecutor(
                 max_workers=self.max_workers,
+                thread_name_prefix="pipeline",
                 initializer=configure_torch_threads,
                 initargs=(torch_threads,),
             )
@@ -174,6 +177,7 @@ class UnifiedRecognitionService:
                 metrics["faces_ms"] = 0.0
 
             if detect_gestures and self.gesture_service is not None:
+                metrics["gesture_torch_threads"] = ensure_torch_threads(self.torch_threads)
                 gestures = self.gesture_service.detect_gestures(
                     frame_context,
                     person_bboxes=None if use_shared_pose else persons,
@@ -189,6 +193,11 @@ class UnifiedRecognitionService:
                 metrics["pose_ms"] = 0.0
                 metrics["motion_ratio"] = 0.0
                 metrics["pose_skipped"] = 0.0
+
+        # Mesmas chaves em todo caminho, para o coletor contar todos os frames.
+        metrics.setdefault("face_worker", -1)
+        metrics.setdefault("gesture_worker", -1)
+        metrics.setdefault("gesture_torch_threads", 0)
 
         if use_shared_pose and detect_persons:
             persons = self.gesture_service.latest_persons
@@ -250,7 +259,7 @@ class UnifiedRecognitionService:
 
         if detect_faces and self.face_service is not None and self.executor is not None:
             face_future = self.executor.submit(
-                self.face_service.recognize_faces,
+                self._recognize_faces_on_worker,
                 frame_context,
             )
         if (
@@ -259,7 +268,7 @@ class UnifiedRecognitionService:
             and self.executor is not None
         ):
             gesture_future = self.executor.submit(
-                self.gesture_service.detect_gestures,
+                self._detect_gestures_on_worker,
                 frame_context,
                 None if use_shared_pose else persons,
             )
@@ -270,13 +279,15 @@ class UnifiedRecognitionService:
         # Mesmo com falha em um modelo, aguardar o outro antes de liberar estado.
         wait([future for future in (face_future, gesture_future) if future is not None])
         if face_future is not None and self.face_service is not None:
-            faces = face_future.result()
+            faces, metrics["face_worker"] = face_future.result()
             metrics["faces_ms"] = self.face_service.latest_metrics.get("faces_ms", 0.0)
         else:
             metrics["faces_ms"] = 0.0
 
         if gesture_future is not None and self.gesture_service is not None:
-            gestures = gesture_future.result()
+            gestures, metrics["gesture_worker"], metrics["gesture_torch_threads"] = (
+                gesture_future.result()
+            )
             metrics["gestures_ms"] = self.gesture_service.latest_metrics.get("gestures_ms", 0.0)
             metrics["hands_ms"] = self.gesture_service.latest_metrics.get("hands_ms", 0.0)
             metrics["pose_ms"] = self.gesture_service.latest_metrics.get("pose_ms", 0.0)
@@ -290,6 +301,26 @@ class UnifiedRecognitionService:
             metrics["pose_skipped"] = 0.0
 
         return faces, gestures
+
+    @staticmethod
+    def _worker_index() -> int:
+        """Indice do worker do executor, pelo nome da thread; -1 fora dele."""
+        prefix, _, index = threading.current_thread().name.rpartition("_")
+        return int(index) if prefix == "pipeline" and index.isdigit() else -1
+
+    def _recognize_faces_on_worker(self, frame_context: Any) -> tuple[list[dict[str, Any]], int]:
+        return self.face_service.recognize_faces(frame_context), self._worker_index()
+
+    def _detect_gestures_on_worker(
+        self,
+        frame_context: Any,
+        person_bboxes: Optional[list[dict[str, Any]]],
+    ) -> tuple[list[dict[str, Any]], int, int]:
+        # O worker que rodou o primeiro track() herdou o limite do Ultralytics;
+        # reaplicar o configurado deixa a pose com a mesma velocidade nos dois.
+        threads = ensure_torch_threads(self.torch_threads)
+        gestures = self.gesture_service.detect_gestures(frame_context, person_bboxes)
+        return gestures, self._worker_index(), threads
 
     def _merge_payloads(
         self,

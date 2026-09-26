@@ -45,7 +45,9 @@ FACE_MINIMAL_MODULES = _get_bool("FACE_MINIMAL_MODULES", True)
 FACE_PREFILTER = _get_bool("FACE_PREFILTER", True)
 # Zero preserva a escolha automatica da biblioteca.
 ONNX_INTRA_OP_THREADS = max(0, _get_int("ONNX_INTRA_OP_THREADS", 1 if _RPI3 else 0))
-TORCH_NUM_THREADS = max(0, _get_int("TORCH_NUM_THREADS", 2 if _RPI3 else 0))
+# 3 no rpi3: com 2, a pose levava ~7,0 s; com 3, que o Ultralytics aplicava sem
+# querer num dos workers, ~5,0 s (medido em 26/09/2026, docs/PLANO_OTIMIZACAO.md).
+TORCH_NUM_THREADS = max(0, _get_int("TORCH_NUM_THREADS", 3 if _RPI3 else 0))
 OPENCV_NUM_THREADS = max(0, _get_int("OPENCV_NUM_THREADS", 1 if _RPI3 else 0))
 NATIVE_NUM_THREADS = max(0, _get_int("NATIVE_NUM_THREADS", 1 if _RPI3 else 0))
 # Aceita arquivo .pt ou diretorio NCNN exportado; vazio usa o peso versionado.

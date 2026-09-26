@@ -12,7 +12,8 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
-from App.inference_runtime import configure_insight_threads, configure_opencv_threads, prepare_native_environment
+from App.inference_runtime import (configure_insight_threads, configure_opencv_threads,
+                                   ensure_torch_threads, prepare_native_environment)
 from tools.run_rpi import main as run_rpi
 from tools.benchmark_stream import detection_confidences
 
@@ -29,7 +30,7 @@ class RpiProfileTests(unittest.TestCase):
         pi = self.settings(CITYLAB_PROFILE="rpi3")
         self.assertEqual([pi[name] for name in ("ONNX_INTRA_OP_THREADS", "TORCH_NUM_THREADS",
                                               "OPENCV_NUM_THREADS", "MAX_IN_FLIGHT_FRAMES")],
-                         [1, 2, 1, 1])
+                         [1, 3, 1, 1])
         for name in ("PROCESS_SCALE", "STREAM_WIDTH", "STREAM_HEIGHT", "JPEG_QUALITY",
                      "FACE_MIN_CONFIDENCE", "FACE_MIN_WIDTH", "FACE_MIN_HEIGHT",
                      "GESTURE_PUBLISH_MIN_CONFIDENCE", "POSE_MODEL_PATH"):
@@ -62,6 +63,21 @@ class RpiProfileTests(unittest.TestCase):
             cv2.setNumThreads.assert_not_called()
             configure_opencv_threads(1)
             cv2.setNumThreads.assert_called_once_with(1)
+
+    def test_torch_threads_are_reapplied_only_when_they_drift(self):
+        state = {"threads": 3}
+        torch = SimpleNamespace(get_num_threads=lambda: state["threads"],
+                                set_num_threads=Mock(side_effect=lambda n: state.update(threads=n)))
+        with patch.dict(sys.modules, {"torch": torch}):
+            # Thread que herdou o limite do Ultralytics volta ao configurado.
+            self.assertEqual(ensure_torch_threads(2), 2)
+            torch.set_num_threads.assert_called_once_with(2)
+            # Sem desvio nao chama de novo: set_num_threads limpa o cache do oneDNN.
+            self.assertEqual(ensure_torch_threads(2), 2)
+            # Zero preserva a escolha da biblioteca.
+            state["threads"] = 8
+            self.assertEqual(ensure_torch_threads(0), 8)
+            torch.set_num_threads.assert_called_once()
 
     def test_old_onnx_session_released_before_replacement(self):
         class Session:

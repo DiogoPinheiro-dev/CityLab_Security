@@ -23,7 +23,7 @@ CITYLAB_PROFILE=rpi3
 
 Mescle `.env.rpi.example` no `.env` existente, preservando as credenciais.
 Nao sobrescreva seu arquivo de ambiente inteiro. O perfil escolhe ONNX=1,
-PyTorch=2 e OpenCV=1 thread, um frame pendente no cliente, a passada unica de
+PyTorch=3 e OpenCV=1 thread, um frame pendente no cliente, a passada unica de
 pessoas e pose (`PIPELINE_SHARED_PERSON_POSE`) e o gate de movimento antes da
 pose (`GESTURE_MOTION_GATE`). Nao desativa reconhecimento nem reduz a
 qualidade da imagem. Qualquer valor explicito dessas variaveis no ambiente tem
@@ -47,7 +47,10 @@ python tools/run_rpi.py --show-config
 O comando exige o ambiente do projeto instalado, incluindo python-dotenv.
 Executar Uvicorn diretamente continua possivel, mas nao aplica o preparo nativo
 desse inicializador. Os limites PyTorch tambem sao aplicados nos workers da
-pipeline. Eles nao garantem um total fixo de threads de todas as bibliotecas.
+pipeline e reaplicados no inicio de cada tarefa de gesto: o `select_device` do
+Ultralytics chama `torch.set_num_threads` na thread que roda o primeiro
+`track()`, e sem isso cada worker rodaria a pose com um limite diferente. Eles
+nao garantem um total fixo de threads de todas as bibliotecas.
 
 O perfil completo foi medido no Pi em 21 e 26/09/2026: -45,8% com uma pessoa,
 -53,4% a -54,4% com duas e -69,0% na cena vazia, sem perda de deteccao (ver
