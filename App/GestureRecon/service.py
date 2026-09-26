@@ -13,16 +13,8 @@ from App.settings import (GESTURE_ANALYZER_FPS, GESTURE_MAX_OBSERVATION_GAP_SECO
                           GESTURE_PUBLISH_MIN_CONFIDENCE,
                           POSE_MODEL_PATH, PROJECT_ROOT)
 
-try:
-    from App.GestureRecon.detector import GestureAnalyzer
-    from App.GestureRecon.hand_detector import HandDetector
-except ImportError:
-    try:
-        from GestureRecon.detector import GestureAnalyzer
-        from GestureRecon.hand_detector import HandDetector
-    except ImportError:
-        from .detector import GestureAnalyzer
-        from .hand_detector import HandDetector
+from App.GestureRecon.detector import GestureAnalyzer
+from App.GestureRecon.hand_detector import HandDetector
 
 class GestureRecognitionService:
     def __init__(
@@ -530,7 +522,3 @@ class GestureRecognitionService:
         delta_x = center_a[0] - center_b[0]
         delta_y = center_a[1] - center_b[1]
         return float((delta_x ** 2 + delta_y ** 2) ** 0.5)
-
-
-def create_gesture_service(**kwargs: Any) -> GestureRecognitionService:
-    return GestureRecognitionService(**kwargs)

@@ -1,5 +1,4 @@
 import logging
-import os
 import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import TYPE_CHECKING
@@ -11,6 +10,9 @@ import numpy as np
 from App.frame_context import build_frame_context
 from App.inference_runtime import configure_torch_threads, configure_opencv_threads, ensure_torch_threads
 from App.settings import (
+    CITYLAB_ALLOW_PARTIAL_PIPELINE,
+    CITYLAB_ENABLE_FACE_SERVICE,
+    CITYLAB_ENABLE_GESTURE_SERVICE,
     DEBUG_PIPELINE,
     ENABLE_PERFORMANCE_METRICS,
     EXPERIMENTAL_GRAYSCALE,
@@ -28,32 +30,15 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-def _env_bool(name: str, default: bool) -> bool:
-    raw_value = os.getenv(name)
-    if raw_value is None:
-        return default
-
-    return raw_value.strip().lower() in {"1", "true", "yes", "on"}
-
+# Importados sob demanda: InsightFace e Ultralytics so carregam se o servico for
+# criado, o que permite subir em modo parcial sem essas dependencias.
 def _load_face_service_class() -> type["FaceRecognitionService"]:
-    try:
-        from App.FaceRecon.service import FaceRecognitionService
-    except ImportError:
-        try:
-            from FaceRecon.service import FaceRecognitionService
-        except ImportError:
-            from .FaceRecon.service import FaceRecognitionService
+    from App.FaceRecon.service import FaceRecognitionService
 
     return FaceRecognitionService
 
 def _load_gesture_service_class() -> type["GestureRecognitionService"]:
-    try:
-        from App.GestureRecon.service import GestureRecognitionService
-    except ImportError:
-        try:
-            from GestureRecon.service import GestureRecognitionService
-        except ImportError:
-            from .GestureRecon.service import GestureRecognitionService
+    from App.GestureRecon.service import GestureRecognitionService
 
     return GestureRecognitionService
 
@@ -75,8 +60,9 @@ class UnifiedRecognitionService:
         shared_person_pose: bool = PIPELINE_SHARED_PERSON_POSE,
         torch_threads: int = TORCH_NUM_THREADS,
         opencv_threads: int = OPENCV_NUM_THREADS,
+        allow_partial_pipeline: bool = CITYLAB_ALLOW_PARTIAL_PIPELINE,
     ) -> None:
-        self.allow_partial_pipeline = _env_bool("CITYLAB_ALLOW_PARTIAL_PIPELINE", False)
+        self.allow_partial_pipeline = allow_partial_pipeline
         self.shared_person_pose = shared_person_pose
         self.face_service = face_service or self._create_face_service()
         self.gesture_service = gesture_service or self._create_gesture_service()
@@ -101,7 +87,7 @@ class UnifiedRecognitionService:
             )
 
     def _create_face_service(self) -> Optional["FaceRecognitionService"]:
-        if not _env_bool("CITYLAB_ENABLE_FACE_SERVICE", True):
+        if not CITYLAB_ENABLE_FACE_SERVICE:
             logger.warning("Face service desativado por CITYLAB_ENABLE_FACE_SERVICE.")
             return None
 
@@ -115,7 +101,7 @@ class UnifiedRecognitionService:
             return None
 
     def _create_gesture_service(self) -> Optional["GestureRecognitionService"]:
-        if not _env_bool("CITYLAB_ENABLE_GESTURE_SERVICE", True):
+        if not CITYLAB_ENABLE_GESTURE_SERVICE:
             logger.warning(
                 "Gesture service desativado por CITYLAB_ENABLE_GESTURE_SERVICE."
             )
@@ -342,7 +328,3 @@ class UnifiedRecognitionService:
         if self.gesture_service is not None:
             self.gesture_service.analyzer.clean_old_tracks([])
             self.gesture_service.last_track_centers.clear()
-
-
-def create_unified_service(**kwargs: Any) -> UnifiedRecognitionService:
-    return UnifiedRecognitionService(**kwargs)

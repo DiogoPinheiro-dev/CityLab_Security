@@ -149,7 +149,9 @@ class SharedPipelineTests(unittest.TestCase):
                          TORCH_NUM_THREADS=0, configure_torch_threads=lambda count: None,
                          ensure_torch_threads=ensure_torch_threads, threading=threading,
                          OPENCV_NUM_THREADS=0, configure_opencv_threads=lambda count: None,
-                         ThreadPoolExecutor=ThreadPoolExecutor, wait=wait, _env_bool=lambda name, default: default,
+                         ThreadPoolExecutor=ThreadPoolExecutor, wait=wait,
+                         CITYLAB_ALLOW_PARTIAL_PIPELINE=False, CITYLAB_ENABLE_FACE_SERVICE=True,
+                         CITYLAB_ENABLE_GESTURE_SERVICE=True,
                          build_frame_context=lambda *args, **kwargs: object())
         faces = SimpleNamespace(detect_persons=Mock(return_value=[{"bbox": [1, 2, 3, 4]}]),
                                 recognize_faces=Mock(return_value=[{"name": "Teste"}]),

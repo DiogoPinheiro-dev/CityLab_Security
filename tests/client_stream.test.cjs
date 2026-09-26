@@ -18,7 +18,7 @@ function setup() {
     const context = vm.createContext({ document: { getElementById: element, createElement: element },
         window: { location: { protocol: 'http:', hostname: 'localhost' } },
         WebSocket: Socket, performance: { now: () => now }, console, setTimeout, clearTimeout });
-    vm.runInContext(fs.readFileSync('Client/index.js', 'utf8').replace(/bootstrap\(\);\s*$/, ''), context);
+    vm.runInContext(fs.readFileSync('Client/stream.js', 'utf8').replace(/bootstrap\(\);\s*$/, ''), context);
     const run = code => vm.runInContext(code, context);
     run('state.cameraReady = true; conectarWebSocket();');
     return { run, callbacks, time: value => { now = value; } };

@@ -30,6 +30,17 @@ def _get_int(name: str, default: int) -> int:
         return default
 
 
+MONGO_DETAILS = os.getenv("MONGO_DETAILS", "mongodb://localhost:27017")
+MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "recon-db")
+MONGO_SERVER_SELECTION_TIMEOUT_MS = _get_int("MONGO_SERVER_SELECTION_TIMEOUT_MS", 10000)
+# Endereco publico usado no QR code do cadastro; vazio deduz pelo request.
+PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
+
+CITYLAB_ENABLE_FACE_SERVICE = _get_bool("CITYLAB_ENABLE_FACE_SERVICE", True)
+CITYLAB_ENABLE_GESTURE_SERVICE = _get_bool("CITYLAB_ENABLE_GESTURE_SERVICE", True)
+# Com True, a API sobe mesmo se um servico pesado falhar ao carregar.
+CITYLAB_ALLOW_PARTIAL_PIPELINE = _get_bool("CITYLAB_ALLOW_PARTIAL_PIPELINE", False)
+
 CITYLAB_PROFILE = os.getenv("CITYLAB_PROFILE", "default").strip().lower()
 if CITYLAB_PROFILE not in {"default", "rpi3"}:
     raise ValueError("CITYLAB_PROFILE deve ser default ou rpi3")

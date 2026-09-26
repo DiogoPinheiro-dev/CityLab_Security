@@ -187,22 +187,6 @@ class FaceRecognitionService:
         self.latest_metrics["persons_ms"] = (time.perf_counter() - started_at) * 1000.0
         return persons
 
-    def process_frame(
-        self,
-        frame_context: FrameContext,
-        detect_faces: bool = True,
-        detect_persons: bool = True,
-    ) -> dict[str, Any]:
-        response: dict[str, Any] = {"faces": [], "persons": []}
-
-        if detect_faces:
-            response["faces"] = self.recognize_faces(frame_context)
-
-        if detect_persons:
-            response["persons"] = self.detect_persons(frame_context)
-
-        return response
-
     def _match_face(self, live_embedding: np.ndarray) -> tuple[str, float]:
         if len(self.known_face_embeddings) == 0:
             return "NAO ALUNO", 0.0
@@ -229,7 +213,3 @@ class FaceRecognitionService:
         if det_confidence < self.face_min_confidence:
             return "baixa_confianca"
         return None
-
-
-def create_face_service(**kwargs: Any) -> FaceRecognitionService:
-    return FaceRecognitionService(**kwargs)

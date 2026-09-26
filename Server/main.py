@@ -1,6 +1,5 @@
 import asyncio
 import io
-import os
 import socket
 import sys
 import time
@@ -23,7 +22,7 @@ if str(PROJECT_ROOT) not in sys.path:
 
 CLIENT_DIR = PROJECT_ROOT / "Client"
 
-from App.recognition_pipeline import UnifiedRecognitionService, create_unified_service
+from App.recognition_pipeline import UnifiedRecognitionService
 from App.settings import (
     DEBUG_PIPELINE,
     ENABLE_PERFORMANCE_METRICS,
@@ -33,6 +32,7 @@ from App.settings import (
     MAX_IN_FLIGHT_FRAMES,
     PIPELINE_MAX_WORKERS,
     PROCESS_SCALE,
+    PUBLIC_BASE_URL,
     STREAM_FPS,
     STREAM_HEIGHT,
     STREAM_WIDTH,
@@ -86,9 +86,8 @@ def _get_local_network_ip() -> str:
             return "127.0.0.1"
 
 def _build_public_base_url(request: Request) -> str:
-    configured_url = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
-    if configured_url:
-        return configured_url
+    if PUBLIC_BASE_URL:
+        return PUBLIC_BASE_URL
 
     host = request.url.hostname or "127.0.0.1"
     if host in {"127.0.0.1", "localhost", "::1"}:
@@ -109,7 +108,7 @@ async def lifespan(_: FastAPI):
     print("[INFO] Conexao com MongoDB OK.")
 
     print("[INFO] API iniciada. Carregando pipeline unificado...")
-    recognizer = create_unified_service(
+    recognizer = UnifiedRecognitionService(
         max_workers=PIPELINE_MAX_WORKERS,
         process_scale=PROCESS_SCALE,
         enable_performance_metrics=ENABLE_PERFORMANCE_METRICS,
@@ -281,7 +280,7 @@ async def visualizar_logs(limite: int = 50):
 
 @app.get("/stream")
 async def pagina_stream():
-    stream_page = CLIENT_DIR / "teste_websocket.html"
+    stream_page = CLIENT_DIR / "stream.html"
     if not stream_page.exists():
         raise HTTPException(status_code=404, detail="Pagina do stream nao encontrada.")
 
