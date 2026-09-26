@@ -52,8 +52,10 @@ identifica esse registro; nao detecta automaticamente o ambiente remoto.
 ## Execucao com webcam
 
 No computador com a camera, ative o ambiente virtual do projeto. Se a API roda
-no Pi, mantenha um tunel SSH para `localhost:8000`. Com a API iniciada e sem a
-pagina do navegador usando a camera, rode uma cena por vez:
+no Pi com HTTPS, aponte o coletor direto para ela com
+`--url wss://IP_DO_PI:8000/stream`; o certificado precisa ser confiavel nesse
+computador. Sem HTTPS, use um tunel SSH para `localhost:8000`. Com a API
+iniciada e sem a pagina do navegador usando a camera, rode uma cena por vez:
 
 ```powershell
 python tools/benchmark_stream.py --camera-index 0 --scenario empty --run-label pi3-webcam-01 --warmup 5 --frames 30 --output resultados/vazia-01.json

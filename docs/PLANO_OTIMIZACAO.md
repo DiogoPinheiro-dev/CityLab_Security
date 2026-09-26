@@ -731,7 +731,7 @@ Fontes tecnicas consultadas:
 ### Ja implementado
 
 - Cliente: timestamp por frame pendente (`state.pendingSentAt`) em
-  `Client/index.js`.
+  `Client/stream.js`.
 - Servidor: tempos separados em `Server/main.py` - `receive_wait_ms`,
   `decode_ms`, `pipeline_ms`, `logs_ms`, `response_ready_ms`, `send_ms`,
   `total_ms`, `effective_fps`.

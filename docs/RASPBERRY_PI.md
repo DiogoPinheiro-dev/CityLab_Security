@@ -83,17 +83,10 @@ python -m pip install -r requirements-rpi-bookworm.txt
 Crie `.env` na raiz com `MONGO_DETAILS` e `MONGO_DB_NAME`, conforme o README.
 A inicializacao da API valida a conexao com MongoDB antes de carregar os modelos.
 
-Se a rede do Raspberry estiver usando IPv6 de forma instavel para o Atlas, tente
-forcar IPv4 no `.env`:
-
-```env
-MONGO_FORCE_IPV4=1
-```
-
-Suba a API:
+Suba a API com o inicializador do perfil, descrito acima:
 
 ```bash
-python -m uvicorn Server.main:app --host 0.0.0.0 --port 8000
+python tools/run_rpi.py --host 0.0.0.0 --port 8000
 ```
 
 ## Pipeline parcial

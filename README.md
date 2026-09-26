@@ -24,7 +24,7 @@ gesto em paralelo sobre o mesmo frame.
 - [App/GestureRecon/service.py](App/GestureRecon/service.py): pose (YOLOv8-pose), maos (MediaPipe) e gate de movimento
 - [App/GestureRecon/detector.py](App/GestureRecon/detector.py): regras de interpretacao de pose
 - [App/inference_runtime.py](App/inference_runtime.py): limites de threads das bibliotecas nativas
-- [Client/](Client/): paginas do stream (`teste_websocket.html`) e do cadastro (`cadastros.html`)
+- [Client/](Client/): paginas do stream (`stream.html`) e do cadastro (`cadastros.html`)
 - [tools/run_rpi.py](tools/run_rpi.py): inicializador do servidor no Pi
 - [tools/benchmark_stream.py](tools/benchmark_stream.py): medicao do stream com webcam ou video
 - [tests/](tests/): testes que rodam sem modelos, MongoDB ou Raspberry
@@ -64,9 +64,6 @@ MONGO_DB_NAME=recon-db
 MONGO_SERVER_SELECTION_TIMEOUT_MS=10000
 ```
 
-Se a rede usar IPv6 de forma instavel para o Atlas, `MONGO_FORCE_IPV4=1` forca
-IPv4.
-
 Opcoes mais usadas da pipeline:
 
 | Variavel | Padrao | O que faz |
@@ -101,9 +98,10 @@ por frame:
 
 Nenhuma deteccao de rosto, pessoa ou gesto se perdeu em relacao a linha de
 base, e a caixa de pessoa falsa que ela produzia sumiu. A cena vazia foi medida
-antes do ajuste de threads do PyTorch, que so afeta frames com pose. Sob carga continua o Pi atinge 60 C e o firmware baixa o
-clock para 1,2 GHz, o que custa de 3% a 7%; um dissipador com ventoinha evita
-isso. Detalhes em [docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md) e
+antes do ajuste de threads do PyTorch, que so afeta frames com pose. Sob carga
+continua o Pi atinge 60 C e o firmware baixa o clock para 1,2 GHz, o que custa
+de 3% a 7%; um dissipador com ventoinha evita isso. Detalhes em
+[docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md) e
 [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 
 ## Como rodar o servidor
