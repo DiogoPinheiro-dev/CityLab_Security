@@ -132,10 +132,67 @@ reiniciada antes de cada rodada.
 - O pipeline passou a publicar `gesture_worker`, `face_worker` e
   `gesture_torch_threads` por frame, para a medicao mostrar qual worker rodou a
   pose e com quantas threads.
-- Falta medir no Pi. Risco a observar: com 3 threads na pose e 1 no rosto, os
-  quatro nucleos ficam ocupados. A temperatura chegou a 59,1 C nas rodadas de
-  26/09, e o Pi 3 B+ reduz o clock perto de 60 C: conferir
-  `vcgencmd get_throttled` depois das rodadas.
+- Medido no Pi no mesmo dia, secao seguinte.
+
+### Pose sempre em 3 threads - ganho confirmado com uma e duas pessoas
+
+Commit medido: `bc0a441`, perfil rpi3 com `TORCH_NUM_THREADS=3`, conferido no
+Pi com `--show-config` e com os hashes dos arquivos alterados. Resultados em
+`resultados/pi3-bc0a441-threads/`. API reiniciada antes de cada rodada. Uma
+rodada de duas pessoas foi descartada por cena instavel e repetida; o motivo
+esta em `descartadas/LEIAME.md`.
+
+| Cenario | Linha de base | `3e67f56` | Agora | Ganho sobre `3e67f56` |
+|---|---|---|---|---|
+| Uma pessoa | 13413,5 ms | 7276,8 ms | 5930,5 / 5997,3 / 5954,4 | **-17,6% a -18,5%** |
+| Duas pessoas | 16615,63 ms | 7597,0 ms | 6182,2 / 6168,9 / 6159,8 | **-18,6% a -18,9%** |
+
+- Contra a linha de base: -55,3% a -55,8% com uma pessoa e -62,8% a -62,9% com
+  duas. Amplitude entre rodadas: 1,1% e 0,4%.
+- **As duas velocidades sumiram**: a pose rodou com 3 threads nos 180 frames, e
+  os dois workers ficaram com a mesma pose, entre 5253 e 5451 ms de mediana por
+  worker e rodada. Antes eram 5,0 contra 7,0 s.
+- **Recall preservado**: com uma pessoa, pessoa, rosto e gesto em 90/90 frames
+  e zero alertas; com duas, 2 pessoas, 1 rosto e 2 gestos em 90/90, como na
+  serie de `3e67f56`.
+- Com uma pessoa o rosto virou o caminho critico em 86 de 90 frames: a pose
+  termina em cerca de 5,3 s e o rosto em 5,9 s. Com duas, rosto e gesto
+  terminam quase juntos, com o rosto por ultimo em 18 de 90 frames.
+- `process_rss_mb` entre 665,7 e 726,8 MB. A r3 de duas pessoas passou do teto
+  de 719 MB da fase 1, com 723 a 727 MB; as outras cinco ficaram abaixo. A
+  variacao entre reinicios ja era conhecida, mas com o swap visto no mesmo dia a
+  folga real e menor do que o RSS sugere.
+- Todas as rodadas chegaram a 59-60 C e o limite de clock atuou, secao
+  seguinte. Os numeros acima ja incluem esse efeito.
+- Cena vazia nao foi medida com `bc0a441`. Com o gate a pose roda em 2 de 30
+  frames, entao a mediana nao deve mudar.
+
+### Limite de temperatura - o Pi baixa o clock no meio da rodada
+
+- Com a pose em 3 threads e o rosto em 1, os quatro nucleos ficam ocupados e o
+  Pi atinge o `temp_soft_limit` padrao do 3 B+, 60 C, cerca de 75 s depois do
+  inicio da rodada. Ao atingi-lo, o firmware baixa o clock de 1,4 para 1,2 GHz.
+- Evidencia em `resultados/pi3-bc0a441-threads/evidencia/`: um log de
+  `vcgencmd` a cada 5 s durante a rodada `duas-pessoas-r2`. A rodada comeca a
+  1,4 GHz e 45,1 C; aos 59,1 C aparece `throttled=0x80008`, limite ativo
+  naquele instante, com 1,2 GHz. Dali ao fim, o firmware alterna entre 1,2 e
+  1,4 GHz para segurar 58,5 a 60,7 C: limite ativo em 15 de 28 leituras e
+  1,2 GHz em 13 delas, uma media perto de 1,3 GHz.
+- Efeito medido: frames a 59 C ou mais ficaram 6,0% a 7,0% mais lentos que os
+  anteriores nas tres rodadas de uma pessoa, e 3,2% a 4,2% nas de duas. E a
+  subida lenta de 5,7 para 6,1 s que aparece dentro de cada rodada.
+- `vcgencmd get_throttled` ainda dava `0x0` depois da primeira rodada de duas
+  pessoas de `3e67f56`, com a pose em 2 threads na maior parte dos frames. A
+  primeira leitura com o bit `0x80000`, limite ja atingido desde o boot, veio
+  depois da primeira rodada de uma pessoa de `bc0a441`.
+- Leitura feita depois da rodada engana: o bit `0x80000` fica gravado, mas o
+  clock ja voltou ao repouso de 600 MHz e a temperatura caiu. O log precisa
+  rodar durante a medicao; o comando esta em `docs/RASPBERRY_PI.md`.
+- Consequencia: parte do ganho de `bc0a441` fica com a temperatura, e a linha
+  de base, que rodou entre 59 e 60 C, pode ter sido afetada sem registro. Um
+  dissipador com ventoinha deve manter o frame no valor de antes do limite.
+  Subir o `temp_soft_limit` (ate 70 C no 3 B+) e a outra opcao, com a placa
+  mais quente. Decisao do responsavel.
 
 ### Promocao a padrao do perfil rpi3
 
@@ -151,12 +208,14 @@ o `.env` de la ja define as duas chaves como `1`.
 
 ### O que fica aberto
 
-1. **Pose bimodal**: causa encontrada e corrigida em codigo, acima. Falta medir
-   no Pi, com uma e duas pessoas.
+1. Cena vazia com `bc0a441`, que nao deve mudar porque o gate pula a pose em 28
+   de 30 frames.
 2. **Memoria do sistema.** Medir com o runner parado para separar o que e dele,
    e decidir se o runner fica ligado como servico.
-3. Limiares de gesto, em `docs/PLANO_GESTOS.md`.
-4. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada. A equivalencia dos
+3. **Temperatura.** Decidir entre dissipador com ventoinha e `temp_soft_limit`
+   maior, e medir de novo com o `vcgencmd` rodando junto.
+4. Limiares de gesto, em `docs/PLANO_GESTOS.md`.
+5. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada. A equivalencia dos
    embeddings da acao 6, ligada por padrao desde 20/09, nunca foi conferida com
    `tools/check_face_optimization.py` nos modelos reais.
 

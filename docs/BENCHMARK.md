@@ -65,6 +65,9 @@ Reinicie a API antes de cada execucao para zerar rastreador e caches de eventos.
 Repita cada cenario tres vezes, se as cenas estiverem disponiveis. Use o mesmo
 aquecimento, estado inicial do banco, enquadramento e temperatura comparavel.
 Registre a contagem aproximada de pessoas e as condicoes de luz de cada rodada.
+No Raspberry Pi, deixe o log de `vcgencmd` de `docs/RASPBERRY_PI.md` rodando
+durante cada rodada: o limite de temperatura baixa o clock no meio da medicao e
+muda os tempos sem nenhuma mudanca de codigo.
 Com 30 frames, p95 e especialmente sensivel a variacao da cena: leia as amostras
 individuais e evite atribuir ganhos pequenos a mudancas de codigo.
 

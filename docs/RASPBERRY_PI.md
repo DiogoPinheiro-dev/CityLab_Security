@@ -126,6 +126,27 @@ servico conforme as dependencias de visao forem instaladas e testadas no hardwar
 - `ultralytics`, `torch`, `insightface` e `onnxruntime` devem ser validados em
   separado. Para YOLO no Pi, prefira exportar modelos para NCNN quando possivel.
 
+## Temperatura e limite de clock
+
+No Pi 3 B+ o firmware baixa o clock de 1,4 para 1,2 GHz quando o chip atinge o
+`temp_soft_limit`, 60 C por padrao. Com o perfil rpi3 sob carga os quatro
+nucleos ficam ocupados, o limite chega em cerca de 75 s e dali em diante o frame
+fica de 3% a 7% mais lento (medido em 26/09/2026, ver `docs/PLANO_OTIMIZACAO.md`).
+
+Para conferir, rode em um segundo terminal durante a medicao, nao depois dela:
+
+```bash
+while true; do echo "$(date +%T) $(vcgencmd get_throttled) $(vcgencmd measure_clock arm) $(vcgencmd measure_temp)"; sleep 5; done
+```
+
+Em `get_throttled`, o bit `0x8` indica o limite ativo naquele instante e o bit
+`0x80000` indica que ele ja foi atingido desde o boot. Terminada a rodada, o
+clock volta ao repouso de 600 MHz, entao uma leitura isolada nao mostra a queda.
+
+Um dissipador com ventoinha mantem o chip abaixo do limite. A alternativa e
+subir `temp_soft_limit` em `/boot/firmware/config.txt`, ate 70 no 3 B+, com a
+placa trabalhando mais quente.
+
 ## Medicao reproduzivel
 
 Consulte [BENCHMARK.md](BENCHMARK.md) para protocolo, metricas e limites da medicao.
