@@ -194,6 +194,23 @@ esta em `descartadas/LEIAME.md`.
   Subir o `temp_soft_limit` (ate 70 C no 3 B+) e a outra opcao, com a placa
   mais quente. Decisao do responsavel.
 
+### Memoria do sistema - o runner nao e a causa do swap
+
+- Com a API desligada, o runner ocioso ocupava 7 MB de RAM e 40 MB de swap.
+  Parar o runner liberou 72 MB de swap (104 para 32 de 511 MB) e nada de
+  memoria disponivel (787 para 785 MB). Dados em
+  `resultados/pi3-bc0a441-memoria/`.
+- O swap das rodadas vem da propria API: cerca de 700 MB residentes numa placa
+  de 906 MB, com o sistema usando uns 120 MB. O kernel manda para o swap o que
+  esta frio. O arquivo de swap tem 511 MB e o maior uso visto foi 236 MB, entao
+  OOM exigiria a API crescer bem alem do que se mediu.
+- As rodadas nao mostram efeito do swap na latencia: amplitude de 0,4% entre as
+  rodadas de duas pessoas de `bc0a441`, e a rodada extra com o runner ligado deu
+  6117,0 ms, dentro da serie.
+- Conclusao: o runner pode ficar ligado. Folga de memoria continua pequena, mas
+  estavel; reduzir a RAM da API so vale se um cenario novo, como mais pessoas ou
+  mais cameras, apertar.
+
 ### Promocao a padrao do perfil rpi3
 
 Combinada com o responsavel apos a serie de duas pessoas. No perfil rpi3,
@@ -210,12 +227,11 @@ o `.env` de la ja define as duas chaves como `1`.
 
 1. Cena vazia com `bc0a441`, que nao deve mudar porque o gate pula a pose em 28
    de 30 frames.
-2. **Memoria do sistema.** Medir com o runner parado para separar o que e dele,
-   e decidir se o runner fica ligado como servico.
-3. **Temperatura.** Decidir entre dissipador com ventoinha e `temp_soft_limit`
-   maior, e medir de novo com o `vcgencmd` rodando junto.
-4. Limiares de gesto, em `docs/PLANO_GESTOS.md`.
-5. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada. A equivalencia dos
+2. **Temperatura.** Decidir entre dissipador com ventoinha e `temp_soft_limit`
+   maior, e medir de novo com o `vcgencmd` rodando junto. Adiado pelo
+   responsavel em 26/09/2026.
+3. Limiares de gesto, em `docs/PLANO_GESTOS.md`.
+4. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada. A equivalencia dos
    embeddings da acao 6, ligada por padrao desde 20/09, nunca foi conferida com
    `tools/check_face_optimization.py` nos modelos reais.
 

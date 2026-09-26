@@ -1,0 +1,9 @@
+citylab@citylab-security:~ $ m() { free -m | awk '/Mem:/{printf "mem usada=%s livre=%s disp=%s |", $3, $4, $7} /Swap:/{printf " swap=%s/%s\n", $3, $2}'; for p in $(pgrep -f 'run_rpi.py|Runner.Listener|Runner.Worker'); do echo "   $(ps -o comm= -p $p) $(awk '/VmRSS|VmSwap/{printf "%s%dMB ", $1, $2/1024}' /proc/$p/status)"; done; }; echo "== runner ligado"; m; if [ -f ~/actions-runner/.service ]; then sudo systemctl stop "$(cat ~/actions-runner/.service)"; else pkill -f Runner.Listener; fi; sleep 5; echo "== runner parado"; m; pgrep -af Runner || echo "nenhum processo do runner"
+== runner ligado
+
+mem usada=118 livre=627 disp=787 | swap=104/511
+   Runner.Listener VmRSS:7MB VmSwap:40MB
+
+== runner parado
+mem usada=121 livre=570 disp=785 | swap=32/511
+nenhum processo do runner
