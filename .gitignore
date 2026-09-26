@@ -1,30 +1,50 @@
+# Segredos e ambiente local
 .env
 .env.*
 !.env.example
 !.env.rpi.example
-
-# Python cache/bytecode
-__pycache__/
-**/__pycache__/
-*.py[cod]
-*$py.class
-
-# IDE
-.vscode/
-**/.vscode/
-.venv/
-
-# Legacy local runtime folders
-.tmp/
-.home/
-.mplconfig/
-.ultralytics/
-Ultralytics/
-*_ncnn_model/
-App/.insightface/
-
-
-#Chaves
 *.pem
 *.pub
 ssh-key.txt
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+build/
+dist/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Ambientes virtuais
+.venv/
+venv/
+env/
+
+# IDE
+.vscode/
+.idea/
+
+# Saidas de execucao: logs e recortes de rosto nunca vao para o Git
+*.log
+App/FaceRecon/historico/
+Server/historico/
+App/**/*.png
+App/**/*.jpg
+App/**/*.jpeg
+App/**/*.yaml
+
+# Modelos e caches gerados localmente
+App/.insightface/
+*_ncnn_model/
+.ultralytics/
+Ultralytics/
+.mplconfig/
+.home/
+
+# Rascunhos locais
+.tmp/
