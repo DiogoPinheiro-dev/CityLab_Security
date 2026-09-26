@@ -139,6 +139,24 @@ um intervalo bem maior que o frame.
 
 Risco: baixo. Independe das acoes 1 e 2 e pode ser feita antes delas.
 
+**Implementada em 26/09/2026; falta verificar no Pi.** O `EventLogger` guarda os
+alertas ja gravados no episodio atual, com a mesma chave do cooldown: o
+`track_id` mais o conjunto de alertas. Enquanto a chave aparece em frames
+seguidos, nao grava de novo; quando ela some de um frame, o episodio termina e a
+proxima aparicao grava outra vez. A chave so entra no episodio depois do insert
+com sucesso, entao uma falha de banco tenta de novo no frame seguinte. O
+servidor reinicia os episodios junto com o historico de gestos, no primeiro
+frame da conexao e depois de espera longa. O cooldown de 5 s continua valendo
+por cima. Ficou de fora a repeticao periodica de um alerta que dura muito; se
+for desejada, e um intervalo configuravel a mais.
+
+O payload do stream nao muda: o cliente segue recebendo `alerts` em todo frame e
+o `alerts_count` do benchmark continua igual. Muda so o que vai para o MongoDB.
+Verificacao prevista: com alertas em todos os frames, `logs_ms` deve cair para o
+custo do evento de rosto fora do primeiro frame de cada episodio, cerca de 30 ms
+como nas rodadas de uma pessoa, contra cerca de 60 ms nas rodadas de duas
+pessoas de 26/09.
+
 ### 4. Aumentar a taxa de observacao do caminho de gesto
 
 E o unico caminho que desfaz o dilema da acao 2. Candidatos, um por vez:
@@ -178,3 +196,7 @@ Risco: nenhum no comportamento. Muda o formato do evento.
 Latencia e vazao seguem em `docs/PLANO_OTIMIZACAO.md`. Se a acao 4 for
 executada, o ganho de desempenho dela e registrado la, e o efeito sobre as
 regras, aqui.
+
+Os eventos de rosto (`ALUNO` e `NAO_ALUNO`) seguem so o cooldown de 5 s: com o
+frame em cerca de 6 s, cada rosto gera um evento por frame. Sao registro de
+presenca, nao alerta, e mudar isso e uma decisao a parte.

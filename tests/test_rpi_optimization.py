@@ -62,6 +62,38 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
         self.logger._should_log("ALUNO", "outro")
         self.assertEqual(self.logger.last_logged, {})
 
+    async def test_continuous_gesture_alert_logs_once_per_episode(self):
+        gesture = {"track_id": 1, "bbox": [0, 0, 10, 10], "alerts": ["Rendicao"]}
+        # Frame de 7 s, mais longo que o cooldown de 5 s, como no Pi.
+        for frame in range(3):
+            self.clock[0] = frame * 7
+            await self.logger.log_gesture_events(None, [gesture])
+        self.assertEqual(self.collection.insert_one.await_count, 1)
+        # O alerta some num frame e volta: episodio novo, evento novo.
+        self.clock[0] = 21
+        await self.logger.log_gesture_events(None, [])
+        self.clock[0] = 28
+        await self.logger.log_gesture_events(None, [gesture])
+        self.assertEqual(self.collection.insert_one.await_count, 2)
+
+    async def test_failed_gesture_insert_retries_within_the_episode(self):
+        self.collection.insert_one.side_effect = [RuntimeError("offline"), None]
+        gesture = {"track_id": 1, "bbox": [0, 0, 10, 10], "alerts": ["Rendicao"]}
+        with self.assertLogs("event-test", level="ERROR"):
+            await self.logger.log_gesture_events(None, [gesture])
+        for now in (7, 14):
+            self.clock[0] = now
+            await self.logger.log_gesture_events(None, [gesture])
+        self.assertEqual(self.collection.insert_one.await_count, 2)
+
+    async def test_stream_reset_opens_a_new_gesture_episode(self):
+        gesture = {"track_id": 1, "bbox": [0, 0, 10, 10], "alerts": ["Rendicao"]}
+        await self.logger.log_gesture_events(None, [gesture])
+        self.logger.reset_gesture_episodes()
+        self.clock[0] = 7
+        await self.logger.log_gesture_events(None, [gesture])
+        self.assertEqual(self.collection.insert_one.await_count, 2)
+
     async def test_cancel_is_not_swallowed(self):
         self.collection.insert_one.side_effect = asyncio.CancelledError()
         with self.assertRaises(asyncio.CancelledError):

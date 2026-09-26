@@ -45,10 +45,11 @@ class StreamMetricsTest(unittest.TestCase):
 
         namespace = dict(time=SimpleNamespace(perf_counter=lambda: clock[0]),
                          recognizer=SimpleNamespace(process_frame=process,
-                             reset_gesture_history=lambda: resets.append(True)),
+                             reset_gesture_history=lambda: resets.append("gestos")),
                          np=SimpleNamespace(frombuffer=lambda *args: None, uint8=None),
                          cv2=SimpleNamespace(imdecode=lambda *args: object(), IMREAD_COLOR=1),
-                         event_logger=SimpleNamespace(log_face_events=log, log_gesture_events=log),
+                         event_logger=SimpleNamespace(log_face_events=log, log_gesture_events=log,
+                             reset_gesture_episodes=lambda: resets.append("eventos")),
                          system_monitor=SimpleNamespace(resource_snapshot=lambda: {},
                              record_frame_metrics=lambda metrics: recorded.append(dict(metrics)),
                              maybe_log_snapshot=lambda: None),
@@ -66,12 +67,13 @@ class StreamMetricsTest(unittest.TestCase):
         self.assertNotIn('total_ms', responses[0])
         self.assertAlmostEqual(recorded[0]['total_ms'], 700)
         self.assertAlmostEqual(recorded[0]['send_ms'], 500)
-        self.assertEqual(len(resets), 1)
+        # O episodio de alerta reinicia junto com o historico de gestos.
+        self.assertEqual(resets, ["gestos", "eventos"])
 
     def test_slow_inference_is_not_a_pause_but_idle_is(self):
         responses, _, resets = self.run_stream(waits=(0, 0, 6, 0), processing_seconds=17)
         self.assertEqual(len(responses), 4)
-        self.assertEqual(len(resets), 2)
+        self.assertEqual(resets, ["gestos", "eventos"] * 2)
 
     def test_summary(self):
         self.assertEqual(summarize([200, 100, 400, 300]), {'count': 4, 'median': 250, 'p95': 400})
