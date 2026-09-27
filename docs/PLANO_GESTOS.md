@@ -8,6 +8,20 @@ resolve com o primeiro.
 Nada aqui esta autorizado a ser implementado. Cada acao e combinada com o
 responsavel antes, uma de cada vez, como no plano de otimizacao.
 
+## Encerramento em 27/09/2026
+
+O plano foi encerrado junto com o de desempenho. Feita: a acao 3, verificada no
+Pi com a chave por conjunto de alertas e trocada depois, por decisao do
+responsavel, por um episodio por alerta (`8801350`, implantado e conferido por
+hash no Pi, sem rodada medida com ele). Ficaram para depois as acoes 1, 2, 4
+e 5.
+
+Pelo criterio de aceite do fim deste documento, o item 2 foi atendido e o item
+1 nao: no Pi, as cinco regras continuam exigindo o mesmo, o gesto presente em
+duas observacoes seguidas, cerca de 12 s com o frame em 6 s. Os limiares de
+0,20 a 0,40 s de cada regra nao tem efeito nessa velocidade. E a principal
+limitacao conhecida da versao final.
+
 ## Problema medido
 
 Em 20 e 21/09/2026, no Raspberry Pi 3 B+, com o pipeline completo:

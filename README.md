@@ -310,6 +310,27 @@ python -m unittest discover -s tests -p 'test_*.py'
 node --test tests/client_stream.test.cjs
 ```
 
+## Estado final e limitacoes conhecidas
+
+O desenvolvimento foi encerrado em 27/09/2026 com o perfil do Pi descrito
+acima. O que ficou para depois esta na secao "Encerramento em 27/09/2026" de
+cada plano. Limitacoes conhecidas desta versao:
+
+- **Regras de gesto no Pi.** Com o frame em cerca de 6 s, as cinco regras
+  passam a exigir o mesmo: o gesto presente em duas observacoes seguidas, uns
+  12 s. Os limiares de 0,20 a 0,40 s de cada regra nao tem efeito nessa
+  velocidade.
+- **Eventos de rosto.** O cooldown de 5 s e menor que o frame, entao cada rosto
+  grava um evento por frame. Os alertas de gesto gravam um evento quando cada
+  alerta comeca.
+- **Memoria.** A API ocupa entre 660 e 745 MB numa placa de 906 MB. Mais
+  pessoas ou mais cameras podem esgotar a RAM.
+- **Temperatura.** Sem dissipador, o Pi 3 B+ baixa o clock ao atingir o
+  `temp_soft_limit`. No Pi do projeto o limite foi elevado para 70 C em
+  27/09/2026, sem medicao depois; ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
+- **Uma camera por processo.** O rastreador e o historico de gestos sao
+  globais.
+
 ## Medicao e planos
 
 - [docs/BENCHMARK.md](docs/BENCHMARK.md): protocolo de medicao do stream no Pi

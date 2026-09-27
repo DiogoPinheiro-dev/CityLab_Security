@@ -52,8 +52,8 @@ Ultralytics chama `torch.set_num_threads` na thread que roda o primeiro
 `track()`, e sem isso cada worker rodaria a pose com um limite diferente. Eles
 nao garantem um total fixo de threads de todas as bibliotecas.
 
-O perfil completo foi medido no Pi em 21 e 26/09/2026: -45,8% com uma pessoa,
--53,4% a -54,4% com duas e -69,0% na cena vazia, sem perda de deteccao (ver
+O perfil completo foi medido no Pi entre 21 e 27/09/2026: -56% com uma pessoa,
+-63% com duas e -69% na cena vazia, sem perda de deteccao (ver
 `docs/PLANO_OTIMIZACAO.md`). Os ajustes individuais nao foram medidos
 isoladamente. Para comparar uma mudanca por vez, use `CITYLAB_PROFILE=default`
 e ajuste individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
@@ -145,6 +145,14 @@ Ar-condicionado na sala nao substitui o dissipador. Em 27/09/2026, com o ar em
 ativo em cerca de metade das leituras, contra tres quartos com a sala sem ar.
 Abaixo do limite a velocidade e a mesma: o ar so adia o limite e reduz a perda.
 
+No Pi do projeto o limite esta em 70 C desde 27/09/2026, sem rodada medida
+depois disso. A copia do `config.txt` original ficou ao lado; para voltar aos
+60 C:
+
+```bash
+sudo cp /boot/firmware/config.txt.bak /boot/firmware/config.txt && sudo reboot
+```
+
 ## Medicao reproduzivel
 
 Consulte [BENCHMARK.md](BENCHMARK.md) para protocolo, metricas e limites da medicao.
@@ -204,9 +212,11 @@ que seriam descartados. Cadastro, pesos, resolucao e similaridade permanecem
 iguais. Para voltar ao caminho facial anterior, defina ambas as flags FACE
 acima como `0` e reinicie. Para A/B, altere somente uma flag por rodada.
 
-A equivalencia dos embeddings com essas flags ainda nao foi conferida com os
-modelos reais. Compare nas mesmas fotos locais (rosto frontal, lateral,
-pequeno, varias pessoas e cena vazia):
+A equivalencia foi conferida em 27/09/2026 com os modelos reais, no PC: em 3
+fotos de webcam com duas pessoas, o rosto aceito de cada foto teve a mesma
+caixa, identidade, embedding e similaridade com e sem as flags. Para repetir,
+compare nas mesmas fotos locais (rosto frontal, lateral, pequeno, varias
+pessoas e cena vazia):
 
 ```bash
 python tools/check_face_optimization.py frontal.jpg lateral.jpg varias.jpg vazia.jpg

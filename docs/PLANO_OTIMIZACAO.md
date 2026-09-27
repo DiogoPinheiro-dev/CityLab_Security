@@ -43,6 +43,46 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
    observacoes". Ver `docs/PLANO_GESTOS.md`.
 
 
+## Encerramento em 27/09/2026
+
+O responsavel encerrou o trabalho de desempenho em 27/09/2026, por considerar
+que o Pi 3 B+ chegou ao limite com este pipeline. O plano fica como registro;
+um item novo o reabre, combinado com o responsavel pelas regras acima.
+
+Resultado final, mediana de `rtt_ms` com webcam e pipeline completo:
+
+| Cenario | Linha de base (`b05058f`) | Final | Ganho |
+|---|---|---|---|
+| Cena vazia | 5409,98 ms | 1676,3 a 1679,1 ms (`3e67f56`) | -69% |
+| Uma pessoa | 13413,5 ms | 5930,5 a 5997,3 ms (`bc0a441`) | -55% a -56% |
+| Duas pessoas | 16615,63 ms | 6139,1 a 6182,2 ms (`bc0a441` e `6f5756d`) | -63% |
+
+Recall preservado em todos os cenarios, e a caixa de pessoa falsa da linha de
+base sumiu. As alavancas foram a passada unica de pessoas e pose (acao 3), o
+paralelismo com threads limitadas (acao 4), o gate de movimento, o limiar de
+publicacao e o limite de threads do PyTorch reaplicado em cada tarefa.
+
+Configuracao do Pi no encerramento: perfil rpi3 como em `.env.rpi.example` e
+`temp_soft_limit=70` em `/boot/firmware/config.txt`, aplicado em 27/09/2026 e
+conferido com `vcgencmd get_config`, sem rodada medida depois. A copia do
+arquivo original ficou em `/boot/firmware/config.txt.bak`. A documentacao do
+Raspberry Pi avisa que subir o limite acima de 60 C pode causar instabilidade.
+
+Conferido no encerramento: a equivalencia do reconhecimento facial com
+`FACE_MINIMAL_MODULES` e `FACE_PREFILTER`, com `tools/check_face_optimization.py`
+e os modelos reais no PC (InsightFace 0.7.3, ONNX Runtime 1.23.2). Em 3 fotos
+de webcam com duas pessoas, o rosto aceito de cada foto teve a mesma caixa,
+identidade, embedding e similaridade nos dois caminhos. As fotos foram
+apagadas depois da conferencia.
+
+Fica para depois, sem data:
+
+1. Rodada longa com o `temp_soft_limit` em 70 C, para ver se o Pi se estabiliza
+   abaixo do limite com o stream ligado direto.
+2. Cena vazia com o codigo final.
+3. Acoes 7, 8 e 9 do backlog e o NCNN na pose.
+4. Regras de gesto: acoes 1, 2, 4 e 5 de `docs/PLANO_GESTOS.md`.
+
 ## Estado verificado em 27/09/2026
 
 ### Um evento por episodio e limpeza de codigo - latencia neutra
@@ -105,16 +145,9 @@ Resultado em `resultados/pi3-6f5756d-ar/duas-pessoas-r1.json`; os logs de
 
 ### O que fica aberto
 
-1. **Temperatura.** Decidir entre dissipador com ventoinha e `temp_soft_limit`
-   maior. Com duas pessoas, no periodo limitado, o limite custou 6,5% por frame
-   com a sala sem ar e 3,1% com o ar ligado. Decisao do responsavel.
-2. Cena vazia com o codigo atual, que nao deve mudar porque o gate pula a pose
-   em 28 de 30 frames.
-3. Regras de gesto: acoes 1, 2, 4 e 5 de `docs/PLANO_GESTOS.md`. A acao 3 foi
-   verificada.
-4. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada. A equivalencia dos
-   embeddings da acao 6, ligada por padrao desde 20/09, nunca foi conferida com
-   `tools/check_face_optimization.py` nos modelos reais.
+Ver "Encerramento em 27/09/2026". Com duas pessoas, no periodo limitado, o
+limite de temperatura custou 6,5% por frame com a sala sem ar e 3,1% com o ar
+ligado; com esses numeros o responsavel decidiu subir o `temp_soft_limit`.
 
 ## Estado verificado em 26/09/2026
 
