@@ -174,11 +174,23 @@ rodada foi feita com o ar-condicionado da sala ligado; ver
 - Na rodada com ar, os 2 eventos sao a abertura do episodio de cada pessoa. Na
   rodada sem ar, 1 evento abriu o episodio e os outros 4 vieram da mesma pessoa
   passando de 1 para 2 alertas e voltando, duas vezes: como a chave inclui o
-  conjunto de alertas, cada mudanca abre um episodio novo. Se a volta para um
-  alerta que ja estava ativo nao deve gravar de novo, a chave precisa mudar.
-  Decisao do responsavel.
+  conjunto de alertas, cada mudanca abre um episodio novo. O responsavel
+  decidiu que a volta para um alerta que ja estava ativo nao deve gravar de
+  novo; ver o paragrafo seguinte.
 - Os eventos de rosto seguem um por frame: 34 e 33 `ALUNO`, e 2 `NAO_ALUNO` em
   cada rodada. Ver "O que este plano nao cobre".
+
+**Episodio por alerta, decidido em 27/09/2026; falta verificar no Pi.**
+Substitui a chave por conjunto de alertas descrita acima. Cada alerta de cada
+track tem o proprio episodio: grava quando comeca e nao grava de novo enquanto
+continuar, mesmo que outro alerta do mesmo track entre ou saia. Alertas que
+comecam juntos geram um evento so. O evento ganhou o campo `alertas_novos`, com
+os alertas que abriram episodio; `alertas` segue com todos os alertas ativos do
+track. Nenhum consumidor le esses campos hoje, e a rota `/logs` nao os expoe.
+Na rodada sem ar de 27/09, a regra nova teria gravado 3 eventos em vez de 5.
+Quem sai de cena e volta grava de novo: o historico de gestos do track e
+apagado no primeiro frame sem a pessoa, e o alerta precisa ser confirmado
+outra vez.
 
 ### 4. Aumentar a taxa de observacao do caminho de gesto
 

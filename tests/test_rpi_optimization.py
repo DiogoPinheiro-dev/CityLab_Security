@@ -94,6 +94,29 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
         await self.logger.log_gesture_events(None, [gesture])
         self.assertEqual(self.collection.insert_one.await_count, 2)
 
+    async def test_alert_that_continues_is_not_logged_when_another_comes_and_goes(self):
+        # Como na rodada de 27/09: um alerta seguiu ativo enquanto outro entrou e
+        # saiu duas vezes. So a entrada de um alerta novo grava.
+        frames = [["Rendicao"], ["Rendicao", "Mao Fechada"], ["Rendicao"], ["Rendicao"],
+                  ["Rendicao", "Mao Fechada"], ["Rendicao"]]
+        for index, alerts in enumerate(frames):
+            self.clock[0] = index * 7
+            await self.logger.log_gesture_events(
+                None, [{"track_id": 1, "bbox": [0, 0, 10, 10], "alerts": alerts}])
+        payloads = [call.args[0] for call in self.collection.insert_one.await_args_list]
+        self.assertEqual([payload["alertas_novos"] for payload in payloads],
+                         [["Rendicao"], ["Mao Fechada"], ["Mao Fechada"]])
+        self.assertEqual(payloads[1]["alertas"], ["Rendicao", "Mao Fechada"])
+
+    async def test_alerts_that_start_together_share_one_event(self):
+        gesture = {"track_id": 1, "bbox": [0, 0, 10, 10], "alerts": ["Rendicao", "Mao Fechada"]}
+        await self.logger.log_gesture_events(None, [gesture])
+        self.clock[0] = 7
+        await self.logger.log_gesture_events(None, [gesture])
+        self.collection.insert_one.assert_awaited_once()
+        self.assertEqual(self.collection.insert_one.await_args.args[0]["alertas_novos"],
+                         ["Rendicao", "Mao Fechada"])
+
     async def test_cancel_is_not_swallowed(self):
         self.collection.insert_one.side_effect = asyncio.CancelledError()
         with self.assertRaises(asyncio.CancelledError):
