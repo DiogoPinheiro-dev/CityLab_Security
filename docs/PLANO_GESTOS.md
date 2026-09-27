@@ -139,16 +139,16 @@ um intervalo bem maior que o frame.
 
 Risco: baixo. Independe das acoes 1 e 2 e pode ser feita antes delas.
 
-**Implementada em 26/09/2026; falta verificar no Pi.** O `EventLogger` guarda os
-alertas ja gravados no episodio atual, com a mesma chave do cooldown: o
-`track_id` mais o conjunto de alertas. Enquanto a chave aparece em frames
-seguidos, nao grava de novo; quando ela some de um frame, o episodio termina e a
-proxima aparicao grava outra vez. A chave so entra no episodio depois do insert
-com sucesso, entao uma falha de banco tenta de novo no frame seguinte. O
-servidor reinicia os episodios junto com o historico de gestos, no primeiro
-frame da conexao e depois de espera longa. O cooldown de 5 s continua valendo
-por cima. Ficou de fora a repeticao periodica de um alerta que dura muito; se
-for desejada, e um intervalo configuravel a mais.
+**Implementada em 26/09/2026 e verificada no Pi em 27/09/2026.** O
+`EventLogger` guarda os alertas ja gravados no episodio atual, com a mesma
+chave do cooldown: o `track_id` mais o conjunto de alertas. Enquanto a chave
+aparece em frames seguidos, nao grava de novo; quando ela some de um frame, o
+episodio termina e a proxima aparicao grava outra vez. A chave so entra no
+episodio depois do insert com sucesso, entao uma falha de banco tenta de novo
+no frame seguinte. O servidor reinicia os episodios junto com o historico de
+gestos, no primeiro frame da conexao e depois de espera longa. O cooldown de
+5 s continua valendo por cima. Ficou de fora a repeticao periodica de um
+alerta que dura muito; se for desejada, e um intervalo configuravel a mais.
 
 O payload do stream nao muda: o cliente segue recebendo `alerts` em todo frame e
 o `alerts_count` do benchmark continua igual. Muda so o que vai para o MongoDB.
@@ -156,6 +156,29 @@ Verificacao prevista: com alertas em todos os frames, `logs_ms` deve cair para o
 custo do evento de rosto fora do primeiro frame de cada episodio, cerca de 30 ms
 como nas rodadas de uma pessoa, contra cerca de 60 ms nas rodadas de duas
 pessoas de 26/09.
+
+Verificacao de 27/09/2026, commit `6f5756d`, duas pessoas, 35 frames por
+rodada contando o aquecimento. Os eventos foram contados pela diferenca de
+`/logs` antes e depois de cada rodada, sem guardar nomes nem imagens. A segunda
+rodada foi feita com o ar-condicionado da sala ligado; ver
+`docs/PLANO_OTIMIZACAO.md`.
+
+| Rodada | Frames medidos com alerta | `ALERTA_GESTO` gravados | `logs_ms` mediano |
+|---|---|---|---|
+| Sala sem ar-condicionado | 30/30 | 5 | 30,7 ms |
+| Sala com ar-condicionado | 30/30 | 2 | 28,4 ms |
+
+- Nas rodadas de 26/09, sem a acao 3, todo frame com alerta gravava evento e
+  `logs_ms` passava de 45 ms em 29 ou 30 de 30 frames. Agora passa em 5 e 3 de
+  30: 4 e 1 deles gravaram alerta, os outros so gravaram eventos de rosto.
+- Na rodada com ar, os 2 eventos sao a abertura do episodio de cada pessoa. Na
+  rodada sem ar, 1 evento abriu o episodio e os outros 4 vieram da mesma pessoa
+  passando de 1 para 2 alertas e voltando, duas vezes: como a chave inclui o
+  conjunto de alertas, cada mudanca abre um episodio novo. Se a volta para um
+  alerta que ja estava ativo nao deve gravar de novo, a chave precisa mudar.
+  Decisao do responsavel.
+- Os eventos de rosto seguem um por frame: 34 e 33 `ALUNO`, e 2 `NAO_ALUNO` em
+  cada rodada. Ver "O que este plano nao cobre".
 
 ### 4. Aumentar a taxa de observacao do caminho de gesto
 

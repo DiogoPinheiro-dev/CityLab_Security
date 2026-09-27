@@ -43,6 +43,79 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
    observacoes". Ver `docs/PLANO_GESTOS.md`.
 
 
+## Estado verificado em 27/09/2026
+
+### Um evento por episodio e limpeza de codigo - latencia neutra
+
+Codigo medido: `6f5756d`, que inclui `05bc7ce`, a acao 3 de
+`docs/PLANO_GESTOS.md`. O Pi recebeu o deploy de `614316b`, que so muda
+documentacao e `.gitignore`; os hashes dos sete arquivos de codigo alterados
+desde `bc0a441` foram conferidos no dispositivo, e `tools/run_rpi.py
+--show-config` mostrou a mesma configuracao da serie de `bc0a441`. Uma rodada
+de duas pessoas, mesma cena (uma de frente, outra de lado), API reiniciada
+antes, sondagem de 3 frames e log de `vcgencmd` rodando junto. Resultado em
+`resultados/pi3-6f5756d-eventos/duas-pessoas-r1.json`.
+
+| Cenario | `bc0a441` | Agora | Diferenca |
+|---|---|---|---|
+| Duas pessoas | 6182,2 / 6168,9 / 6159,8 ms | 6139,1 ms | -0,3% a -0,7% |
+
+- Latencia neutra: a diferenca fica dentro da variacao entre rodadas, e parte
+  dela e o `logs_ms`, que caiu cerca de 30 ms por frame com a acao 3.
+- Recall preservado: 2 pessoas e 2 tracks de gesto em 30/30 frames, 1 rosto em
+  29/30 e 2 rostos em 1/30. O frame com 2 rostos levou 9621 ms, o maior da
+  rodada.
+- `logs_ms` com mediana de 30,7 ms, contra 58,5 a 62,2 ms na serie de
+  `bc0a441`. A contagem de eventos no MongoDB esta em `docs/PLANO_GESTOS.md`.
+- `process_rss_mb` entre 709,3 e 734,2 MB, e entre 732,0 e 743,0 MB na rodada
+  com ar-condicionado da secao seguinte. As duas passam do teto de 719 MB da
+  fase 1; 743,0 MB e o maior valor desde os 748,5 MB de 20/09, sem o gate.
+- Condicao registrada: segundo o responsavel, o ar-condicionado da sala do Pi
+  nunca ficou ligado nas rodadas anteriores a esta secao. Rodada com o ar
+  ligado e outra condicao termica e nao se compara com elas.
+
+### Ar-condicionado na sala - adia o limite de temperatura, mas nao evita
+
+Segunda rodada, mesmo codigo, mesma cena e mesmo protocolo, com o ar da sala em
+21 C e ventilacao maxima, sem vento direto no Pi, ligado cerca de 20 min antes.
+Resultado em `resultados/pi3-6f5756d-ar/duas-pessoas-r1.json`; os logs de
+`vcgencmd` das duas rodadas estao nas pastas `evidencia/` de cada uma.
+
+| | Sem ar | Com ar |
+|---|---|---|
+| Pi parado antes da rodada | 42 a 43 C | 39 C |
+| Limite ativo pela primeira vez | 70 s apos o inicio | 146 s apos o inicio |
+| Leituras com o limite ativo, dali ao fim | 22 de 29 (76%) | 6 de 13 (46%) |
+| Frames terminados antes do limite (mediana) | 5795,2 ms | 5806,0 ms |
+| Frames inteiros no periodo limitado (mediana) | 6169,3 ms (+6,5%) | 5983,7 ms (+3,1%) |
+| Rodada (mediana de `rtt_ms`) | 6139,1 ms | 5929,9 ms (-3,4%) |
+
+- Abaixo do limite as duas rodadas tem a mesma velocidade. O ar nao acelera o
+  Pi: so adia o limite e reduz a parte do tempo em que o firmware baixa o clock.
+- Sem ar, o limite custou 6,5% no periodo limitado, contra 3,2% a 4,2% nas
+  rodadas de duas pessoas de 26/09, quando ficava ativo em cerca de metade das
+  leituras. A perda acompanha a fracao do tempo a 1,2 GHz.
+- Os -3,4% vem de uma rodada de cada lado e ficam abaixo do criterio de 5%. Nao
+  sao ganho confirmado; medem o efeito da temperatura com o codigo igual.
+- No fim da rodada com ar o Pi ja estava em 59 a 60 C, com o limite ativo em
+  metade das leituras. Uma rodada dura cerca de 3,5 min e o stream roda por
+  horas, entao em uso continuo o Pi chega ao limite com ou sem ar. Uma medicao
+  mais longa nao foi feita.
+- Recall igual: 2 pessoas, 1 rosto e 2 gestos em 30/30 frames.
+
+### O que fica aberto
+
+1. **Temperatura.** Decidir entre dissipador com ventoinha e `temp_soft_limit`
+   maior. Com duas pessoas, no periodo limitado, o limite custou 6,5% por frame
+   com a sala sem ar e 3,1% com o ar ligado. Decisao do responsavel.
+2. Cena vazia com o codigo atual, que nao deve mudar porque o gate pula a pose
+   em 28 de 30 frames.
+3. Regras de gesto: acoes 1, 2, 4 e 5 de `docs/PLANO_GESTOS.md`. A acao 3 foi
+   verificada.
+4. Acoes 6, 7, 8 e 9 do backlog seguem sem medicao isolada. A equivalencia dos
+   embeddings da acao 6, ligada por padrao desde 20/09, nunca foi conferida com
+   `tools/check_face_optimization.py` nos modelos reais.
+
 ## Estado verificado em 26/09/2026
 
 ### Duas pessoas no perfil rpi3 com gate - ganho confirmado
