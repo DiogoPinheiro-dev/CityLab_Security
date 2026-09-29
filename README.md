@@ -312,14 +312,19 @@ node --test tests/client_stream.test.cjs
 
 ## Estado final e limitacoes conhecidas
 
-O desenvolvimento foi encerrado em 27/09/2026 com o perfil do Pi descrito
-acima. O que ficou para depois esta na secao "Encerramento em 27/09/2026" de
-cada plano. Limitacoes conhecidas desta versao:
+O trabalho de desempenho foi encerrado em 27/09/2026 com o perfil do Pi
+descrito acima, e as regras de gesto foram revistas em 29/09/2026. O que ficou
+para depois esta nos dois planos. Limitacoes conhecidas desta versao:
 
-- **Regras de gesto no Pi.** Com o frame em cerca de 6 s, as cinco regras
-  passam a exigir o mesmo: o gesto presente em duas observacoes seguidas, uns
-  12 s. Os limiares de 0,20 a 0,40 s de cada regra nao tem efeito nessa
-  velocidade.
+- **Regras de gesto no Pi.** Com o frame em cerca de 6 s, cada regra exige de 2
+  a 4 observacoes seguidas: uns 6 s para mao fechada e ameaca, 12 s para
+  rendicao e mao oculta e 18 s para braco estendido. Os limiares de 0,20 a
+  0,40 s so pesam com vazao alta. As regras novas ainda nao rodaram no Pi.
+- **Mao fechada.** Nas gravacoes de teste, o reconhecedor da mao confundiu mao
+  aberta ou relaxada com punho em boa parte dos frames. Ver
+  [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
+- **Mao oculta depende de como a pessoa esta virada.** De costas nao dispara, e
+  de lado a mao que a camera nao ve conta como oculta.
 - **Eventos de rosto.** O cooldown de 5 s e menor que o frame, entao cada rosto
   grava um evento por frame. Os alertas de gesto gravam um evento quando cada
   alerta comeca.

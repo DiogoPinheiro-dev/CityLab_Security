@@ -154,6 +154,7 @@ class GestureTimeTests(unittest.TestCase):
         self.assertFalse(analyzer.history)
         self.assertFalse(analyzer.last_observed)
         self.assertFalse(analyzer.active_states)
+        self.assertFalse(analyzer.streaks)
         self.assertFalse(analyzer.elapsed)
 
 

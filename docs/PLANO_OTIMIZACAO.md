@@ -81,7 +81,8 @@ Fica para depois, sem data:
    abaixo do limite com o stream ligado direto.
 2. Cena vazia com o codigo final.
 3. Acoes 7, 8 e 9 do backlog e o NCNN na pose.
-4. Regras de gesto: acoes 1, 2, 4 e 5 de `docs/PLANO_GESTOS.md`.
+4. Regras de gesto: acoes 4 e 5 de `docs/PLANO_GESTOS.md`. As acoes 1 e 2 foram
+   feitas em 29/09/2026, sem rodada no Pi ainda.
 
 ## Estado verificado em 27/09/2026
 

@@ -8,6 +8,106 @@ resolve com o primeiro.
 Nada aqui esta autorizado a ser implementado. Cada acao e combinada com o
 responsavel antes, uma de cada vez, como no plano de otimizacao.
 
+## Estado verificado em 29/09/2026
+
+O responsavel reabriu o plano para as acoes 1 e 2. As duas foram feitas, e o
+video de pose neutra levou a duas mudancas de geometria, tambem decididas por
+ele. Falta verificar tudo no Pi.
+
+### Acao 1 - banco de replay
+
+`tools/gesture_replay.py` entrega a mesma sequencia de observacoes ao
+`GestureAnalyzer` com o intervalo escolhido e mostra em qual observacao cada
+alerta dispara, antes e depois do criterio duplo. Traz poses sinteticas para as
+cinco regras e para as posturas neutras abaixo, e aceita gravacoes reais no
+mesmo formato. `tools/record_gesture_sequence.py` grava essas sequencias da
+webcam ou de um video, guardando so keypoints, caixa e estado das maos, sem
+imagem. Os testes estao em `tests/test_gesture_replay.py`.
+
+As gravacoes reais estao em `resultados/gestos-reais/`: seis videos de celular
+de uma pessoa em pe, em 29/09/2026, com a pose neutra e os cinco gestos, cada
+um de frente, de um lado, do outro e de costas. Detalhes no `LEIAME.md` da
+pasta.
+
+### Acao 2 - criterio duplo
+
+Cada regra passa a exigir, alem da duracao, um minimo de observacoes seguidas:
+mao fechada e ameaca 2, rendicao e mao oculta 3, braco estendido 4. Sao os
+valores de partida deste plano, mantidos pelo responsavel. Uma observacao em
+que o gesto falha zera a contagem.
+
+Observacao em que cada alerta dispara com o gesto mantido, no banco sintetico
+(F mao fechada, A ameaca, R rendicao, O mao oculta, B braco estendido):
+
+| Intervalo entre observacoes | Antes | Agora |
+|---|---|---|
+| 1/30 s | F7, A8, R10, O12, B13 | igual |
+| 1 s ou mais | todas na segunda | F2, A2, R3, O3, B4 |
+
+Com o frame de 6,2 s do Pi, isso da cerca de 6 s para mao fechada e ameaca,
+12 s para rendicao e mao oculta e 18 s para braco estendido, contados da
+primeira observacao do gesto. Um gesto visto em so duas observacoes seguidas
+dispara apenas mao fechada e ameaca. Pelo criterio de aceite, o item 1 fica
+atendido no replay.
+
+### Mudancas de geometria
+
+O video neutro mostrou alertas sem gesto nenhum. Com as regras anteriores:
+
+| Pessoa vista | Condicao ativa (parte dos frames) |
+|---|---|
+| De frente | braco estendido 20%, mao oculta 7% |
+| De lado | mao oculta 93%, braco estendido 21%, mao fechada 7% |
+| Do outro lado, meio virada | mao oculta 100%, mao fechada 5% |
+| De costas | mao oculta 100% |
+
+Braco caido ao lado do corpo, a no maximo 23 graus da vertical, passava por
+braco estendido. Braco solto perto do corpo, com o cotovelo entre 142 e 161
+graus e a mao perdida pelo detector de maos, passava por mao oculta. De costas,
+a camera nunca ve as maos. Decisoes do responsavel:
+
+- Braco estendido so com o braco levantado, a 45 graus ou mais da vertical.
+- Mao oculta conforme a orientacao da pessoa. De frente, so com o cotovelo
+  dobrado, abaixo de 130 graus, ou com o punho fora de vista e o cotovelo
+  cruzando o corpo, como antes. De lado, o braco que a camera nao ve conta
+  como oculto. De costas, nao conta. A pessoa esta de costas quando o rosto
+  nao aparece e as orelhas sim, e de lado quando a largura dos ombros fica
+  abaixo de 45% da altura do tronco ou so um ombro aparece.
+- Foram descartadas avaliar a mao oculta so de frente e redefinir a ameaca como
+  so braco estendido com punho fechado.
+
+### Validacao com as gravacoes reais
+
+- Video neutro: braco estendido zerou nas quatro situacoes, e mao oculta zerou
+  de frente e de costas e continua de lado.
+- Os gestos continuam disparando: rendicao de frente, de lado e de costas; mao
+  oculta de frente com o cotovelo dobrado (82% do trecho, contra 89% antes) e
+  de lado; braco estendido de frente e de lado com o braco na altura do ombro
+  (47% a 100% dos trechos); mao fechada; e ameaca de lado. De frente a ameaca
+  quase nao dispara, antes ou agora, porque o braco apontado para a camera
+  aparece curto na imagem.
+- O que as regras novas deixaram de acusar nos videos de gestos eram bracos
+  caidos ou dobrados junto ao corpo. No video de mao fechada visto de frente,
+  braco estendido ficava ativo em 64% a 96% dos frames so pelo braco caido, e
+  foi a 0%.
+
+### Achado: mao fechada acende demais
+
+A condicao de mao fechada ficou ativa em videos sem punho fechado: 14% a 80% dos
+frames na rendicao, 42% a 100% na mao oculta e 10% a 59% no braco estendido
+com a mao aberta. No video neutro, gravado na vertical, ficou entre 0% e 8%. A
+suspeita e que, com a mao pequena na imagem, o reconhecedor de gestos da mao
+confunda mao aberta ou relaxada com punho. Para confirmar, a gravacao teria de
+guardar o tamanho e a confianca da mao, o que ainda nao faz. Fica como item
+novo, sem acao combinada.
+
+### O que fica aberto
+
+1. Verificar no Pi o criterio duplo, as mudancas de geometria e o episodio por
+   alerta (`8801350`), numa rodada com gesto.
+2. Falsos positivos de mao fechada, acima.
+3. Acoes 4 e 5 deste plano.
+
 ## Encerramento em 27/09/2026
 
 O plano foi encerrado junto com o de desempenho. Feita: a acao 3, verificada no
@@ -114,6 +214,8 @@ sem Raspberry.
 
 Risco: nenhum. Nao altera o comportamento do produto.
 
+Feita em 29/09/2026; ver "Estado verificado em 29/09/2026".
+
 ### 2. Criterio duplo: observacoes e tempo, o que for mais dificil
 
 Confirmar um gesto exigindo **ao mesmo tempo** um numero minimo de observacoes
@@ -143,6 +245,9 @@ rapido com pouca evidencia, ou devagar com muita. A escolha e do responsavel, e
 a acao 4 e o que muda o dilema de lugar.
 
 Risco: muda quando cada alerta dispara. Exige a acao 1 antes.
+
+Feita em 29/09/2026, com os valores de partida acima; ver "Estado verificado em
+29/09/2026".
 
 ### 3. Deduplicar alerta enquanto o gesto continua ativo
 

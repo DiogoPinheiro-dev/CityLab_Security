@@ -4,8 +4,25 @@ import time
 from typing import Any
 
 
+# Minimo de observacoes seguidas de cada regra, alem da duracao minima. A 30 FPS
+# a duracao domina e nada muda; com o frame de cerca de 6 s do Pi, o numero de
+# observacoes domina, e as regras voltam a exigir persistencias diferentes.
+MIN_OBSERVATIONS = {"hidden": 3, "surrender": 3, "aiming": 4, "fist": 2, "threat": 2}
+
+# Limites tirados do video de pose neutra de 29/09/2026: braco solto ficou a no
+# maximo 23 graus da vertical, e o braco solto que a regra de mao oculta marcava
+# ficou com o cotovelo entre 142 e 161 graus (180 e o braco esticado).
+MIN_ARM_RAISE_DEGREES = 45.0
+MAX_HIDDEN_ELBOW_DEGREES = 130.0
+# De lado, a largura dos ombros ficou entre 3% e 34% da altura do tronco; de
+# frente e de costas, perto de 60%.
+SIDE_SHOULDER_RATIO = 0.45
+FACE_VISIBLE_CONFIDENCE = 0.5
+
+
 class GestureAnalyzer:
-    def __init__(self, fps=30, clock=time.monotonic, max_observation_gap=60.0):
+    def __init__(self, fps=30, clock=time.monotonic, max_observation_gap=60.0,
+                 min_observations=None):
         self.history = defaultdict(
             lambda: {
                 "left_hidden_frames": 0,
@@ -23,7 +40,9 @@ class GestureAnalyzer:
         self.max_observation_gap = max_observation_gap
         self.last_observed = {}
         self.active_states = {}
+        self.streaks = {}
         self.elapsed = {}
+        self.min_observations = {**MIN_OBSERVATIONS, **(min_observations or {})}
         self.thresh_hidden = 0.35
         self.thresh_surrender = 0.30
         self.thresh_aiming = 0.40
@@ -65,7 +84,7 @@ class GestureAnalyzer:
 
     def _arm_extension_features(self, shoulder, elbow, wrist, shoulder_width, torso_box):
         if min(shoulder[2], elbow[2], wrist[2]) <= 0.35:
-            return 0.0, 0.0, False
+            return 0.0, 0.0, False, 0.0
 
         upper_arm = self._distance(shoulder, elbow)
         lower_arm = self._distance(elbow, wrist)
@@ -73,7 +92,7 @@ class GestureAnalyzer:
         full_arm = upper_arm + lower_arm
 
         if full_arm <= 1e-6:
-            return 0.0, 0.0, False
+            return 0.0, 0.0, False, 0.0
 
         straightness = shoulder_to_wrist / full_arm
         reach_ratio = shoulder_to_wrist / max(shoulder_width, 1.0)
@@ -83,16 +102,52 @@ class GestureAnalyzer:
             margin_x=shoulder_width * 0.08,
             margin_y=shoulder_width * 0.08,
         )
-        return straightness, reach_ratio, wrist_in_torso
+        # Angulo com a vertical: 0 com o braco caido, 90 na horizontal.
+        raise_angle = math.degrees(math.atan2(abs(wrist[0] - shoulder[0]), wrist[1] - shoulder[1]))
+        return straightness, reach_ratio, wrist_in_torso, raise_angle
 
-    def _confirm_gesture(self, track_id, key, active, threshold, decay=2, reset=False):
+    def _elbow_angle(self, shoulder, elbow, wrist):
+        """Angulo no cotovelo, em graus: 180 com o braco esticado."""
+        upper = (shoulder[0] - elbow[0], shoulder[1] - elbow[1])
+        lower = (wrist[0] - elbow[0], wrist[1] - elbow[1])
+        norms = math.hypot(*upper) * math.hypot(*lower)
+        if norms <= 1e-6:
+            return 180.0
+        cosine = (upper[0] * lower[0] + upper[1] * lower[1]) / norms
+        return math.degrees(math.acos(max(-1.0, min(1.0, cosine))))
+
+    def _view(self, keypoints, conf_thresh):
+        """Como a pessoa esta virada para a camera: frente, lado ou costas."""
+        face = max(keypoints[index][2] for index in (0, 1, 2))
+        ears = max(keypoints[3][2], keypoints[4][2])
+        if face < FACE_VISIBLE_CONFIDENCE and ears >= FACE_VISIBLE_CONFIDENCE:
+            return "costas"
+        shoulders = [keypoints[index] for index in (5, 6) if keypoints[index][2] > conf_thresh]
+        hips = [keypoints[index] for index in (11, 12) if keypoints[index][2] > conf_thresh]
+        if len(shoulders) == 1:
+            return "lado"
+        if len(shoulders) == 2 and hips:
+            height = (sum(point[1] for point in hips) / len(hips)
+                      - sum(point[1] for point in shoulders) / 2)
+            if height > 1e-6 and self._distance(*shoulders) / height < SIDE_SHOULDER_RATIO:
+                return "lado"
+        return "frente"
+
+    def _confirm_gesture(self, track_id, key, active, threshold, min_observations,
+                         decay=2, reset=False):
         if reset and not active:
             self.history[track_id][key] = 0
             self.active_states[(track_id, key)] = False
+            self.streaks[(track_id, key)] = 0
         else:
             self._update_counter(track_id, key, active, cooldown=decay, limit=threshold)
 
-        return self.history[track_id][key] >= threshold
+        return self._confirmed(track_id, key, threshold, min_observations)
+
+    def _confirmed(self, track_id, key, threshold, min_observations):
+        # Criterio duplo: a duracao acumulada e as observacoes seguidas.
+        return (self.history[track_id][key] >= threshold
+                and self.streaks.get((track_id, key), 0) >= min_observations)
 
     def analyze(self, track_id, keypoints, box=None, hand_context=None, observed_at=None):
         """
@@ -121,6 +176,7 @@ class GestureAnalyzer:
         rh_x, rh_y, rh_c = self._get_keypoint(keypoints, 12)
 
         conf_thresh = 0.35
+        view = self._view(keypoints, conf_thresh)
 
         shoulder_dist = 40.0
         if ls_c > conf_thresh and rs_c > conf_thresh:
@@ -163,24 +219,31 @@ class GestureAnalyzer:
         right_in_torso = bool(hand_context.get("right_in_torso"))
 
         is_aiming = False
-        left_straightness, left_reach, left_wrist_in_torso = self._arm_extension_features(
-            (ls_x, ls_y, ls_c),
-            (le_x, le_y, le_c),
-            (lw_x, lw_y, lw_c),
-            shoulder_width,
-            torso_box,
+        left_straightness, left_reach, left_wrist_in_torso, left_raise = (
+            self._arm_extension_features(
+                (ls_x, ls_y, ls_c),
+                (le_x, le_y, le_c),
+                (lw_x, lw_y, lw_c),
+                shoulder_width,
+                torso_box,
+            )
         )
-        right_straightness, right_reach, right_wrist_in_torso = self._arm_extension_features(
-            (rs_x, rs_y, rs_c),
-            (re_x, re_y, re_c),
-            (rw_x, rw_y, rw_c),
-            shoulder_width,
-            torso_box,
+        right_straightness, right_reach, right_wrist_in_torso, right_raise = (
+            self._arm_extension_features(
+                (rs_x, rs_y, rs_c),
+                (re_x, re_y, re_c),
+                (rw_x, rw_y, rw_c),
+                shoulder_width,
+                torso_box,
+            )
         )
 
-        if left_straightness > 0.82 and left_reach > 1.05 and not left_wrist_in_torso:
+        # Braco esticado e caido ao lado do corpo nao e braco estendido.
+        if (left_straightness > 0.82 and left_reach > 1.05 and not left_wrist_in_torso
+                and left_raise >= MIN_ARM_RAISE_DEGREES):
             is_aiming = True
-        if right_straightness > 0.82 and right_reach > 1.05 and not right_wrist_in_torso:
+        if (right_straightness > 0.82 and right_reach > 1.05 and not right_wrist_in_torso
+                and right_raise >= MIN_ARM_RAISE_DEGREES):
             is_aiming = True
 
         aiming_confirmed = self._confirm_gesture(
@@ -188,6 +251,7 @@ class GestureAnalyzer:
             "aiming_frames",
             is_aiming,
             self.thresh_aiming,
+            self.min_observations["aiming"],
             decay=5,
             reset=left_visible or right_visible,
         )
@@ -226,6 +290,7 @@ class GestureAnalyzer:
             "surrender_frames",
             is_surrendering,
             self.thresh_surrender,
+            self.min_observations["surrender"],
             decay=5,
             reset=(not left_hands_up and not right_hands_up),
         )
@@ -238,6 +303,7 @@ class GestureAnalyzer:
             "fist_frames",
             fist_detected,
             self.thresh_fist,
+            self.min_observations["fist"],
             decay=6,
             reset=left_visible or right_visible,
         )
@@ -250,6 +316,7 @@ class GestureAnalyzer:
             "threat_frames",
             threat_detected,
             self.thresh_threat,
+            self.min_observations["threat"],
             decay=6,
             reset=(not fist_detected or not is_aiming),
         )
@@ -333,14 +400,25 @@ class GestureAnalyzer:
             wrist_missing = wrist[2] <= conf_thresh and elbow[2] > conf_thresh
             arm_towards_torso = wrist_inside or elbow_inside or (wrist_missing and cross_body)
 
+            hidden = arm_towards_torso
+            if view == "costas":
+                # De costas a camera nunca ve as maos: nao ha o que esconder.
+                hidden = False
+            elif view == "frente" and hidden and not wrist_missing:
+                # De frente, braco solto perto do corpo com a mao perdida pelo
+                # detector de maos nao e mao escondida: quem esconde dobra o
+                # cotovelo. De lado, o braco que a camera nao ve conta como oculto.
+                hidden = (elbow[2] > conf_thresh and wrist[2] > conf_thresh
+                          and self._elbow_angle(shoulder, elbow, wrist) < MAX_HIDDEN_ELBOW_DEGREES)
+
             side_debug["elbow_inside"] = elbow_inside
             side_debug["wrist_inside"] = wrist_inside
             side_debug["wrist_missing"] = wrist_missing
             side_debug["cross_body"] = cross_body
             side_debug["arm_towards_torso"] = arm_towards_torso
-            side_debug["hidden"] = arm_towards_torso
+            side_debug["hidden"] = hidden
 
-            return arm_towards_torso
+            return hidden
 
         left_hidden = False
         right_hidden = False
@@ -351,9 +429,10 @@ class GestureAnalyzer:
         self._update_counter(track_id, "left_hidden_frames", left_hidden, cooldown=6, limit=self.thresh_hidden)
         self._update_counter(track_id, "right_hidden_frames", right_hidden, cooldown=6, limit=self.thresh_hidden)
 
+        min_hidden = self.min_observations["hidden"]
         if (
-            self.history[track_id]["left_hidden_frames"] >= self.thresh_hidden
-            or self.history[track_id]["right_hidden_frames"] >= self.thresh_hidden
+            self._confirmed(track_id, "left_hidden_frames", self.thresh_hidden, min_hidden)
+            or self._confirmed(track_id, "right_hidden_frames", self.thresh_hidden, min_hidden)
         ):
             alerts.append("Mao Oculta")
 
@@ -361,6 +440,7 @@ class GestureAnalyzer:
             "alerts": alerts,
             "hand_context": hand_state,
             "hidden_debug": hidden_debug,
+            "view": view,
         }
 
     def _update_counter(self, track_id, key, active, cooldown=1, limit=1.0):
@@ -373,6 +453,7 @@ class GestureAnalyzer:
         else:
             self.history[track_id][key] = max(0, self.history[track_id][key] - cooldown * elapsed)
         self.active_states[(track_id, key)] = active
+        self.streaks[(track_id, key)] = self.streaks.get((track_id, key), 0) + 1 if active else 0
 
     def clean_old_tracks(self, current_tracks):
         missing_tracks = set(self.history.keys()) - set(current_tracks)
@@ -380,6 +461,8 @@ class GestureAnalyzer:
             self._forget_track(track_id)
         self.active_states = {key: value for key, value in self.active_states.items()
                               if key[0] in current_tracks}
+        self.streaks = {key: value for key, value in self.streaks.items()
+                        if key[0] in current_tracks}
 
     def _forget_track(self, track_id):
         self.history.pop(track_id, None)
@@ -387,3 +470,5 @@ class GestureAnalyzer:
         self.elapsed.pop(track_id, None)
         self.active_states = {key: value for key, value in self.active_states.items()
                               if key[0] != track_id}
+        self.streaks = {key: value for key, value in self.streaks.items()
+                        if key[0] != track_id}
