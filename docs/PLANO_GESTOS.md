@@ -100,6 +100,17 @@ um alerta fica com 2 a 4 observacoes em 6 a 19 s; a 30 FPS, com 7 a 13
 observacoes em 0,2 a 0,4 s. Quando o alerta dispara nao muda, e o stream
 enviado ao navegador tambem nao.
 
+### Eventos de rosto por episodio
+
+Decidido pelo responsavel em 29/09/2026, fora das acoes deste plano. Os eventos
+`ALUNO` e `NAO_ALUNO` seguem a logica dos alertas: o aluno grava quando aparece
+e nao grava de novo enquanto aparece nos frames seguintes; se some de um frame,
+a proxima aparicao grava outra vez. Rosto desconhecido nao tem nome: o episodio
+continua quando ele aparece a ate 120 px de um desconhecido ja gravado no frame
+anterior, a mesma distancia do casamento de reserva do rastreador de gestos. O
+cooldown de 5 s continua valendo por cima. Pela sequencia de eventos das duas
+rodadas de 27/09, isso daria 4 e 5 eventos de rosto por rodada, contra 36 e 35.
+
 ### Achado: mao fechada acende demais
 
 A condicao de mao fechada ficou ativa em videos sem punho fechado: 14% a 80% dos
@@ -113,7 +124,8 @@ novo, sem acao combinada.
 ### O que fica aberto
 
 1. Verificar no Pi o criterio duplo, as mudancas de geometria, o episodio por
-   alerta (`8801350`) e o campo `evidencia`, numa rodada com gesto.
+   alerta (`8801350`), o campo `evidencia` e os eventos de rosto por episodio,
+   numa rodada com gesto.
 2. Falsos positivos de mao fechada, acima.
 3. Acao 4 deste plano.
 
@@ -362,6 +374,7 @@ Latencia e vazao seguem em `docs/PLANO_OTIMIZACAO.md`. Se a acao 4 for
 executada, o ganho de desempenho dela e registrado la, e o efeito sobre as
 regras, aqui.
 
-Os eventos de rosto (`ALUNO` e `NAO_ALUNO`) seguem so o cooldown de 5 s: com o
-frame em cerca de 6 s, cada rosto gera um evento por frame. Sao registro de
-presenca, nao alerta, e mudar isso e uma decisao a parte.
+Os eventos de rosto (`ALUNO` e `NAO_ALUNO`) sao registro de presenca, nao
+alerta. Ate 29/09/2026 seguiam so o cooldown de 5 s e, com o frame em cerca de
+6 s, gravavam um evento por frame; desde entao gravam por episodio, por decisao
+a parte do responsavel. Ver "Estado verificado em 29/09/2026".

@@ -2,6 +2,7 @@
 import ast
 import asyncio
 import logging
+import math
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -31,7 +32,7 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
                          COOLDOWN_ALUNO_SECONDS=5, COOLDOWN_NAO_ALUNO_SECONDS=5,
                          COOLDOWN_ALERTA_GESTO_SECONDS=5, datetime=datetime,
                          time=SimpleNamespace(monotonic=lambda: self.clock[0]),
-                         logger=logging.getLogger("event-test"))
+                         logger=logging.getLogger("event-test"), math=math)
         self.collection = SimpleNamespace(insert_one=AsyncMock())
         self.logger = cls(self.collection)
         self.logger._crop_to_base64 = Mock(return_value=None)
@@ -45,10 +46,38 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
         await self.logger.log_face_events(None, [self.face])
         await self.logger.log_face_events(None, [self.face])
         self.assertEqual(self.collection.insert_one.await_count, 2)
+        # O rosto sai de um frame e volta depois do cooldown: episodio novo.
         self.clock[0] = 6
+        await self.logger.log_face_events(None, [])
         await self.logger.log_face_events(None, [self.face])
         self.assertEqual(self.collection.insert_one.await_count, 3)
         self.assertEqual(self.logger.last_logged["ALUNO:Teste"], 6)
+
+    async def test_student_present_in_consecutive_frames_logs_once(self):
+        # Frame de 7 s, mais longo que o cooldown de 5 s, como no Pi.
+        for frame in range(3):
+            self.clock[0] = frame * 7
+            await self.logger.log_face_events(None, [self.face])
+        self.assertEqual(self.collection.insert_one.await_count, 1)
+
+    async def test_unknown_face_continues_while_it_stays_near(self):
+        unknown = {"name": "NAO ALUNO", "bbox": [100, 100, 140, 150]}
+        moved = {"name": "NAO ALUNO", "bbox": [160, 110, 200, 160]}
+        far = {"name": "NAO ALUNO", "bbox": [500, 100, 540, 150]}
+        for frame, faces in enumerate(([unknown], [moved], [moved, far])):
+            self.clock[0] = frame * 7
+            await self.logger.log_face_events(None, faces)
+        # O rosto que andou 60 px segue no episodio; o de longe e outra pessoa.
+        self.assertEqual([call.args[0]["bbox"] for call in
+                          self.collection.insert_one.await_args_list],
+                         [[100, 100, 140, 150], [500, 100, 540, 150]])
+
+    async def test_stream_reset_opens_new_face_episodes(self):
+        await self.logger.log_face_events(None, [self.face])
+        self.logger.reset_episodes()
+        self.clock[0] = 7
+        await self.logger.log_face_events(None, [self.face])
+        self.assertEqual(self.collection.insert_one.await_count, 2)
 
     async def test_failed_gesture_does_not_block_following_event(self):
         self.collection.insert_one.side_effect = [RuntimeError("offline"), None]
@@ -89,7 +118,7 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
     async def test_stream_reset_opens_a_new_gesture_episode(self):
         gesture = {"track_id": 1, "bbox": [0, 0, 10, 10], "alerts": ["Rendicao"]}
         await self.logger.log_gesture_events(None, [gesture])
-        self.logger.reset_gesture_episodes()
+        self.logger.reset_episodes()
         self.clock[0] = 7
         await self.logger.log_gesture_events(None, [gesture])
         self.assertEqual(self.collection.insert_one.await_count, 2)

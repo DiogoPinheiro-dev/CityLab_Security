@@ -324,7 +324,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
             pipeline_started_at = time.perf_counter()
             if first_valid_frame or receive_wait_ms > GESTURE_IDLE_RESET_SECONDS * 1000:
                 current_recognizer.reset_gesture_history()
-                event_logger.reset_gesture_episodes()
+                event_logger.reset_episodes()
             first_valid_frame = False
             results = current_recognizer.process_frame(frame)
             pipeline_ms = (time.perf_counter() - pipeline_started_at) * 1000.0

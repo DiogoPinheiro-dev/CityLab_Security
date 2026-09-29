@@ -1,5 +1,6 @@
 import base64
 import logging
+import math
 import time
 from collections.abc import Iterable
 from datetime import datetime
@@ -18,6 +19,11 @@ logger = logging.getLogger(__name__)
 
 
 class EventLogger:
+    # Rosto desconhecido nao tem nome: continua o episodio quem aparece ate esta
+    # distancia, em pixels, de um desconhecido ja gravado no frame anterior. E a
+    # mesma distancia do casamento de reserva do rastreador de gestos.
+    unknown_face_match_distance = 120.0
+
     def __init__(self, logs_collection: Any) -> None:
         self.logs_collection = logs_collection
         self.cooldowns = {
@@ -30,33 +36,55 @@ class EventLogger:
         # Alertas ja gravados no episodio atual, por track e alerta: enquanto
         # seguem no frame seguinte, nao geram outro evento.
         self.logged_gesture_episodes: set[tuple[int, str]] = set()
+        # Rostos ja gravados no episodio atual, como nos gestos: alunos pelo
+        # nome, desconhecidos pelo centro do rosto no ultimo frame.
+        self.logged_students: set[str] = set()
+        self.logged_unknown_centers: list[tuple[float, float]] = []
 
     async def log_face_events(
         self,
         frame: np.ndarray,
         faces: Iterable[dict[str, Any]],
     ) -> None:
+        students, unknown = [], []
         for face in faces:
             bbox = face.get("bbox")
             if not bbox or len(bbox) != 4:
                 continue
-
             name = str(face.get("name") or "NAO ALUNO")
-            event_type = "ALUNO" if name != "NAO ALUNO" else "NAO_ALUNO"
-            identity = name if event_type == "ALUNO" else self._bbox_identity("unknown", bbox)
-            if not self._should_log(event_type, identity):
+            (unknown if name == "NAO ALUNO" else students).append(
+                (name, bbox, face.get("confidence")))
+
+        # Enquanto o aluno segue no frame seguinte, nao grava de novo; quando
+        # some de um frame, a proxima aparicao grava outra vez.
+        self.logged_students &= {name for name, *_ in students}
+        for name, bbox, confidence in students:
+            if name in self.logged_students or not self._should_log("ALUNO", name):
                 continue
-
             payload = self._build_base_payload(
-                name=name,
-                event_type=event_type,
-                bbox=bbox,
-                confidence=face.get("confidence"),
-            )
-            if event_type == "NAO_ALUNO":
-                payload["imagem_url"] = self._crop_to_base64(frame, bbox)
+                name=name, event_type="ALUNO", bbox=bbox, confidence=confidence)
+            # So entra no episodio depois de gravado: falha tenta de novo.
+            if await self._insert_event("ALUNO", name, payload):
+                self.logged_students.add(name)
 
-            await self._insert_event(event_type, identity, payload)
+        previous, self.logged_unknown_centers = self.logged_unknown_centers, []
+        for name, bbox, confidence in unknown:
+            center = self._bbox_center(bbox)
+            match = next((point for point in previous
+                          if math.dist(point, center) <= self.unknown_face_match_distance),
+                         None)
+            if match is not None:
+                previous.remove(match)
+                self.logged_unknown_centers.append(center)
+                continue
+            identity = self._bbox_identity("unknown", bbox)
+            if not self._should_log("NAO_ALUNO", identity):
+                continue
+            payload = self._build_base_payload(
+                name=name, event_type="NAO_ALUNO", bbox=bbox, confidence=confidence)
+            payload["imagem_url"] = self._crop_to_base64(frame, bbox)
+            if await self._insert_event("NAO_ALUNO", identity, payload):
+                self.logged_unknown_centers.append(center)
 
     async def log_gesture_events(
         self,
@@ -105,9 +133,11 @@ class EventLogger:
             if await self._insert_event("ALERTA_GESTO", identity, payload):
                 self.logged_gesture_episodes.update((track_id, alert) for alert in new_alerts)
 
-    def reset_gesture_episodes(self) -> None:
-        """Nova sessao de stream: o proximo alerta abre um episodio novo."""
+    def reset_episodes(self) -> None:
+        """Nova sessao de stream: o proximo alerta ou rosto abre um episodio novo."""
         self.logged_gesture_episodes.clear()
+        self.logged_students.clear()
+        self.logged_unknown_centers = []
 
     async def _insert_event(self, event_type: str, identity: str, payload: dict) -> bool:
         key = f"{event_type}:{identity}"
@@ -175,6 +205,10 @@ class EventLogger:
 
         encoded = base64.b64encode(buffer).decode("utf-8")
         return f"data:image/jpeg;base64,{encoded}"
+
+    def _bbox_center(self, bbox: list[int]) -> tuple[float, float]:
+        x1, y1, x2, y2 = [float(value) for value in bbox]
+        return (x1 + x2) / 2, (y1 + y2) / 2
 
     def _bbox_identity(self, prefix: str, bbox: list[int]) -> str:
         x1, y1, x2, y2 = [int(value) for value in bbox]

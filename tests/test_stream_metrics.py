@@ -49,7 +49,7 @@ class StreamMetricsTest(unittest.TestCase):
                          np=SimpleNamespace(frombuffer=lambda *args: None, uint8=None),
                          cv2=SimpleNamespace(imdecode=lambda *args: object(), IMREAD_COLOR=1),
                          event_logger=SimpleNamespace(log_face_events=log, log_gesture_events=log,
-                             reset_gesture_episodes=lambda: resets.append("eventos")),
+                             reset_episodes=lambda: resets.append("eventos")),
                          system_monitor=SimpleNamespace(resource_snapshot=lambda: {},
                              record_frame_metrics=lambda metrics: recorded.append(dict(metrics)),
                              maybe_log_snapshot=lambda: None),

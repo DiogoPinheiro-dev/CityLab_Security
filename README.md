@@ -165,8 +165,10 @@ mais de 5 s sem frames (`GESTURE_IDLE_RESET_SECONDS`).
 
 Eventos gravados:
 
-- `ALUNO` e `NAO_ALUNO`: presenca de rosto, no maximo um a cada 5 s por
-  identidade. `NAO_ALUNO` guarda o recorte do rosto.
+- `ALUNO` e `NAO_ALUNO`: presenca de rosto, um evento por episodio, como os
+  alertas. O aluno grava quando aparece e so grava de novo depois de sumir de
+  um frame; o desconhecido continua no episodio enquanto aparece perto de onde
+  estava. `NAO_ALUNO` guarda o recorte do rosto.
 - `ALERTA_GESTO`: um evento por episodio. Enquanto o mesmo alerta continua no
   mesmo track em frames seguidos, nao grava de novo; se ele some de um frame e
   volta, grava outra vez. Guarda o recorte da pessoa, os alertas ativos
@@ -327,9 +329,9 @@ para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
 - **Mao oculta depende de como a pessoa esta virada.** De costas nao dispara, e
   de lado a mao que a camera nao ve conta como oculta.
-- **Eventos de rosto.** O cooldown de 5 s e menor que o frame, entao cada rosto
-  grava um evento por frame. Os alertas de gesto gravam um evento quando cada
-  alerta comeca.
+- **Eventos por episodio.** Rostos e alertas gravam quando aparecem e nao se
+  repetem enquanto continuam. Um frame em que o detector perde a pessoa encerra
+  o episodio, e a volta grava um evento novo.
 - **Memoria.** A API ocupa entre 660 e 745 MB numa placa de 906 MB. Mais
   pessoas ou mais cameras podem esgotar a RAM.
 - **Temperatura.** Sem dissipador, o Pi 3 B+ baixa o clock ao atingir o
