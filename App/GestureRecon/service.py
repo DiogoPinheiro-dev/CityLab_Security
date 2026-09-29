@@ -214,6 +214,8 @@ class GestureRecognitionService:
                         frame_context.map_bbox_to_original([int(value) for value in box])
                     ),
                     "alerts": alerts,
+                    # Observacoes e tempo que sustentam cada alerta, para o evento.
+                    "alert_evidence": analysis.get("evidence", {}),
                     "confidence": float(confidences[index]),
                     "hand_context": analysis["hand_context"],
                     "hidden_debug": analysis["hidden_debug"],

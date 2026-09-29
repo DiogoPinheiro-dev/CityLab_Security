@@ -71,14 +71,15 @@ class EventLogger:
                 continue
 
             track_id = int(gesture.get("track_id", -1))
-            candidates.append((track_id, alerts, bbox, gesture.get("confidence")))
+            candidates.append((track_id, alerts, bbox, gesture.get("confidence"),
+                               gesture.get("alert_evidence") or {}))
 
         # O cooldown em segundos nao deduplica quando o frame dura mais que ele:
         # cada alerta so termina o episodio quando some do frame, e um alerta
         # que continua nao grava de novo quando outro entra ou sai.
         self.logged_gesture_episodes &= {
             (track_id, alert) for track_id, alerts, *_ in candidates for alert in alerts}
-        for track_id, alerts, bbox, confidence in candidates:
+        for track_id, alerts, bbox, confidence, evidence in candidates:
             new_alerts = [alert for alert in alerts
                           if (track_id, alert) not in self.logged_gesture_episodes]
             if not new_alerts:
@@ -95,6 +96,9 @@ class EventLogger:
             )
             payload["alertas"] = alerts
             payload["alertas_novos"] = new_alerts
+            # No Pi, 2 observacoes em 6 s nao valem o mesmo que 12 em 0,4 s.
+            payload["evidencia"] = [{"alerta": alert, **evidence[alert]}
+                                    for alert in alerts if alert in evidence]
             payload["track_id"] = track_id
             payload["imagem_url"] = self._crop_to_base64(frame, bbox)
             # So entra no episodio depois de gravado: falha tenta de novo.

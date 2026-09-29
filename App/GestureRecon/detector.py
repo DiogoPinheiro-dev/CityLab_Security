@@ -41,6 +41,8 @@ class GestureAnalyzer:
         self.last_observed = {}
         self.active_states = {}
         self.streaks = {}
+        # Instante da primeira observacao da sequencia atual de cada regra.
+        self.streak_started = {}
         self.elapsed = {}
         self.min_observations = {**MIN_OBSERVATIONS, **(min_observations or {})}
         self.thresh_hidden = 0.35
@@ -149,11 +151,24 @@ class GestureAnalyzer:
         return (self.history[track_id][key] >= threshold
                 and self.streaks.get((track_id, key), 0) >= min_observations)
 
+    def _evidence(self, track_id, key):
+        """Quantas observacoes seguidas sustentam o alerta, e em quanto tempo real."""
+        now = self.last_observed[track_id]
+        started = self.streak_started.get((track_id, key), now)
+        return {"observacoes": self.streaks.get((track_id, key), 0),
+                "duracao_s": round(now - started, 2)}
+
     def analyze(self, track_id, keypoints, box=None, hand_context=None, observed_at=None):
         """
         Analisa pose corporal combinada com deteccao de maos.
         """
         alerts = []
+        evidence = {}
+
+        def confirm(alert, key):
+            alerts.append(alert)
+            evidence[alert] = self._evidence(track_id, key)
+
         hand_context = hand_context or {}
         now = self.clock() if observed_at is None else observed_at
         previous = self.last_observed.get(track_id, now)
@@ -256,7 +271,7 @@ class GestureAnalyzer:
             reset=left_visible or right_visible,
         )
         if aiming_confirmed:
-            alerts.append("Braco Estendido")
+            confirm("Braco Estendido", "aiming_frames")
 
         is_surrendering = False
         left_hands_up = False
@@ -295,7 +310,7 @@ class GestureAnalyzer:
             reset=(not left_hands_up and not right_hands_up),
         )
         if surrender_confirmed:
-            alerts.append("Rendicao")
+            confirm("Rendicao", "surrender_frames")
 
         fist_detected = left_closed or right_closed
         fist_confirmed = self._confirm_gesture(
@@ -308,7 +323,7 @@ class GestureAnalyzer:
             reset=left_visible or right_visible,
         )
         if fist_confirmed:
-            alerts.append("Mao Fechada")
+            confirm("Mao Fechada", "fist_frames")
 
         threat_detected = fist_detected and is_aiming
         threat_confirmed = self._confirm_gesture(
@@ -321,7 +336,7 @@ class GestureAnalyzer:
             reset=(not fist_detected or not is_aiming),
         )
         if threat_confirmed:
-            alerts.append("Mao Fechada + Braco Estendido")
+            confirm("Mao Fechada + Braco Estendido", "threat_frames")
 
         hand_state = {
             "left": {
@@ -430,14 +445,15 @@ class GestureAnalyzer:
         self._update_counter(track_id, "right_hidden_frames", right_hidden, cooldown=6, limit=self.thresh_hidden)
 
         min_hidden = self.min_observations["hidden"]
-        if (
-            self._confirmed(track_id, "left_hidden_frames", self.thresh_hidden, min_hidden)
-            or self._confirmed(track_id, "right_hidden_frames", self.thresh_hidden, min_hidden)
-        ):
-            alerts.append("Mao Oculta")
+        hidden_keys = [key for key in ("left_hidden_frames", "right_hidden_frames")
+                       if self._confirmed(track_id, key, self.thresh_hidden, min_hidden)]
+        if hidden_keys:
+            # Com as duas maos ocultas, vale o lado com mais observacoes.
+            confirm("Mao Oculta", max(hidden_keys, key=lambda key: self.streaks[(track_id, key)]))
 
         return {
             "alerts": alerts,
+            "evidence": evidence,
             "hand_context": hand_state,
             "hidden_debug": hidden_debug,
             "view": view,
@@ -454,6 +470,8 @@ class GestureAnalyzer:
             self.history[track_id][key] = max(0, self.history[track_id][key] - cooldown * elapsed)
         self.active_states[(track_id, key)] = active
         self.streaks[(track_id, key)] = self.streaks.get((track_id, key), 0) + 1 if active else 0
+        if self.streaks[(track_id, key)] == 1:
+            self.streak_started[(track_id, key)] = self.last_observed.get(track_id, 0.0)
 
     def clean_old_tracks(self, current_tracks):
         missing_tracks = set(self.history.keys()) - set(current_tracks)
@@ -463,6 +481,8 @@ class GestureAnalyzer:
                               if key[0] in current_tracks}
         self.streaks = {key: value for key, value in self.streaks.items()
                         if key[0] in current_tracks}
+        self.streak_started = {key: value for key, value in self.streak_started.items()
+                               if key[0] in current_tracks}
 
     def _forget_track(self, track_id):
         self.history.pop(track_id, None)
@@ -472,3 +492,5 @@ class GestureAnalyzer:
                               if key[0] != track_id}
         self.streaks = {key: value for key, value in self.streaks.items()
                         if key[0] != track_id}
+        self.streak_started = {key: value for key, value in self.streak_started.items()
+                               if key[0] != track_id}

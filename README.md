@@ -169,7 +169,9 @@ Eventos gravados:
   identidade. `NAO_ALUNO` guarda o recorte do rosto.
 - `ALERTA_GESTO`: um evento por episodio. Enquanto o mesmo alerta continua no
   mesmo track em frames seguidos, nao grava de novo; se ele some de um frame e
-  volta, grava outra vez. Guarda o recorte da pessoa.
+  volta, grava outra vez. Guarda o recorte da pessoa, os alertas ativos
+  (`alertas`), os que acabaram de comecar (`alertas_novos`) e, em `evidencia`,
+  quantas observacoes seguidas e quanto tempo sustentaram cada alerta.
 
 ## Rotas da API
 

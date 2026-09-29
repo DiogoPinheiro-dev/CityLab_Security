@@ -10,7 +10,7 @@ responsavel antes, uma de cada vez, como no plano de otimizacao.
 
 ## Estado verificado em 29/09/2026
 
-O responsavel reabriu o plano para as acoes 1 e 2. As duas foram feitas, e o
+O responsavel reabriu o plano para as acoes 1, 2 e 5. As tres foram feitas, e o
 video de pose neutra levou a duas mudancas de geometria, tambem decididas por
 ele. Falta verificar tudo no Pi.
 
@@ -91,6 +91,15 @@ a camera nunca ve as maos. Decisoes do responsavel:
   braco estendido ficava ativo em 64% a 96% dos frames so pelo braco caido, e
   foi a 0%.
 
+### Acao 5 - evidencia em cada alerta
+
+O evento `ALERTA_GESTO` ganhou o campo `evidencia`: para cada alerta, quantas
+observacoes seguidas o sustentaram e quanto tempo real elas cobriram, por
+exemplo `{"alerta": "Rendicao", "observacoes": 3, "duracao_s": 12.4}`. No Pi,
+um alerta fica com 2 a 4 observacoes em 6 a 19 s; a 30 FPS, com 7 a 13
+observacoes em 0,2 a 0,4 s. Quando o alerta dispara nao muda, e o stream
+enviado ao navegador tambem nao.
+
 ### Achado: mao fechada acende demais
 
 A condicao de mao fechada ficou ativa em videos sem punho fechado: 14% a 80% dos
@@ -103,10 +112,10 @@ novo, sem acao combinada.
 
 ### O que fica aberto
 
-1. Verificar no Pi o criterio duplo, as mudancas de geometria e o episodio por
-   alerta (`8801350`), numa rodada com gesto.
+1. Verificar no Pi o criterio duplo, as mudancas de geometria, o episodio por
+   alerta (`8801350`) e o campo `evidencia`, numa rodada com gesto.
 2. Falsos positivos de mao fechada, acima.
-3. Acoes 4 e 5 deste plano.
+3. Acao 4 deste plano.
 
 ## Encerramento em 27/09/2026
 
@@ -335,6 +344,8 @@ sustentaram. Um alerta apoiado em 2 amostras ao longo de 15 s e um apoiado em 11
 amostras ao longo de 0,4 s nao sao a mesma coisa, e hoje o banco nao distingue.
 
 Risco: nenhum no comportamento. Muda o formato do evento.
+
+Feita em 29/09/2026; ver "Estado verificado em 29/09/2026".
 
 ## Criterio de aceite
 

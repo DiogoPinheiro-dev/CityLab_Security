@@ -117,6 +117,15 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.collection.insert_one.await_args.args[0]["alertas_novos"],
                          ["Rendicao", "Mao Fechada"])
 
+    async def test_gesture_event_stores_the_evidence_of_each_alert(self):
+        evidence = {"Rendicao": {"observacoes": 3, "duracao_s": 12.4}}
+        await self.logger.log_gesture_events(None, [{"track_id": 1, "bbox": [0, 0, 10, 10],
+                                                     "alerts": ["Rendicao"],
+                                                     "alert_evidence": evidence}])
+        payload = self.collection.insert_one.await_args.args[0]
+        self.assertEqual(payload["evidencia"],
+                         [{"alerta": "Rendicao", "observacoes": 3, "duracao_s": 12.4}])
+
     async def test_cancel_is_not_swallowed(self):
         self.collection.insert_one.side_effect = asyncio.CancelledError()
         with self.assertRaises(asyncio.CancelledError):
@@ -147,6 +156,18 @@ class GestureTimeTests(unittest.TestCase):
         self.assertNotIn("Mao Fechada", result["alerts"])
         result = analyzer.analyze(1, points, hand_context={"left_closed": True}, observed_at=34)
         self.assertIn("Mao Fechada", result["alerts"])
+
+    def test_alert_reports_how_many_observations_sustained_it(self):
+        # Acao 5: o evento distingue 2 observacoes em 6,2 s de 5 em 0,21 s.
+        keypoints = [[0, 0, 0] for _ in range(17)]
+        for timestamps, expected in (([0, 6.2], {"observacoes": 2, "duracao_s": 6.2}),
+                                     ([0, .05, .10, .15, .21],
+                                      {"observacoes": 5, "duracao_s": .21})):
+            analyzer = GestureAnalyzer()
+            for now in timestamps:
+                result = analyzer.analyze(1, keypoints, hand_context={"left_closed": True},
+                                          observed_at=now)
+            self.assertEqual(result["evidence"], {"Mao Fechada": expected})
 
     def test_missing_track_resets_time_and_state(self):
         analyzer, _ = self.run_sequence([0, .21])
@@ -323,6 +344,17 @@ class PoseOutputTests(unittest.TestCase):
         service.analyzer.analyze.assert_called_once()
         # O track segue conhecido, senao quem oscila abaixo do limiar perde historico.
         service.analyzer.clean_old_tracks.assert_called_once_with([1, 2])
+
+    def test_alert_evidence_goes_with_each_person(self):
+        result = SimpleNamespace(boxes=SimpleNamespace(xyxy=[[1, 2, 3, 4]], conf=[.8], id=None),
+                                 keypoints=SimpleNamespace(data=[[[0, 0, 0]]]))
+        service, context = self.make_service([result])
+        self.analisavel(service)
+        evidence = {"Rendicao": {"observacoes": 3, "duracao_s": 12.4}}
+        service.analyzer.analyze.return_value = {
+            "alerts": ["Rendicao"], "evidence": evidence,
+            "hand_context": {"matched_hands": []}, "hidden_debug": {}}
+        self.assertEqual(service.detect_gestures(context)[0]["alert_evidence"], evidence)
 
     def test_motion_gate_skips_pose_while_the_scene_is_still(self):
         service, context = self.make_service([])
