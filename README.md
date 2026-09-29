@@ -269,10 +269,12 @@ Exemplo: `GET http://127.0.0.1:8000/logs?limite=20`
 ### `WS /stream`
 
 Stream de reconhecimento em tempo real. O cliente envia frames em bytes JPEG e
-recebe, para cada frame:
+recebe, para cada frame, uma resposta com o numero do frame na conexao
+(`frame`, a partir de 1), inclusive nas respostas de erro:
 
 ```json
 {
+  "frame": 1,
   "rostos": [
     {"nome": "Joao Silva", "bbox": [100, 80, 220, 260], "confidence": 0.87}
   ],
@@ -289,6 +291,10 @@ Com `ENABLE_PERFORMANCE_METRICS=1`, a resposta traz tambem `metrics`, com os
 tempos de cada estagio, a RAM do processo e a temperatura; `DEBUG_PIPELINE=1`
 inclui os tempos e um bloco `debug`. O significado de cada metrica esta em
 [docs/BENCHMARK.md](docs/BENCHMARK.md).
+
+O cliente web casa cada resposta com o frame enviado por esse numero. Se um
+frame fica 30 s sem resposta, ele reconecta; ao pausar ou perder a conexao,
+apaga os ultimos resultados, para nao deixar caixas antigas sobre o video.
 
 ## Teste rapido com o cliente web
 

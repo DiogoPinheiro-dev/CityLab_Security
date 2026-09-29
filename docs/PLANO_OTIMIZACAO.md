@@ -80,7 +80,7 @@ Fica para depois, sem data:
 1. Rodada longa com o `temp_soft_limit` em 70 C, para ver se o Pi se estabiliza
    abaixo do limite com o stream ligado direto.
 2. Cena vazia com o codigo final.
-3. Acoes 7, 8 e 9 do backlog e o NCNN na pose.
+3. Acoes 7 e 8 do backlog e o NCNN na pose. A acao 9 foi feita em 29/09/2026.
 4. Regras de gesto: acao 4 de `docs/PLANO_GESTOS.md`. As acoes 1, 2 e 5 foram
    feitas em 29/09/2026, sem rodada no Pi ainda.
 
@@ -837,7 +837,8 @@ Fontes tecnicas consultadas:
 
 ### Ja implementado
 
-- Cliente: timestamp por frame pendente (`state.pendingSentAt`) em
+- Cliente: timestamp por frame pendente (`state.pendingSentAt`; desde a acao 9,
+  `state.pendingFrames`, pelo numero do frame) em
   `Client/stream.js`.
 - Servidor: tempos separados em `Server/main.py` - `receive_wait_ms`,
   `decode_ms`, `pipeline_ms`, `logs_ms`, `response_ready_ms`, `send_ms`,
@@ -1221,6 +1222,16 @@ Backlog: acao 9.
 - Correlacao explicita frame/resposta: hoje e posicional (`pendingSentAt.shift()`).
 - Timeout por frame: hoje nao existe watchdog de resposta.
 - Renderizacao durante a pausa: o `cancelAnimationFrame` para o overlay.
+
+Feita em 29/09/2026, sem medicao, porque nao muda latencia:
+
+- O servidor numera os frames recebidos em cada conexao e devolve `frame` em
+  toda resposta, inclusive nas de erro; o cliente casa a resposta pelo numero.
+  O envio nao muda, entao `tools/benchmark_stream.py` segue igual.
+- Um frame sem resposta por 30 s fecha o socket e agenda a reconexao, que
+  reinicia a numeracao dos dois lados. No Pi, um frame leva de 6 a 10 s.
+- Ao pausar ou perder a conexao, o cliente apaga os ultimos resultados, que
+  antes ficavam desenhados sobre o video ao vivo sem analise nenhuma.
 
 ## Protocolo de comparacao
 

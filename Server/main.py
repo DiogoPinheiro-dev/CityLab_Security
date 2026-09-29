@@ -298,17 +298,22 @@ async def websocket_reconhecimento(websocket: WebSocket):
     completed_frames = 0
     stream_started_at = None
     first_valid_frame = True
+    # Numero de cada frame recebido nesta conexao, devolvido na resposta: o
+    # cliente casa a resposta pelo numero, e nao pela ordem de chegada.
+    frame_number = 0
     try:
         while True:
             receive_started_at = time.perf_counter()
             bytes_frame = await websocket.receive_bytes()
+            frame_number += 1
             frame_started_at = time.perf_counter()
             receive_wait_ms = (frame_started_at - receive_started_at) * 1000.0
             if stream_started_at is None:
                 stream_started_at = frame_started_at
             current_recognizer = recognizer
             if current_recognizer is None:
-                await websocket.send_json({"erro": "Pipeline de reconhecimento nao inicializada."})
+                await websocket.send_json({"erro": "Pipeline de reconhecimento nao inicializada.",
+                                           "frame": frame_number})
                 await asyncio.sleep(0.2)
                 continue
 
@@ -318,7 +323,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
             decode_ms = (time.perf_counter() - decode_started_at) * 1000.0
 
             if frame is None:
-                await websocket.send_json({"erro": "Frame JPEG invalido."})
+                await websocket.send_json({"erro": "Frame JPEG invalido.", "frame": frame_number})
                 continue
 
             pipeline_started_at = time.perf_counter()
@@ -380,6 +385,7 @@ async def websocket_reconhecimento(websocket: WebSocket):
                 )
 
             resposta = {
+                "frame": frame_number,
                 "rostos": resultados_faces,
                 "pessoas": resultados_pessoas,
                 "gestos": resultados_gestos,

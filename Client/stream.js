@@ -15,6 +15,9 @@ const registrationUrlEl = document.getElementById("registrationUrl");
 const SERVER_PORT = 8000;
 const RECONNECT_BASE_DELAY = 1500;
 const RECONNECT_MAX_DELAY = 10000;
+// Um frame sem resposta por este tempo indica servidor travado. No Pi, um frame
+// leva de 6 a 10 s.
+const FRAME_TIMEOUT_MS = 30000;
 
 const streamConfig = {
     width: 640,
@@ -36,7 +39,9 @@ const state = {
     inFlightFrames: 0,
     requestAnimationFrameId: null,
     lastRoundTripMs: null,
-    pendingSentAt: [],
+    // Instante de envio de cada frame pendente, pelo numero que o servidor devolve.
+    pendingFrames: new Map(),
+    nextFrameNumber: 1,
     lastSentAt: 0,
     results: {
         rostos: [],
@@ -352,10 +357,40 @@ function closeSocket() {
 
     state.ws = null;
     state.inFlightFrames = 0;
-    state.pendingSentAt = [];
+    state.pendingFrames = new Map();
+    state.nextFrameNumber = 1;
+    clearResults();
 }
 
-function scheduleReconnect() {
+function clearResults() {
+    // Sem conexao nao ha analise: resultado antigo nao fica desenhado no video.
+    state.results = { rostos: [], pessoas: [], gestos: [] };
+    state.lastRoundTripMs = null;
+    updateMetrics();
+}
+
+function takePendingFrame(number) {
+    // Resposta sem numero, de servidor antigo, libera o frame mais antigo.
+    const key = Number.isInteger(number) ? number : state.pendingFrames.keys().next().value;
+    if (!state.pendingFrames.has(key)) {
+        return undefined;
+    }
+    const sentAt = state.pendingFrames.get(key);
+    state.pendingFrames.delete(key);
+    return sentAt;
+}
+
+function checkFrameTimeout() {
+    const oldest = state.pendingFrames.values().next().value;
+    if (typeof oldest !== "number" || performance.now() - oldest < FRAME_TIMEOUT_MS) {
+        return;
+    }
+    // Reconectar reinicia a sessao dos dois lados, inclusive a numeracao.
+    closeSocket();
+    scheduleReconnect(`Servidor sem resposta ha ${Math.round(FRAME_TIMEOUT_MS / 1000)} s`);
+}
+
+function scheduleReconnect(reason = "Sem conexao") {
     if (state.reconnectTimer) {
         clearTimeout(state.reconnectTimer);
     }
@@ -366,7 +401,7 @@ function scheduleReconnect() {
     );
     state.reconnectAttempt += 1;
 
-    setStatus(`Sem conexao. Nova tentativa em ${Math.round(delay / 1000)}s...`, "warn");
+    setStatus(`${reason}. Nova tentativa em ${Math.round(delay / 1000)}s...`, "warn");
     state.reconnectTimer = setTimeout(conectarWebSocket, delay);
 }
 
@@ -387,8 +422,9 @@ function conectarWebSocket() {
     };
 
     ws.onmessage = (event) => {
+        let payload = null;
         try {
-            const payload = JSON.parse(event.data);
+            payload = JSON.parse(event.data);
             state.results = {
                 rostos: Array.isArray(payload.rostos) ? payload.rostos : [],
                 pessoas: Array.isArray(payload.pessoas) ? payload.pessoas : [],
@@ -398,11 +434,11 @@ function conectarWebSocket() {
             console.error("Falha ao interpretar resposta websocket:", err);
         }
 
-        const sentAt = state.pendingSentAt.shift();
+        const sentAt = takePendingFrame(payload && payload.frame);
         if (typeof sentAt === "number") {
             state.lastRoundTripMs = performance.now() - sentAt;
+            state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
         }
-        state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
         updateMetrics();
     };
 
@@ -411,8 +447,9 @@ function conectarWebSocket() {
     };
 
     ws.onclose = () => {
-        state.pendingSentAt = [];
+        state.pendingFrames = new Map();
         state.inFlightFrames = 0;
+        clearResults();
         if (state.streamEnabled) {
             scheduleReconnect();
         } else {
@@ -542,8 +579,9 @@ function sendFrameToBackend() {
         }
         try {
             socket.send(blob);
-            // Responses follow send order on the current sequential server.
-            state.pendingSentAt.push(performance.now());
+            // O servidor numera os frames na ordem em que chegam, a partir de 1.
+            state.pendingFrames.set(state.nextFrameNumber, performance.now());
+            state.nextFrameNumber += 1;
         } catch (err) {
             state.inFlightFrames = Math.max(0, state.inFlightFrames - 1);
             console.error("Falha ao enviar frame:", err);
@@ -553,6 +591,7 @@ function sendFrameToBackend() {
 
 function frameLoop() {
     drawFrame();
+    checkFrameTimeout();
     sendFrameToBackend();
     state.requestAnimationFrameId = requestAnimationFrame(frameLoop);
 }

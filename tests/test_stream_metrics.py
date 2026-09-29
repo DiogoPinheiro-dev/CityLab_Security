@@ -8,7 +8,7 @@ from tools.benchmark_stream import summarize
 
 
 class StreamMetricsTest(unittest.TestCase):
-    def run_stream(self, waits=(10,), processing_seconds=.2):
+    def run_stream(self, waits=(10,), processing_seconds=.2, invalid=()):
         tree = ast.parse(Path('Server/main.py').read_text(encoding='utf-8'))
         handler = next(node for node in tree.body if isinstance(node, ast.AsyncFunctionDef)
                        and node.name == 'websocket_reconhecimento')
@@ -18,6 +18,12 @@ class StreamMetricsTest(unittest.TestCase):
         recorded = []
         responses = []
         resets = []
+        self.frames = []
+        decoded = [0]
+
+        def imdecode(*args):
+            decoded[0] += 1
+            return None if decoded[0] in invalid else object()
 
         class Disconnect(Exception):
             pass
@@ -32,8 +38,9 @@ class StreamMetricsTest(unittest.TestCase):
                 clock[0] += waits[len(responses)]
                 return b'jpeg'
 
-            async def send_json(self, payload):
-                responses.append(dict(payload['metrics']))
+            async def send_json(inner, payload):
+                responses.append(dict(payload.get('metrics', {})))
+                self.frames.append(payload.get('frame'))
                 clock[0] += 0.5
 
         def process(frame):
@@ -47,7 +54,7 @@ class StreamMetricsTest(unittest.TestCase):
                          recognizer=SimpleNamespace(process_frame=process,
                              reset_gesture_history=lambda: resets.append("gestos")),
                          np=SimpleNamespace(frombuffer=lambda *args: None, uint8=None),
-                         cv2=SimpleNamespace(imdecode=lambda *args: object(), IMREAD_COLOR=1),
+                         cv2=SimpleNamespace(imdecode=imdecode, IMREAD_COLOR=1),
                          event_logger=SimpleNamespace(log_face_events=log, log_gesture_events=log,
                              reset_episodes=lambda: resets.append("eventos")),
                          system_monitor=SimpleNamespace(resource_snapshot=lambda: {},
@@ -74,6 +81,11 @@ class StreamMetricsTest(unittest.TestCase):
         responses, _, resets = self.run_stream(waits=(0, 0, 6, 0), processing_seconds=17)
         self.assertEqual(len(responses), 4)
         self.assertEqual(resets, ["gestos", "eventos"] * 2)
+
+    def test_every_response_carries_the_frame_number(self):
+        # Acao 9: o cliente casa a resposta pelo numero, inclusive a de erro.
+        self.run_stream(waits=(0, 0, 0), invalid=(2,))
+        self.assertEqual(self.frames, [1, 2, 3])
 
     def test_summary(self):
         self.assertEqual(summarize([200, 100, 400, 300]), {'count': 4, 'median': 250, 'p95': 400})

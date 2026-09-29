@@ -126,7 +126,8 @@ node --test tests/client_stream.test.cjs
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 
-Esses testes validam correlacao FIFO, callbacks de conexoes antigas, falha de
-codificacao, limites dos tempos do handler com dependencias simuladas e resumo
-estatistico. Nao executam modelos, MongoDB ou Raspberry. A fase de medicao so
+Esses testes validam a correlacao da resposta pelo numero do frame, o tempo
+limite por frame, a pausa sem resultado antigo, callbacks de conexoes antigas,
+falha de codificacao, limites dos tempos do handler com dependencias simuladas
+e resumo estatistico. Nao executam modelos, MongoDB ou Raspberry. A fase de medicao so
 fecha com as cargas combinadas no hardware e os resultados registrados.
