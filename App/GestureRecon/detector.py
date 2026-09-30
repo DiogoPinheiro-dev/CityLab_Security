@@ -12,6 +12,9 @@ MIN_OBSERVATIONS = {"hidden": 3, "surrender": 3, "aiming": 4, "fist": 2, "threat
 # Limites tirados do video de pose neutra de 29/09/2026: braco solto ficou a no
 # maximo 23 graus da vertical, e o braco solto que a regra de mao oculta marcava
 # ficou com o cotovelo entre 142 e 161 graus (180 e o braco esticado).
+# O mesmo angulo vale para o punho desde 30/09/2026: com a mao solta ao lado do
+# corpo, o detector de maos marcou como fechada 99% dos punhos e 51% das maos
+# relaxadas do conjunto de validacao, entao a mao fechada so conta levantada.
 MIN_ARM_RAISE_DEGREES = 45.0
 MAX_HIDDEN_ELBOW_DEGREES = 130.0
 # De lado, a largura dos ombros ficou entre 3% e 34% da altura do tronco; de
@@ -104,9 +107,13 @@ class GestureAnalyzer:
             margin_x=shoulder_width * 0.08,
             margin_y=shoulder_width * 0.08,
         )
-        # Angulo com a vertical: 0 com o braco caido, 90 na horizontal.
-        raise_angle = math.degrees(math.atan2(abs(wrist[0] - shoulder[0]), wrist[1] - shoulder[1]))
-        return straightness, reach_ratio, wrist_in_torso, raise_angle
+        return straightness, reach_ratio, wrist_in_torso, self._raise_angle(shoulder, wrist)
+
+    def _raise_angle(self, shoulder, wrist):
+        """Angulo do braco com a vertical: 0 com o braco caido, 90 na horizontal."""
+        if min(shoulder[2], wrist[2]) <= 0.35:
+            return 0.0
+        return math.degrees(math.atan2(abs(wrist[0] - shoulder[0]), wrist[1] - shoulder[1]))
 
     def _elbow_angle(self, shoulder, elbow, wrist):
         """Angulo no cotovelo, em graus: 180 com o braco esticado."""
@@ -312,7 +319,12 @@ class GestureAnalyzer:
         if surrender_confirmed:
             confirm("Rendicao", "surrender_frames")
 
-        fist_detected = left_closed or right_closed
+        # Mao solta ao lado do corpo: relaxada ou em punho, a leitura e a mesma.
+        left_fist = left_closed and self._raise_angle(
+            (ls_x, ls_y, ls_c), (lw_x, lw_y, lw_c)) >= MIN_ARM_RAISE_DEGREES
+        right_fist = right_closed and self._raise_angle(
+            (rs_x, rs_y, rs_c), (rw_x, rw_y, rw_c)) >= MIN_ARM_RAISE_DEGREES
+        fist_detected = left_fist or right_fist
         fist_confirmed = self._confirm_gesture(
             track_id,
             "fist_frames",

@@ -25,6 +25,15 @@ def load_class(path, name, **dependencies):
     return dependencies[name]
 
 
+def raised_left_arm(degrees=90.0):
+    """Keypoints so com o braco esquerdo, a tantos graus da vertical."""
+    points = [[0, 0, 0] for _ in range(17)]
+    angle = math.radians(degrees)
+    points[5] = [100, 100, 0.9]
+    points[9] = [100 + 40 * math.sin(angle), 100 + 40 * math.cos(angle), 0.9]
+    return points
+
+
 class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.clock = [0.0]
@@ -164,7 +173,8 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
 class GestureTimeTests(unittest.TestCase):
     def run_sequence(self, timestamps, active=True):
         analyzer = GestureAnalyzer()
-        keypoints = [[0, 0, 0] for _ in range(17)]
+        # O punho so conta com o braco levantado.
+        keypoints = raised_left_arm()
         alerts = []
         for now in timestamps:
             alerts = analyzer.analyze(1, keypoints, hand_context={"left_closed": active},
@@ -180,7 +190,7 @@ class GestureTimeTests(unittest.TestCase):
 
     def test_new_gesture_does_not_inherit_idle_interval(self):
         analyzer, _ = self.run_sequence([0], active=False)
-        points = [[0, 0, 0] for _ in range(17)]
+        points = raised_left_arm()
         result = analyzer.analyze(1, points, hand_context={"left_closed": True}, observed_at=17)
         self.assertNotIn("Mao Fechada", result["alerts"])
         result = analyzer.analyze(1, points, hand_context={"left_closed": True}, observed_at=34)
@@ -188,7 +198,7 @@ class GestureTimeTests(unittest.TestCase):
 
     def test_alert_reports_how_many_observations_sustained_it(self):
         # Acao 5: o evento distingue 2 observacoes em 6,2 s de 5 em 0,21 s.
-        keypoints = [[0, 0, 0] for _ in range(17)]
+        keypoints = raised_left_arm()
         for timestamps, expected in (([0, 6.2], {"observacoes": 2, "duracao_s": 6.2}),
                                      ([0, .05, .10, .15, .21],
                                       {"observacoes": 5, "duracao_s": .21})):
@@ -197,6 +207,17 @@ class GestureTimeTests(unittest.TestCase):
                 result = analyzer.analyze(1, keypoints, hand_context={"left_closed": True},
                                           observed_at=now)
             self.assertEqual(result["evidence"], {"Mao Fechada": expected})
+
+    def test_closed_hand_only_counts_with_the_arm_raised(self):
+        # Decisao de 30/09: com a mao solta ao lado do corpo, o detector de maos
+        # le o punho e a mao relaxada do mesmo jeito. Vale a partir de 45 graus.
+        for degrees, fires in ((0, False), (40, False), (50, True), (90, True), (150, True)):
+            analyzer = GestureAnalyzer()
+            for now in (0, 6.2):
+                alerts = analyzer.analyze(1, raised_left_arm(degrees),
+                                          hand_context={"left_closed": True},
+                                          observed_at=now)["alerts"]
+            self.assertEqual("Mao Fechada" in alerts, fires, degrees)
 
     def test_missing_track_resets_time_and_state(self):
         analyzer, _ = self.run_sequence([0, .21])

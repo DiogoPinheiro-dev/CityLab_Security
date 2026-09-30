@@ -323,16 +323,19 @@ node --test tests/client_stream.test.cjs
 ## Estado final e limitacoes conhecidas
 
 O trabalho de desempenho foi encerrado em 27/09/2026 com o perfil do Pi
-descrito acima, e as regras de gesto foram revistas em 29/09/2026. O que ficou
-para depois esta nos dois planos. Limitacoes conhecidas desta versao:
+descrito acima, e as regras de gesto foram revistas em 29 e 30/09/2026. O que
+ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
 
 - **Regras de gesto no Pi.** Com o frame em cerca de 6 s, cada regra exige de 2
   a 4 observacoes seguidas: uns 6 s para mao fechada e ameaca, 12 s para
   rendicao e mao oculta e 18 s para braco estendido. Os limiares de 0,20 a
   0,40 s so pesam com vazao alta. As regras novas ainda nao rodaram no Pi.
-- **Mao fechada.** Nas gravacoes de teste, o reconhecedor da mao confundiu mao
-  aberta ou relaxada com punho em boa parte dos frames. Ver
-  [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
+- **Mao fechada.** Com a mao solta ao lado do corpo, o reconhecedor da mao nao
+  separa o punho da mao relaxada. Por isso, desde 30/09/2026 o punho so conta,
+  no alerta de mao fechada e no de ameaca, com o braco levantado a 45 graus ou
+  mais da vertical: o punho com o braco solto nao alerta. Com o braco
+  levantado, a mao aberta ou relaxada ainda e lida como fechada em parte dos
+  frames. Ver [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
 - **Mao oculta depende de como a pessoa esta virada.** De costas nao dispara, e
   de lado a mao que a camera nao ve conta como oculta.
 - **Eventos por episodio.** Rostos e alertas gravam quando aparecem e nao se

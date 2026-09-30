@@ -23,6 +23,11 @@ o cliente envia ao stream, e amostrados a cerca de 10 por segundo.
 No video neutro, a pessoa esta de frente de 2 a 11 s, de lado de 12 a 25 s, do
 outro lado, meio virada, de 27 a 37 s, e de costas de 38 a 48 s.
 
+Desde 30/09/2026 o punho so conta com o braco levantado. `mao_fechada.json`,
+gravado com o braco solto, deixou de disparar o alerta de mao fechada: no
+arquivo, o gesto passou a `punho_braco_solto`, sem alerta esperado. Ver
+`docs/PLANO_GESTOS.md`.
+
 A pose rodou sem o rastreador do Ultralytics: no PC, a politica de Controle de
 Aplicativo do Windows bloqueou a DLL do pacote `lap`, que ele usa. Sem o
 rastreador, as caixas vem direto do detector; os keypoints vem do mesmo modelo.

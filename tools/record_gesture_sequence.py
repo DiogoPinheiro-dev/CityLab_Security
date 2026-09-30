@@ -81,7 +81,8 @@ def _video_frames(cv2, path, start, seconds):
 def main():
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
-    parser.add_argument("gesto", choices=sorted([*GESTURES, "neutro"]))
+    # Fora de GESTURES, nenhum alerta e esperado.
+    parser.add_argument("gesto", choices=sorted([*GESTURES, "neutro", "punho_braco_solto"]))
     parser.add_argument("--saida", type=Path, required=True)
     parser.add_argument("--segundos", type=float, default=20.0)
     parser.add_argument("--camera", type=int, default=0)

@@ -8,6 +8,121 @@ resolve com o primeiro.
 Nada aqui esta autorizado a ser implementado. Cada acao e combinada com o
 responsavel antes, uma de cada vez, como no plano de otimizacao.
 
+## Estado verificado em 30/09/2026
+
+O responsavel combinou gravar um conjunto de validacao para a mao fechada, e o
+resultado levou a mais uma decisao dele: o punho so conta com o braco
+levantado. Falta verificar no Pi, junto com o que ja estava pendente.
+
+### Conjunto de validacao
+
+Os cortes e o veto de 29/09 foram escolhidos nos mesmos seis videos em que
+foram medidos. O conjunto novo e separado e foi gravado pela webcam do projeto
+em 640x480, o frame que o cliente envia ao stream: seis situacoes, tres videos
+de 30 s cada, 5.400 frames amostrados, com a pessoa detectada em todos. Com
+menos de 25 s, as quatro observacoes seguidas do braco estendido nao cabem em
+todas as fases de amostragem a cada 6,2 s.
+
+As situacoes sao neutro, punho com o braco solto, braco estendido com a mao
+aberta, ameaca, rendicao e mao oculta atras das costas. A pessoa nao ficou
+parada de frente: em cada video variou a pose e virou de frente, de lado e de
+costas. Na ameaca as duas maos estao em punho, em guarda ou com o braco
+estendido; no braco estendido, o braco aponta ora para o lado, ora para a
+camera. Os videos mostram a pessoa e ficam fora do repositorio, com os JSONs
+extraidos deles.
+
+Parte dos frames com alguma mao fechada e, das 186 fases de amostragem a cada
+6,2 s, 62 por video, em quantas o alerta de mao fechada disparou:
+
+| Situacao | Punho real | Frames com mao fechada | Alerta de mao fechada |
+|---|---|---:|---:|
+| Neutro | nao | 56% | 129/186 |
+| Punho, braco solto | sim | 99% | 186/186 |
+| Braco estendido, mao aberta | nao | 86% | 181/186 |
+| Ameaca | sim | 96% | 186/186 |
+| Rendicao | nao | 11% | 6/186 |
+| Mao oculta | nao | 55% | 147/186 |
+
+O veto `Open_Palm >= 0,55` so mudou a rendicao, de 11% para 8% dos frames, com
+as mesmas 6 fases, e nao perdeu nenhum punho. Com as maos no frame cheio, a pose
+ficou identica nos 5.400 frames e o resultado quase nao mudou: neutro em 55%,
+mao oculta em 56%, rendicao em 7%. As duas alternativas seguem descartadas.
+
+Separando por mao, pelo que se ve em cada situacao:
+
+| Mao | Marcada como fechada |
+|---|---:|
+| Punho, braco solto | 99% |
+| Punho, braco levantado | 97% |
+| Solta ao lado do corpo, relaxada | 51%, de 7% a 99% conforme o video |
+| Solta ou na cintura, com a outra mao oculta | 87% |
+| Aberta, braco estendido | 44% |
+| Aberta, bracos levantados | 11% |
+
+Com a mao solta ao lado do corpo, o classificador responde `None` para quase
+todas as maos, em punho ou relaxadas, e a regra lateral marca as duas. O
+detector so separa o punho da mao aberta quando a mao esta levantada.
+
+Outros alertas nos mesmos videos: rendicao em 167/186 fases dos videos de
+rendicao e mao oculta em 184/186 dos de mao oculta. O braco estendido nao
+disparou em nenhuma fase: a condicao ficou ativa em ate 63% dos frames de um
+video, mas por no maximo 11 s seguidos, e a regra pede quatro observacoes, ou
+18,6 s. A ameaca disparou em 48/186 fases dos videos de ameaca e, sem punho, em
+104/186 dos videos de braco estendido com a mao aberta. Nos videos de ameaca, a
+rendicao disparou em 13/186 fases, com os punhos levantados acima dos ombros.
+
+### Punho so com o braco levantado
+
+Decisao do responsavel em 30/09/2026: a mao fechada so conta, no alerta de mao
+fechada e no de ameaca, quando o braco esta a 45 graus ou mais da vertical, a
+mesma medida do braco estendido. O punho com o braco solto deixa de alertar:
+ele alertava em todas as fases, mas a pessoa parada com a mao relaxada tambem
+alertava em 129 de 186.
+
+Fases com o alerta de mao fechada, antes e depois, nos dois conjuntos:
+
+| Conjunto | Situacao | Antes | Depois |
+|---|---|---:|---:|
+| Webcam | Neutro | 129/186 | 0/186 |
+| Webcam | Punho, braco solto | 186/186 | 0/186 |
+| Webcam | Braco estendido, mao aberta | 181/186 | 75/186 |
+| Webcam | Ameaca | 186/186 | 186/186 |
+| Webcam | Rendicao | 6/186 | 5/186 |
+| Webcam | Mao oculta | 147/186 | 0/186 |
+| Celular | Neutro | 0/62 | 0/62 |
+| Celular | Mao fechada, braco solto | 61/62 | 0/62 |
+| Celular | Braco estendido, mao aberta | 16/62 | 2/62 |
+| Celular | Ameaca | 48/62 | 48/62 |
+| Celular | Rendicao | 27/62 | 23/62 |
+| Celular | Mao oculta | 62/62 | 0/62 |
+
+O alerta de ameaca sem punho, nos videos de braco estendido com a mao aberta,
+caiu de 104 para 75 fases na webcam e de 10 para 1 no celular; nos videos de
+ameaca ficou igual, em 48/186 e 2/62. O resultado quase nao muda com o limite
+entre 30 e 60 graus. O que sobra de falso e a mao aberta ou relaxada lida como
+fechada com o braco levantado: o braco estendido com a mao aberta e, no
+celular, a rendicao.
+
+Pelo criterio de aceite, o item 3 deixa de valer para o punho com o braco
+solto: a regra perde essa deteccao de proposito. No banco sintetico, a mao
+fechada passou a ser o punho levantado com o cotovelo dobrado, que dispara nas
+mesmas observacoes de antes (F7 a 30 FPS, F2 no Pi), e o punho com o braco
+solto entrou como postura que nao dispara. A gravacao
+`resultados/gestos-reais/mao_fechada.json`, de punho com o braco solto, deixou
+de disparar.
+
+### O que fica aberto
+
+1. Verificar no Pi, numa rodada com gesto: o criterio duplo, as mudancas de
+   geometria, o punho so com o braco levantado, o episodio por alerta
+   (`8801350`), o campo `evidencia` e os eventos de rosto por episodio.
+2. Mao fechada com o braco levantado: a mao aberta ou relaxada na ponta do
+   braco estendido ainda e lida como fechada em parte dos frames. Sem acao
+   combinada.
+3. Rendicao com os punhos levantados acima dos ombros, vista nos videos de
+   ameaca: a regra nao olha se as maos estao abertas. Sem acao combinada.
+4. Acao 4 deste plano.
+
 ## Estado verificado em 29/09/2026
 
 O responsavel reabriu o plano para as acoes 1, 2 e 5. As tres foram feitas, e o

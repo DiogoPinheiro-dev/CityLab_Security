@@ -50,6 +50,8 @@ ARMS_DOWN = ((135, 115), (133, 148), (195, 115), (197, 148))
 ARMS_DOWN_WIDE = ((120, 115), (116, 150), (210, 115), (214, 150))
 HANDS_UP = ((110, 80), (110, 40), (220, 80), (220, 40))
 RIGHT_ARM_EXTENDED = ((135, 115), (133, 148), (225, 80), (260, 80))
+# Punho na altura do ombro, com o cotovelo dobrado: levantado, sem estar estendido.
+RIGHT_FIST_RAISED = ((135, 115), (133, 148), (205, 110), (215, 75))
 # Mao atras das costas, na cintura, com o cotovelo dobrado a cerca de 105 graus.
 RIGHT_HAND_BEHIND_BACK = ((135, 115), (133, 148), (205, 115), (180, 135))
 SIDE_ARMS_DOWN = ((162, 115), (164, 148), (168, 115), (166, 148))
@@ -58,16 +60,18 @@ RIGHT_FIST = {"left_visible": True, "right_visible": True, "right_closed": True}
 RIGHT_HIDDEN = {"left_visible": True, "right_visible": False}
 NO_HANDS = {"left_visible": False, "right_visible": False}
 GESTURES = {
-    "mao_fechada": (ARMS_DOWN, RIGHT_FIST, {"Mao Fechada"}),
+    "mao_fechada": (RIGHT_FIST_RAISED, RIGHT_FIST, {"Mao Fechada"}),
     "ameaca": (RIGHT_ARM_EXTENDED, RIGHT_FIST,
                {"Mao Fechada", "Mao Fechada + Braco Estendido", "Braco Estendido"}),
     "rendicao": (HANDS_UP, OPEN, {"Rendicao"}),
     "mao_oculta": (RIGHT_HAND_BEHIND_BACK, RIGHT_HIDDEN, {"Mao Oculta"}),
     "braco_estendido": (RIGHT_ARM_EXTENDED, OPEN, {"Braco Estendido"}),
 }
-# Situacoes do video neutro de 29/09/2026, mais a mao do lado que a camera nao ve.
+# Situacoes do video neutro de 29/09/2026, mais a mao do lado que a camera nao ve
+# e o punho com o braco solto, que deixou de alertar em 30/09/2026.
 POSTURES = {
     "neutro": (ARMS_DOWN, OPEN, {}, set()),
+    "punho_braco_solto": (ARMS_DOWN, RIGHT_FIST, {}, set()),
     "neutro_bracos_afastados": (ARMS_DOWN_WIDE, OPEN, {}, set()),
     "neutro_mao_perdida": (ARMS_DOWN, RIGHT_HIDDEN, {}, set()),
     "neutro_de_costas": (ARMS_DOWN, NO_HANDS, {"face": 0.1}, set()),

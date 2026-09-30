@@ -79,6 +79,8 @@ class GestureSafetyTests(unittest.TestCase):
     def setUp(self):
         self.analyzer = GestureAnalyzer()
         self.points = [[0, 0, 0] for _ in range(17)]
+        # Braco esquerdo na horizontal: o punho so conta com o braco levantado.
+        self.points[5], self.points[9] = [100, 100, 0.9], [140, 100, 0.9]
 
     def observe(self, now, closed=True):
         return self.analyzer.analyze(1, self.points, observed_at=now,

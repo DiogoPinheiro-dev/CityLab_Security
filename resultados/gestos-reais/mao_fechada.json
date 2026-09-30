@@ -1,8 +1,6 @@
 {
- "gesto": "mao_fechada",
- "esperados": [
-  "Mao Fechada"
- ],
+ "gesto": "punho_braco_solto",
+ "esperados": [],
  "frames": [
   {
    "keypoints": [

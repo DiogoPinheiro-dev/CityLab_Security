@@ -35,6 +35,12 @@ class GestureReplayTests(unittest.TestCase):
             for interval in (FPS30, PI_INTERVAL):
                 self.assertEqual(self.first(name, interval), {}, (name, interval))
 
+    def test_fist_with_the_arm_down_does_not_fire(self):
+        # Decisao do responsavel em 30/09: com a mao solta ao lado do corpo o
+        # detector nao separa o punho da mao relaxada, entao ele so conta levantado.
+        for interval in (FPS30, PI_INTERVAL):
+            self.assertEqual(self.first("punho_braco_solto", interval), {}, interval)
+
     def test_arm_the_camera_cannot_see_from_the_side_counts_as_hidden(self):
         # Decisao do responsavel em 29/09: de lado, o braco fora de vista e oculto.
         self.assertEqual(self.first("de_lado_mao_do_outro_lado", PI_INTERVAL), {"Mao Oculta": 3})
@@ -92,9 +98,15 @@ class RecordedGestureTests(unittest.TestCase):
             self.assertNotIn("Mao Oculta", fired, (start, end))
 
     def test_each_recorded_gesture_still_fires(self):
-        expected = {"mao_fechada": "Mao Fechada", "rendicao": "Rendicao",
-                    "mao_oculta": "Mao Oculta", "braco_estendido": "Braco Estendido",
+        expected = {"rendicao": "Rendicao", "mao_oculta": "Mao Oculta",
+                    "braco_estendido": "Braco Estendido",
                     "ameaca": "Mao Fechada + Braco Estendido"}
         for name, alert in expected.items():
             with self.subTest(name=name):
                 self.assertIn(alert, replay(self.load(name), PI_INTERVAL))
+
+    def test_recorded_fist_with_the_arm_down_no_longer_fires(self):
+        # mao_fechada.json e o punho com o braco solto, que parou de alertar em 30/09.
+        self.assertNotIn("Mao Fechada", replay(self.load("mao_fechada"), PI_INTERVAL))
+        # Na ameaca, com o braco levantado, o punho continua contando.
+        self.assertIn("Mao Fechada", replay(self.load("ameaca"), PI_INTERVAL))
