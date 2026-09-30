@@ -13,7 +13,9 @@ responsavel antes, uma de cada vez, como no plano de otimizacao.
 O responsavel combinou gravar um conjunto de validacao para a mao fechada, e o
 resultado levou a mais uma decisao dele: o punho so conta com o braco
 levantado. No mesmo dia, uma rodada com gesto no Pi conferiu essa regra e o
-que estava pendente desde 29/09.
+que estava pendente desde 29/09. Depois dos testes offline abaixo, ele decidiu
+encerrar o plano de novo: a mao fechada com o braco levantado e a ameaca ficam
+como limitacoes conhecidas, e o que fica aberto nao tem acao combinada.
 
 ### Conjunto de validacao
 
@@ -168,14 +170,36 @@ Problemas vistos na rodada:
   primeira tentativa, no canto de baixo a direita da imagem, provavelmente a
   cadeira com uma camisa que aparece nos videos. Nao teve alerta.
 
+### Testes offline depois da rodada
+
+Sem mudar o produto, nos dois conjuntos de gravacoes, contando as fases de
+amostragem a cada 6,2 s:
+
+- Rendicao ignorando a mao levantada lida como fechada: nos videos de ameaca
+  da webcam, a rendicao falsa caiu de 13 para 0 fases, mas a rendicao de
+  verdade caiu de 167 para 164 na webcam e de 10 para 3 no celular, onde a mao
+  pequena e lida fechada com frequencia. Vetar so quando o classificador diz
+  `Closed_Fist` nao mudou nada: ele nao se pronuncia nessas maos. Nenhuma das
+  duas foi promovida.
+- Mao cortada pela caixa da pessoa: o detector de maos roda so dentro dela,
+  sem margem. Na webcam, a mao aberta na ponta do braco estendido foi lida
+  fechada em 89% das vezes com o centro estimado fora da caixa, contra 40%
+  dentro. Com a regiao das maos 15% maior de cada lado, a pose ficou identica.
+  Na webcam, a ameaca falsa caiu de 75 para 61 fases e a mao aberta levantada
+  lida fechada, de 11% para 6%, sem perder punho. No celular piorou: a mao
+  fechada falsa na rendicao subiu de 23 para 29 fases, a ameaca falsa de 1
+  para 3, e a mao fechada da ameaca de verdade caiu de 48 para 42. Nao foi
+  promovida.
+
 ### O que fica aberto
 
 1. Mao lida errado com o braco levantado: a mao aberta ou relaxada conta como
    fechada, nos videos e no Pi, na rendicao e no braco estendido; e o punho na
    ponta do braco estendido nao foi lido no Pi, entao a ameaca nao disparou.
-   Sem acao combinada.
+   A margem na regiao das maos, acima, nao resolveu. Sem acao combinada.
 2. Rendicao com os punhos levantados acima dos ombros, vista nos videos de
-   ameaca e no Pi: a regra nao olha se as maos estao abertas. Sem acao
+   ameaca e no Pi: a regra nao olha se as maos estao abertas, e olhar custa
+   rendicao de verdade enquanto a leitura da mao for a de hoje. Sem acao
    combinada.
 3. Rosto de perfil vira `NAO_ALUNO` e reabre o episodio do aluno. Fora das
    acoes deste plano, sem acao combinada.
