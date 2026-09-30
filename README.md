@@ -329,13 +329,17 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
 - **Regras de gesto no Pi.** Com o frame em cerca de 6 s, cada regra exige de 2
   a 4 observacoes seguidas: uns 6 s para mao fechada e ameaca, 12 s para
   rendicao e mao oculta e 18 s para braco estendido. Os limiares de 0,20 a
-  0,40 s so pesam com vazao alta. As regras novas ainda nao rodaram no Pi.
+  0,40 s so pesam com vazao alta. Conferido no Pi em 30/09/2026, numa rodada
+  com gesto.
 - **Mao fechada.** Com a mao solta ao lado do corpo, o reconhecedor da mao nao
   separa o punho da mao relaxada. Por isso, desde 30/09/2026 o punho so conta,
   no alerta de mao fechada e no de ameaca, com o braco levantado a 45 graus ou
   mais da vertical: o punho com o braco solto nao alerta. Com o braco
   levantado, a mao aberta ou relaxada ainda e lida como fechada em parte dos
-  frames. Ver [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
+  frames, e na rodada no Pi o punho na ponta do braco estendido nao foi lido:
+  a ameaca e pouco confiavel. Ver [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
+- **Braco apontado para a camera.** Aparece curto na imagem e nao conta como
+  braco estendido; so o braco esticado para o lado dispara.
 - **Mao oculta depende de como a pessoa esta virada.** De costas nao dispara, e
   de lado a mao que a camera nao ve conta como oculta.
 - **Eventos por episodio.** Rostos e alertas gravam quando aparecem e nao se

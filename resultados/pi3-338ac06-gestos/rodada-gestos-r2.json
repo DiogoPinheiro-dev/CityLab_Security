@@ -1,0 +1,690 @@
+{
+ "rodada": {
+  "url": "wss://192.168.15.200:8000/stream",
+  "rotulo": "pi3-338ac06-gestos",
+  "iniciada_em": "2026-09-30T16:23:33",
+  "frames_por_situacao": 6,
+  "qualidade_jpeg": 65
+ },
+ "sondagem": {
+  "inicio": "2026-09-30T16:24:53",
+  "fim": "2026-09-30T16:25:04",
+  "completa": true,
+  "frames": [
+   {
+    "n": 1,
+    "frame_servidor": 1,
+    "enviado_s": 0.001,
+    "rtt_ms": 5732.4,
+    "pessoas": 1,
+    "rostos": 1,
+    "rostos_conhecidos": 1,
+    "gestos": [
+     {
+      "track_id": 1,
+      "alerts": [],
+      "confidence": 0.8842495083808899,
+      "bbox": [
+       182,
+       64,
+       416,
+       478
+      ]
+     }
+    ],
+    "metrics": {
+     "persons_ms": 0.0,
+     "face_worker": 0,
+     "faces_ms": 5653.50394699999,
+     "gesture_worker": 1,
+     "gesture_torch_threads": 3,
+     "gestures_ms": 5464.7924920027435,
+     "hands_ms": 277.8932600012922,
+     "pose_ms": 5181.9411130018125,
+     "motion_ratio": 0.43557291666666664,
+     "pose_skipped": 0.0,
+     "frame_interval_ms": 2845264.6856620014,
+     "receive_wait_ms": 21.338459999242332,
+     "decode_ms": 16.735186000005342,
+     "pipeline_ms": 5659.875813998951,
+     "logs_ms": 34.42292099862243,
+     "response_ready_ms": 5711.112409000634,
+     "process_rss_mb": 593.28515625,
+     "temperature_c": 49.388
+    }
+   },
+   {
+    "n": 2,
+    "frame_servidor": 2,
+    "enviado_s": 5.734,
+    "rtt_ms": 5626.2,
+    "pessoas": 1,
+    "rostos": 1,
+    "rostos_conhecidos": 1,
+    "gestos": [
+     {
+      "track_id": 1,
+      "alerts": [],
+      "confidence": 0.9041874408721924,
+      "bbox": [
+       198,
+       82,
+       418,
+       478
+      ]
+     }
+    ],
+    "metrics": {
+     "persons_ms": 0.0,
+     "face_worker": 1,
+     "faces_ms": 5604.407894999895,
+     "gesture_worker": 0,
+     "gesture_torch_threads": 3,
+     "gestures_ms": 5460.4584090011485,
+     "hands_ms": 466.1172100022668,
+     "pose_ms": 4991.202662000433,
+     "motion_ratio": 0.24598958333333334,
+     "pose_skipped": 0.0,
+     "frame_interval_ms": 5658.778652999899,
+     "receive_wait_ms": 2.7442669997981284,
+     "decode_ms": 7.521031999203842,
+     "pipeline_ms": 5607.482525996602,
+     "logs_ms": 0.05239600068307482,
+     "response_ready_ms": 5615.145379000751,
+     "process_rss_mb": 593.28515625,
+     "temperature_c": 52.078
+    }
+   }
+  ]
+ },
+ "situacoes": [
+  {
+   "nome": "ameaca",
+   "esperados": {
+    "Mao Fechada": 2,
+    "Mao Fechada + Braco Estendido": 2,
+    "Braco Estendido": 4
+   },
+   "inicio": "2026-09-30T16:25:26",
+   "fim": "2026-09-30T16:26:00",
+   "completa": true,
+   "frames": [
+    {
+     "n": 1,
+     "frame_servidor": 1,
+     "enviado_s": 0.001,
+     "rtt_ms": 5686.4,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [],
+       "confidence": 0.9153390526771545,
+       "bbox": [
+        174,
+        86,
+        406,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 0,
+      "faces_ms": 5620.184692001203,
+      "gesture_worker": 1,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5443.078910000622,
+      "hands_ms": 272.88980800221907,
+      "pose_ms": 5165.77744299866,
+      "motion_ratio": 0.22604166666666667,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 27413.78449399781,
+      "receive_wait_ms": 16.376330000639427,
+      "decode_ms": 15.59789399834699,
+      "pipeline_ms": 5626.149734998762,
+      "logs_ms": 29.583966999780387,
+      "response_ready_ms": 5671.403209998971,
+      "process_rss_mb": 593.2890625,
+      "temperature_c": 51.54
+     }
+    },
+    {
+     "n": 2,
+     "frame_servidor": 2,
+     "enviado_s": 5.688,
+     "rtt_ms": 5629.1,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [],
+       "confidence": 0.9153417944908142,
+       "bbox": [
+        160,
+        88,
+        404,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 1,
+      "faces_ms": 5604.551098997035,
+      "gesture_worker": 0,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5281.79418199943,
+      "hands_ms": 275.0919359968975,
+      "pose_ms": 5003.200376002496,
+      "motion_ratio": 0.01171875,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5656.424148000951,
+      "receive_wait_ms": 8.210247997340048,
+      "decode_ms": 7.253010000567883,
+      "pipeline_ms": 5607.680730001448,
+      "logs_ms": 0.05208400034462102,
+      "response_ready_ms": 5615.065771002264,
+      "process_rss_mb": 593.2890625,
+      "temperature_c": 52.616
+     }
+    },
+    {
+     "n": 3,
+     "frame_servidor": 3,
+     "enviado_s": 11.318,
+     "rtt_ms": 5627.6,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [],
+       "confidence": 0.9260403513908386,
+       "bbox": [
+        156,
+        90,
+        410,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 0,
+      "faces_ms": 5602.094155998202,
+      "gesture_worker": 1,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5267.146688001958,
+      "hands_ms": 273.7859970002319,
+      "pose_ms": 4990.073143999325,
+      "motion_ratio": 0.0178125,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5628.354636999575,
+      "receive_wait_ms": 12.404043998685665,
+      "decode_ms": 7.209155999589711,
+      "pipeline_ms": 5605.0948279989825,
+      "logs_ms": 0.05192699973122217,
+      "response_ready_ms": 5612.437265001063,
+      "process_rss_mb": 593.2890625,
+      "temperature_c": 53.692
+     }
+    },
+    {
+     "n": 4,
+     "frame_servidor": 4,
+     "enviado_s": 16.946,
+     "rtt_ms": 5680.4,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [
+        "Braco Estendido"
+       ],
+       "confidence": 0.9215593338012695,
+       "bbox": [
+        150,
+        90,
+        414,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 1,
+      "faces_ms": 5595.60117699948,
+      "gesture_worker": 0,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5282.930659002886,
+      "hands_ms": 273.97380599722965,
+      "pose_ms": 5005.519099002413,
+      "motion_ratio": 0.010833333333333334,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5620.667234001303,
+      "receive_wait_ms": 11.24607699966873,
+      "decode_ms": 7.228477999888128,
+      "pipeline_ms": 5598.606329000177,
+      "logs_ms": 62.50938499943004,
+      "response_ready_ms": 5668.443724000099,
+      "process_rss_mb": 593.30078125,
+      "temperature_c": 54.23
+     }
+    },
+    {
+     "n": 5,
+     "frame_servidor": 5,
+     "enviado_s": 22.628,
+     "rtt_ms": 5630.5,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [
+        "Braco Estendido"
+       ],
+       "confidence": 0.9094668030738831,
+       "bbox": [
+        152,
+        90,
+        428,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 0,
+      "faces_ms": 5605.514372000471,
+      "gesture_worker": 1,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5275.072529999306,
+      "hands_ms": 275.13260200066725,
+      "pose_ms": 4996.587851001095,
+      "motion_ratio": 0.01234375,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5691.846481000539,
+      "receive_wait_ms": 9.792067998205312,
+      "decode_ms": 7.268790999660268,
+      "pipeline_ms": 5608.459523002239,
+      "logs_ms": 0.07474000085494481,
+      "response_ready_ms": 5615.884409002319,
+      "process_rss_mb": 593.30078125,
+      "temperature_c": 55.844
+     }
+    },
+    {
+     "n": 6,
+     "frame_servidor": 6,
+     "enviado_s": 28.259,
+     "rtt_ms": 5643.4,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [
+        "Braco Estendido"
+       ],
+       "confidence": 0.9210955500602722,
+       "bbox": [
+        144,
+        90,
+        428,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 1,
+      "faces_ms": 5605.864614000893,
+      "gesture_worker": 0,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5281.863287997112,
+      "hands_ms": 274.5476519994554,
+      "pose_ms": 5003.979963999882,
+      "motion_ratio": 0.01203125,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5631.0785339992435,
+      "receive_wait_ms": 11.301285001536598,
+      "decode_ms": 7.18019799751346,
+      "pipeline_ms": 5608.9577349994215,
+      "logs_ms": 0.07416600055876188,
+      "response_ready_ms": 5616.296159998456,
+      "process_rss_mb": 593.31640625,
+      "temperature_c": 55.844
+     }
+    }
+   ]
+  },
+  {
+   "nome": "braco_estendido",
+   "esperados": {
+    "Braco Estendido": 4
+   },
+   "inicio": "2026-09-30T16:26:15",
+   "fim": "2026-09-30T16:26:50",
+   "completa": true,
+   "frames": [
+    {
+     "n": 1,
+     "frame_servidor": 1,
+     "enviado_s": 0.001,
+     "rtt_ms": 5920.5,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [],
+       "confidence": 0.917879581451416,
+       "bbox": [
+        138,
+        92,
+        430,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 0,
+      "faces_ms": 5687.817406000249,
+      "gesture_worker": 1,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5862.359735001519,
+      "hands_ms": 653.5740720028116,
+      "pose_ms": 5205.206344999169,
+      "motion_ratio": 0.04223958333333333,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 21354.26259000087,
+      "receive_wait_ms": 13.971071999549167,
+      "decode_ms": 10.631649998686044,
+      "pipeline_ms": 5866.972279000038,
+      "logs_ms": 28.98417299729772,
+      "response_ready_ms": 5906.652998000936,
+      "process_rss_mb": 593.3359375,
+      "temperature_c": 53.692
+     }
+    },
+    {
+     "n": 2,
+     "frame_servidor": 2,
+     "enviado_s": 5.922,
+     "rtt_ms": 5685.0,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [],
+       "confidence": 0.9132465720176697,
+       "bbox": [
+        134,
+        90,
+        434,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 0,
+      "faces_ms": 5637.588457000675,
+      "gesture_worker": 1,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5659.564255998703,
+      "hands_ms": 656.0367169986421,
+      "pose_ms": 5000.179679002031,
+      "motion_ratio": 0.01109375,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5711.019694997958,
+      "receive_wait_ms": 8.132644001307199,
+      "decode_ms": 7.2579570005473215,
+      "pipeline_ms": 5662.678990000131,
+      "logs_ms": 0.047396002628374845,
+      "response_ready_ms": 5670.06283199953,
+      "process_rss_mb": 593.35546875,
+      "temperature_c": 55.844
+     }
+    },
+    {
+     "n": 3,
+     "frame_servidor": 3,
+     "enviado_s": 11.608,
+     "rtt_ms": 5781.3,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [
+        "Mao Fechada",
+        "Mao Fechada + Braco Estendido"
+       ],
+       "confidence": 0.923477053642273,
+       "bbox": [
+        130,
+        90,
+        438,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 0,
+      "faces_ms": 5638.179639001464,
+      "gesture_worker": 1,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5656.942421999702,
+      "hands_ms": 660.2455039974302,
+      "pose_ms": 4993.63411000013,
+      "motion_ratio": 0.009635416666666667,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5680.503842999315,
+      "receive_wait_ms": 9.715714000776643,
+      "decode_ms": 7.202592998510227,
+      "pipeline_ms": 5660.067259999778,
+      "logs_ms": 104.75946700171335,
+      "response_ready_ms": 5772.132028996566,
+      "process_rss_mb": 593.35546875,
+      "temperature_c": 56.92
+     }
+    },
+    {
+     "n": 4,
+     "frame_servidor": 4,
+     "enviado_s": 17.391,
+     "rtt_ms": 5712.3,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [
+        "Braco Estendido",
+        "Mao Fechada",
+        "Mao Fechada + Braco Estendido"
+       ],
+       "confidence": 0.9199278950691223,
+       "bbox": [
+        128,
+        92,
+        440,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 0,
+      "faces_ms": 5628.443285997491,
+      "gesture_worker": 1,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5464.635789998283,
+      "hands_ms": 463.88899099838454,
+      "pose_ms": 4997.464096999465,
+      "motion_ratio": 0.011666666666666667,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5756.9956310035195,
+      "receive_wait_ms": 9.817952999583213,
+      "decode_ms": 7.339155003137421,
+      "pipeline_ms": 5631.47281199781,
+      "logs_ms": 62.55677399894921,
+      "response_ready_ms": 5701.4757719989575,
+      "process_rss_mb": 593.35546875,
+      "temperature_c": 57.458
+     }
+    },
+    {
+     "n": 5,
+     "frame_servidor": 5,
+     "enviado_s": 23.104,
+     "rtt_ms": 5682.7,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [
+        "Braco Estendido"
+       ],
+       "confidence": 0.9074097275733948,
+       "bbox": [
+        128,
+        92,
+        446,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 1,
+      "faces_ms": 5650.450997000007,
+      "gesture_worker": 0,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5657.718640999519,
+      "hands_ms": 659.1094490031537,
+      "pose_ms": 4995.579041002202,
+      "motion_ratio": 0.008802083333333334,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5742.7979839994805,
+      "receive_wait_ms": 8.501756998157362,
+      "decode_ms": 7.243268999445718,
+      "pipeline_ms": 5660.916657001508,
+      "logs_ms": 0.06650999785051681,
+      "response_ready_ms": 5668.3129990015,
+      "process_rss_mb": 593.35546875,
+      "temperature_c": 57.996
+     }
+    },
+    {
+     "n": 6,
+     "frame_servidor": 6,
+     "enviado_s": 28.787,
+     "rtt_ms": 5683.1,
+     "pessoas": 1,
+     "rostos": 1,
+     "rostos_conhecidos": 1,
+     "gestos": [
+      {
+       "track_id": 1,
+       "alerts": [
+        "Braco Estendido"
+       ],
+       "confidence": 0.8980986475944519,
+       "bbox": [
+        134,
+        94,
+        454,
+        478
+       ]
+      }
+     ],
+     "metrics": {
+      "persons_ms": 0.0,
+      "face_worker": 1,
+      "faces_ms": 5634.703094001452,
+      "gesture_worker": 0,
+      "gesture_torch_threads": 3,
+      "gestures_ms": 5657.7729000018735,
+      "hands_ms": 659.5810549988528,
+      "pose_ms": 4995.045547999325,
+      "motion_ratio": 0.0015625,
+      "pose_skipped": 0.0,
+      "frame_interval_ms": 5682.820566998998,
+      "receive_wait_ms": 11.085712001658976,
+      "decode_ms": 7.197435999842128,
+      "pipeline_ms": 5660.960238998086,
+      "logs_ms": 0.0658329990983475,
+      "response_ready_ms": 5668.307829997502,
+      "process_rss_mb": 593.35546875,
+      "temperature_c": 59.072
+     }
+    }
+   ]
+  }
+ ],
+ "eventos": {
+  "novos": [
+   {
+    "id": "6abd623089bcacdb52874988",
+    "tipo": "ALUNO",
+    "data_hora": "30/09/2026 - 16:25:36"
+   },
+   {
+    "id": "6abd625189bcacdb52874989",
+    "tipo": "ALUNO",
+    "data_hora": "30/09/2026 - 16:26:09"
+   },
+   {
+    "id": "6abd626289bcacdb5287498a",
+    "tipo": "ALERTA_GESTO",
+    "data_hora": "30/09/2026 - 16:26:26"
+   },
+   {
+    "id": "6abd628289bcacdb5287498b",
+    "tipo": "ALUNO",
+    "data_hora": "30/09/2026 - 16:26:58"
+   },
+   {
+    "id": "6abd628e89bcacdb5287498c",
+    "tipo": "ALERTA_GESTO",
+    "data_hora": "30/09/2026 - 16:27:10"
+   },
+   {
+    "id": "6abd629389bcacdb5287498d",
+    "tipo": "ALERTA_GESTO",
+    "data_hora": "30/09/2026 - 16:27:15"
+   }
+  ],
+  "truncado": false
+ },
+ "relogio_inicio": {
+  "date_servidor": "Wed, 30 Sep 2026 19:23:38 GMT",
+  "recebido_em_utc": "2026-09-30T19:23:02+00:00"
+ },
+ "relogio": {
+  "date_servidor": "Wed, 30 Sep 2026 19:26:52 GMT",
+  "recebido_em_utc": "2026-09-30T19:26:50+00:00"
+ }
+}

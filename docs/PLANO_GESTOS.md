@@ -12,7 +12,8 @@ responsavel antes, uma de cada vez, como no plano de otimizacao.
 
 O responsavel combinou gravar um conjunto de validacao para a mao fechada, e o
 resultado levou a mais uma decisao dele: o punho so conta com o braco
-levantado. Falta verificar no Pi, junto com o que ja estava pendente.
+levantado. No mesmo dia, uma rodada com gesto no Pi conferiu essa regra e o
+que estava pendente desde 29/09.
 
 ### Conjunto de validacao
 
@@ -111,16 +112,73 @@ solto entrou como postura que nao dispara. A gravacao
 `resultados/gestos-reais/mao_fechada.json`, de punho com o braco solto, deixou
 de disparar.
 
+### Rodada com gesto no Pi
+
+Commit `338ac06`, implantado e conferido por hash no Pi em 30/09/2026, com o
+perfil `rpi3`. Uma pessoa na frente da webcam do projeto, enviando um frame por
+vez ao stream. Cada situacao teve 6 frames seguidos numa conexao nova, entao o
+servidor zerou o historico de gestos e os episodios de evento no primeiro
+frame. O frame levou de 5,3 a 6,3 s, com a placa entre 47 e 61 C. Arquivos em
+`resultados/pi3-338ac06-gestos/`.
+
+Alertas por frame (F mao fechada, A ameaca, R rendicao, O mao oculta, B braco
+estendido):
+
+| Situacao | Alertas nos 6 frames | Esperado |
+|---|---|---|
+| Neutro, de frente | nenhum | nenhum |
+| Punho, braco solto | nenhum | nenhum |
+| Punho levantado, cotovelo dobrado | F do 2 ao 4 | F no 2 |
+| Rendicao | R do 3 em diante; F no 2, no 5 e no 6 | R no 3 |
+| Mao oculta, de frente | O do 3 em diante | O no 3 |
+| De lado | O do 4 em diante | O no 3 |
+| De costas | nenhum | nenhum |
+| Braco para o lado, mao aberta | B do 4 em diante; F e A no 3 e no 4 | B no 4 |
+| Braco para o lado, punho fechado | B do 4 em diante | F e A no 2, B no 4 |
+
+- O criterio duplo se confirmou: mao fechada e ameaca na segunda observacao
+  seguida, rendicao e mao oculta na terceira, braco estendido na quarta. De
+  lado, a condicao de mao oculta so apareceu no segundo frame, e o alerta veio
+  no quarto.
+- O punho com o braco solto nao alertou; levantado, alertou no segundo frame.
+- Com os bracos soltos, nem braco estendido nem mao oculta, de frente ou de
+  costas; de lado, mao oculta, como decidido em 29/09.
+- Os 32 eventos das duas tentativas cairam no frame previsto pelo episodio:
+  cada alerta gravou quando comecou e nao de novo enquanto seguiu, e
+  `alertas_novos` trouxe so o que abriu episodio. O campo `evidencia` saiu em
+  todos os 8 alertas lidos do banco: 2 observacoes em 5,7 a 5,9 s, 3 em 11,1 a
+  11,7 s e 5 em 22,9 s.
+- Os rostos gravaram um evento por episodio, mas o rosto de perfil nao foi
+  reconhecido e virou `NAO_ALUNO`. Cada troca entre reconhecido e nao
+  reconhecido abriu um episodio novo: 11 `ALUNO` e 7 `NAO_ALUNO` da mesma
+  pessoa na primeira tentativa.
+
+A primeira tentativa de ameaca e de braco estendido saiu com o braco apontado
+para a camera: a caixa da pessoa nao alargou, e o braco estendido nao disparou
+em nenhum dos 12 frames, como ja se via nas gravacoes de 29/09. Com o punho
+acima do ombro, disparou a rendicao do terceiro frame em diante. A tabela traz
+a repeticao, com o braco para o lado.
+
+Problemas vistos na rodada:
+
+- Na ponta do braco estendido, a mao nao foi lida direito nos dois sentidos: o
+  punho fechado nao contou em nenhum dos 6 frames, e a ameaca nao disparou; a
+  mao aberta contou como fechada em 2 frames seguidos e disparou a ameaca.
+- Uma segunda pessoa, de confianca 0,27 a 0,60, apareceu em 8 frames da
+  primeira tentativa, no canto de baixo a direita da imagem, provavelmente a
+  cadeira com uma camisa que aparece nos videos. Nao teve alerta.
+
 ### O que fica aberto
 
-1. Verificar no Pi, numa rodada com gesto: o criterio duplo, as mudancas de
-   geometria, o punho so com o braco levantado, o episodio por alerta
-   (`8801350`), o campo `evidencia` e os eventos de rosto por episodio.
-2. Mao fechada com o braco levantado: a mao aberta ou relaxada na ponta do
-   braco estendido ainda e lida como fechada em parte dos frames. Sem acao
+1. Mao lida errado com o braco levantado: a mao aberta ou relaxada conta como
+   fechada, nos videos e no Pi, na rendicao e no braco estendido; e o punho na
+   ponta do braco estendido nao foi lido no Pi, entao a ameaca nao disparou.
+   Sem acao combinada.
+2. Rendicao com os punhos levantados acima dos ombros, vista nos videos de
+   ameaca e no Pi: a regra nao olha se as maos estao abertas. Sem acao
    combinada.
-3. Rendicao com os punhos levantados acima dos ombros, vista nos videos de
-   ameaca: a regra nao olha se as maos estao abertas. Sem acao combinada.
+3. Rosto de perfil vira `NAO_ALUNO` e reabre o episodio do aluno. Fora das
+   acoes deste plano, sem acao combinada.
 4. Acao 4 deste plano.
 
 ## Estado verificado em 29/09/2026

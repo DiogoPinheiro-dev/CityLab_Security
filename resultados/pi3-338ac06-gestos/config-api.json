@@ -1,0 +1,26 @@
+{
+  "configured": {
+    "CITYLAB_PROFILE": "rpi3",
+    "ONNX_INTRA_OP_THREADS": 1,
+    "TORCH_NUM_THREADS": 3,
+    "OPENCV_NUM_THREADS": 1,
+    "NATIVE_NUM_THREADS": 1,
+    "PIPELINE_RUN_IN_PARALLEL": true,
+    "PIPELINE_MAX_WORKERS": 2,
+    "PIPELINE_SHARED_PERSON_POSE": true,
+    "GESTURE_MOTION_GATE": true,
+    "GESTURE_PUBLISH_MIN_CONFIDENCE": 0.25,
+    "FACE_MINIMAL_MODULES": true,
+    "FACE_PREFILTER": true,
+    "MAX_IN_FLIGHT_FRAMES": 1,
+    "PROCESS_SCALE": 0.5
+  },
+  "native_environment": {
+    "OMP_NUM_THREADS": "1",
+    "OPENBLAS_NUM_THREADS": "1",
+    "MKL_NUM_THREADS": "1",
+    "NUMEXPR_NUM_THREADS": "1"
+  },
+  "uvicorn_workers": 1,
+  "tls": true
+}
