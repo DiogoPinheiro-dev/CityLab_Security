@@ -116,17 +116,106 @@ rodadas de 27/09, isso daria 4 e 5 eventos de rosto por rodada, contra 36 e 35.
 A condicao de mao fechada ficou ativa em videos sem punho fechado: 14% a 80% dos
 frames na rendicao, 42% a 100% na mao oculta e 10% a 59% no braco estendido
 com a mao aberta. No video neutro, gravado na vertical, ficou entre 0% e 8%. A
-suspeita e que, com a mao pequena na imagem, o reconhecedor de gestos da mao
-confunda mao aberta ou relaxada com punho. Para confirmar, a gravacao teria de
-guardar o tamanho e a confianca da mao, o que ainda nao faz. Fica como item
-novo, sem acao combinada.
+primeira suspeita era que, com a mao pequena na imagem, o reconhecedor de gestos
+da mao confundisse mao aberta ou relaxada com punho.
+
+O responsavel autorizou o diagnostico em 29/09/2026. O gravador passou a guardar,
+para cada mao associada a pessoa, tamanho, gesto e confianca do classificador e
+se a marcou como fechada o classificador, a regra frontal ou a regra lateral.
+Nos seis videos, quem marcou quase todos os falsos positivos foi a regra lateral;
+o classificador respondeu `None` para a maioria das maos. No video de mao
+fechada com o braco solto, porem, so a regra lateral reconheceu o punho.
+
+Foi testada a deteccao de maos no frame de 640 px, mantendo a pose no mesmo
+frame reduzido de 320 px e remapeando somente as maos. Tempo, keypoints e caixa
+da pose ficaram identicos em todos os 2.686 frames das duas variantes. O tamanho
+mediano entregue ao detector de maos praticamente dobrou, de 13-34 px para
+25-68 px conforme o video.
+
+| Video | Punho real | Mao fechada no frame reduzido | Mao fechada no frame cheio |
+|---|---:|---:|---:|
+| Neutro | nao | 5% | 4% |
+| Rendicao | nao | 47% | 29% |
+| Mao oculta | nao | 79% | 81% |
+| Braco estendido | nao | 28% | 26% |
+| Mao fechada | sim | 82% | 78% |
+| Ameaca | sim | 47% | 49% |
+
+A resolucao cheia melhorou apenas a rendicao neste conjunto, nao separou os
+outros falsos positivos e nao aumentou o reconhecimento dos dois punhos reais.
+Por isso, nao foi promovida para o servico nem levada ao Pi.
+
+O responsavel autorizou em seguida medir os indices internos da regra lateral.
+Foram registradas 3.092 maos associadas nos mesmos videos: pontas compactas,
+distancia media ate a palma, abertura entre pontas e as duas distancias do
+polegar, todas normalizadas pelo tamanho da palma. Os indices reproduziram a
+decisao atual em todas as maos, sem divergencia.
+
+Uma grade de 896 combinacoes mais estritas e uma varredura exata de cada valor
+nao acharam um corte geometrico util que preservasse todos os frames positivos.
+Por exemplo, limitar a abertura a 1,25 removeu 25 frames falsos, mas tambem um
+frame da ameaca; limitar a media das pontas a 1,04 removeu 21 falsos, mas perdeu
+um frame da ameaca e um da mao fechada. As distribuicoes dos punhos reais e das
+maos abertas que a regra lateral confunde se sobrepoem.
+
+O unico sinal mais discriminante foi a classificacao negativa `Open_Palm`. Um
+veto com confianca a partir de 0,55 preservou os frames positivos deste conjunto
+e removeu 50 frames falsos da rendicao. A margem, porem, e pequena: a unica mao
+`Open_Palm` no video de ameaca teve 0,546. Simulando as 62 fases possiveis de
+amostragem a cada 6,2 s, o veto mudou assim os alertas de mao fechada:
+
+| Video | Regra atual | Veto `Open_Palm >= 0,55` |
+|---|---:|---:|
+| Neutro | 0/62 | 0/62 |
+| Rendicao | 27/62 | 8/62 |
+| Mao oculta | 62/62 | 62/62 |
+| Braco estendido | 16/62 | 16/62 |
+| Mao fechada | 61/62 | 61/62 |
+| Ameaca | 48/62 | 48/62 |
+
+O veto ajuda somente a rendicao e nao resolve os dois falsos positivos mais
+graves. Por isso, nenhum limiar foi promovido. Tirar a regra lateral tambem nao
+foi feito: perderia o punho real com o braco solto.
+
+O responsavel autorizou entao testar a mao num recorte menor ao redor de cada
+punho. Foram comparados tres quadrados do frame original, com meio lado igual a
+0,65, 0,85 e 1,05 vezes o comprimento do antebraco visto pela pose. A pose
+continuou no frame reduzido e ficou identica, inclusive tempos, caixas e
+keypoints, nos 2.686 frames das quatro variantes.
+
+| Video | Corpo reduzido | Recorte 0,65 | Recorte 0,85 | Recorte 1,05 |
+|---|---:|---:|---:|---:|
+| Neutro | 25/512 | 119/512 | 72/512 | 110/512 |
+| Rendicao | 101/216 | 71/216 | 52/216 | 50/216 |
+| Mao oculta | 378/478 | 307/478 | 377/478 | 384/478 |
+| Braco estendido | 158/561 | 135/561 | 140/561 | 150/561 |
+| Mao fechada | 276/337 | 253/337 | 257/337 | 259/337 |
+| Ameaca | 273/578 | 293/578 | 317/578 | 322/578 |
+
+O recorte ajudou a rendicao e o punho da ameaca, mas introduziu muito mais
+punhos no video neutro. O menor reduziu o falso positivo da mao oculta, mas
+deixou de ver alguma mao em 40 frames adicionais. Os tres tambem reduziram o
+punho real com o braco solto.
+
+Nas 62 fases de amostragem a cada 6,2 s, o video neutro passou de zero alertas
+de mao fechada para 35, 13 e 21 fases. O punho real com o braco solto caiu de
+61 para 48, 51 e 50 fases. Na mao oculta, o melhor resultado ainda alertou em
+56/62 fases. No braco estendido aberto, os dois recortes maiores aumentaram o
+alerta composto falso de 10 para 15 e 14 fases. Combinar os recortes com o veto
+`Open_Palm >= 0,55` so melhorou novamente a rendicao.
+
+Nenhum recorte foi promovido. O custo no Pi nao foi medido porque a qualidade
+ja reprovou no conjunto local; essa variante chamaria o detector uma vez por
+punho, em vez de uma vez por pessoa.
 
 ### O que fica aberto
 
 1. Verificar no Pi o criterio duplo, as mudancas de geometria, o episodio por
    alerta (`8801350`), o campo `evidencia` e os eventos de rosto por episodio,
    numa rodada com gesto.
-2. Falsos positivos de mao fechada, acima.
+2. Falsos positivos de mao fechada, acima: foram descartados a resolucao cheia,
+   os novos cortes geometricos e os recortes por punho. A proxima acao ainda
+   precisa ser combinada.
 3. Acao 4 deste plano.
 
 ## Encerramento em 27/09/2026
