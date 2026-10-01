@@ -11,7 +11,7 @@ from App.settings import (GESTURE_ANALYZER_FPS, GESTURE_MAX_OBSERVATION_GAP_SECO
                           GESTURE_MOTION_GATE, GESTURE_MOTION_MAX_SKIP_SECONDS,
                           GESTURE_MOTION_MIN_RATIO, GESTURE_MOTION_PIXEL_DELTA,
                           GESTURE_PUBLISH_MIN_CONFIDENCE,
-                          POSE_MODEL_PATH, PROJECT_ROOT)
+                          POSE_IMGSZ, POSE_MODEL_PATH, PROJECT_ROOT)
 
 from App.GestureRecon.detector import GestureAnalyzer
 from App.GestureRecon.hand_detector import HandDetector
@@ -29,6 +29,7 @@ class GestureRecognitionService:
         motion_min_ratio: float = GESTURE_MOTION_MIN_RATIO,
         motion_pixel_delta: int = GESTURE_MOTION_PIXEL_DELTA,
         motion_max_skip_seconds: float = GESTURE_MOTION_MAX_SKIP_SECONDS,
+        pose_imgsz: int = POSE_IMGSZ,
     ) -> None:
         self.base_dir = Path(base_dir) if base_dir else Path(__file__).resolve().parent
         configured_path = pose_model_path or POSE_MODEL_PATH
@@ -37,6 +38,8 @@ class GestureRecognitionService:
             self.pose_model_path = PROJECT_ROOT / self.pose_model_path
         self.tracker = tracker
         self.fallback_match_distance = fallback_match_distance
+        # Zero deixa o Ultralytics escolher o tamanho, 640 no peso versionado.
+        self.pose_imgsz = pose_imgsz
 
         if not self.pose_model_path.exists():
             raise FileNotFoundError(
@@ -132,12 +135,14 @@ class GestureRecognitionService:
 
         self.last_pose_at = observed_at
         pose_started = time.perf_counter()
+        pose_options = {"imgsz": self.pose_imgsz} if self.pose_imgsz else {}
         pose_results = self.pose_model.track(
             frame_context.processing_frame,
             persist=True,
             tracker=self.tracker,
             classes=[0],
             verbose=False,
+            **pose_options,
         )
         pose_ms = (time.perf_counter() - pose_started) * 1000.0
 

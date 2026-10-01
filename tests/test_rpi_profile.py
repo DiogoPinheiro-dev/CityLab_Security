@@ -33,8 +33,15 @@ class RpiProfileTests(unittest.TestCase):
                          [1, 3, 1, 1])
         for name in ("PROCESS_SCALE", "STREAM_WIDTH", "STREAM_HEIGHT", "JPEG_QUALITY",
                      "FACE_MIN_CONFIDENCE", "FACE_MIN_WIDTH", "FACE_MIN_HEIGHT",
-                     "GESTURE_PUBLISH_MIN_CONFIDENCE", "POSE_MODEL_PATH"):
+                     "GESTURE_PUBLISH_MIN_CONFIDENCE", "POSE_MODEL_PATH", "POSE_IMGSZ"):
             self.assertEqual(pi[name], normal[name])
+
+    def test_pose_input_size_is_opt_in(self):
+        # Zero deixa o padrao do Ultralytics; o valor so muda pelo .env, para
+        # comparar no Pi com o mesmo codigo.
+        self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3")["POSE_IMGSZ"], 0)
+        self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3", POSE_IMGSZ="416")["POSE_IMGSZ"], 416)
+        self.assertEqual(self.settings(POSE_IMGSZ="-1")["POSE_IMGSZ"], 0)
 
     def test_pi_profile_enables_the_measured_pose_path(self):
         names = ("PIPELINE_SHARED_PERSON_POSE", "GESTURE_MOTION_GATE")
@@ -143,6 +150,8 @@ class RpiProfileTests(unittest.TestCase):
         self.assertIs(configured["PIPELINE_SHARED_PERSON_POSE"], True)
         self.assertIs(configured["GESTURE_MOTION_GATE"], True)
         self.assertEqual(configured["GESTURE_PUBLISH_MIN_CONFIDENCE"], 0.25)
+        # Mostra o tamanho da pose, para a rodada no Pi registrar qual valeu.
+        self.assertEqual(configured["POSE_IMGSZ"], 0)
         self.assertNotIn("segredo", output.getvalue())
 
     def test_launcher_validates_and_forwards_the_tls_pair(self):

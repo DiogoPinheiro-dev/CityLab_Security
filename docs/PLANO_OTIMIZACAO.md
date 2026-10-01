@@ -42,6 +42,43 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
    mais que os limiares, as cinco regras colapsaram em "gesto presente em duas
    observacoes". Ver `docs/PLANO_GESTOS.md`.
 
+## Estado verificado em 01/10/2026
+
+O responsavel reabriu o plano para a acao 7, so na pose: o `det_size` do
+InsightFace ja estava fixo em 320. A pose roda sem `imgsz`, entao o
+Ultralytics usa 640 e amplia o frame de 320x240 que sai da `PROCESS_SCALE`.
+
+Medido no PC, sem o Pi, com os videos de validacao de `docs/PLANO_GESTOS.md`
+(webcam, 18 videos de 30 s) e os seis do celular, extraidos com cada tamanho.
+O tempo e a mediana de 60 frames de 320x240 num processo so; os alertas, as
+fases em que o alerta esperado dispara, de 62 por video a cada 6,2 s:
+
+| Pose | Tempo no PC | Mao oculta, webcam | Rendicao, webcam | Mao oculta, celular |
+|---|---:|---:|---:|---:|
+| 640, hoje | 54,5 ms | 184/186 | 167/186 | 26/62 |
+| 416 | 33,5 ms (-39%) | 182/186 | 168/186 | 23/62 |
+| 320 | 25,4 ms (-53%) | 130/186 | 151/186 | 23/62 |
+
+- A pessoa foi vista em todos os frames da webcam nos tres tamanhos.
+- Em 320, mao oculta e rendicao perderam deteccao: reprovado pela regra 4.
+- Em 416, os alertas esperados ficaram iguais na webcam, inclusive mao fechada
+  e ameaca, com 185 e 48 de 186 contra 186 e 48. No celular, a mao oculta caiu
+  de 26 para 23 fases, a mao fechada da ameaca de 48 para 44, e o braco
+  estendido ficou em 42. Os alarmes falsos mudaram para os dois lados: a
+  ameaca falsa no braco aberto subiu de 75 para 84 fases, e a mao oculta falsa
+  na rendicao caiu de 20 para 4.
+- Quanto isso vale no Pi, onde a pose leva cerca de 5 s, so medindo.
+
+Implementado: `POSE_IMGSZ`, desligado por padrao, com zero mantendo os 640, e
+mostrado em `tools/run_rpi.py --show-config`. A medicao no Pi compara 640 e 416
+com o mesmo codigo, trocando so o `.env`.
+
+### O que fica aberto
+
+1. Medir no Pi: tres rodadas de uma pessoa com 640 e tres com 416, conforme
+   `docs/BENCHMARK.md`, e uma rodada com gesto em 416. So vira padrao do perfil
+   rpi3 se o ganho passar de 5% nas tres rodadas sem perder deteccao.
+2. O resto do "Encerramento em 27/09/2026".
 
 ## Encerramento em 27/09/2026
 
@@ -82,7 +119,7 @@ Fica para depois, sem data:
 2. Cena vazia com o codigo final.
 3. Acoes 7 e 8 do backlog e o NCNN na pose. A acao 9 foi feita em 29/09/2026.
 4. Regras de gesto: acao 4 de `docs/PLANO_GESTOS.md`. As acoes 1, 2 e 5 foram
-   feitas em 29/09/2026, sem rodada no Pi ainda.
+   feitas em 29/09/2026 e conferidas no Pi em 30/09/2026.
 
 ## Estado verificado em 27/09/2026
 

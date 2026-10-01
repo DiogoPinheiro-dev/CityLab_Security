@@ -63,6 +63,10 @@ OPENCV_NUM_THREADS = max(0, _get_int("OPENCV_NUM_THREADS", 1 if _RPI3 else 0))
 NATIVE_NUM_THREADS = max(0, _get_int("NATIVE_NUM_THREADS", 1 if _RPI3 else 0))
 # Aceita arquivo .pt ou diretorio NCNN exportado; vazio usa o peso versionado.
 POSE_MODEL_PATH = os.getenv("POSE_MODEL_PATH", "").strip()
+# Lado da entrada da pose, multiplo de 32. Zero mantem o padrao do Ultralytics,
+# 640, que amplia o frame ja reduzido pela PROCESS_SCALE. Em avaliacao no Pi:
+# 416 manteve os gestos nos videos de validacao (docs/PLANO_OTIMIZACAO.md).
+POSE_IMGSZ = max(0, _get_int("POSE_IMGSZ", 0))
 
 PIPELINE_RUN_IN_PARALLEL = _get_bool("PIPELINE_RUN_IN_PARALLEL", True)
 # Passada unica: pessoas saem da pose. Padrao no rpi3, medido nos tres cenarios

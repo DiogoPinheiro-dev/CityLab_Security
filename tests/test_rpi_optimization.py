@@ -336,10 +336,12 @@ class PoseOutputTests(unittest.TestCase):
         cls = load_class("App/GestureRecon/service.py", "GestureRecognitionService",
                          GESTURE_ANALYZER_FPS=12, GESTURE_PUBLISH_MIN_CONFIDENCE=.25,
                          GESTURE_MOTION_GATE=False, GESTURE_MOTION_MIN_RATIO=.002,
-                         GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.)
+                         GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.,
+                         POSE_IMGSZ=0)
         service = cls.__new__(cls)
         service.pose_model = SimpleNamespace(track=Mock(return_value=results))
         service.tracker = "bytetrack.yaml"
+        service.pose_imgsz = 0
         service.analyzer = Mock()
         service.last_track_centers = {1: (10, 20)}
         service._to_numpy = lambda value: value
@@ -365,6 +367,15 @@ class PoseOutputTests(unittest.TestCase):
         self.assertEqual(service.detect_gestures(context), [])
         self.assertEqual(service.latest_persons, [{"bbox": [2, 4, 6, 8], "confidence": .8}])
         service.pose_model.track.assert_called_once()
+
+    def test_pose_input_size_goes_to_the_model_only_when_configured(self):
+        service, context = self.make_service([])
+        service.detect_gestures(context)
+        self.assertNotIn("imgsz", service.pose_model.track.call_args.kwargs)
+        # 416 manteve os gestos nos videos de validacao; segue opcional ate medir no Pi.
+        service.pose_imgsz = 416
+        service.detect_gestures(context)
+        self.assertEqual(service.pose_model.track.call_args.kwargs["imgsz"], 416)
 
     def test_empty_result_removes_previous_boxes(self):
         service, context = self.make_service([])
