@@ -25,13 +25,20 @@ def capture_property(capture, property_id):
 
 
 def detection_confidences(payload):
-    # Confiancas de caixas, sem nomes, imagens ou embeddings.
+    # Confiancas de caixas e semelhanca dos rostos, sem nomes, imagens ou embeddings.
     return {output: [item["confidence"] for item in payload.get(source, [])
                      if isinstance(item.get("confidence"), (int, float))
                      and not isinstance(item["confidence"], bool)
                      and math.isfinite(item["confidence"])]
             for output, source in (("persons_confidence", "pessoas"),
-                                   ("gestures_confidence", "gestos"))}
+                                   ("gestures_confidence", "gestos"),
+                                   ("faces_confidence", "rostos"))}
+
+
+def known_faces(payload):
+    """Rostos reconhecidos como cadastrados: so a contagem, nunca o nome."""
+    return sum(1 for face in payload.get("rostos") or []
+               if face.get("nome") not in (None, "NAO ALUNO"))
 
 
 def open_source(args, cv2):
@@ -95,6 +102,7 @@ async def run(args):
                     rows.append({"frame": index, "rtt_ms": (received_at - sent_at) * 1000,
                                  "persons_count": len(payload.get("pessoas") or []),
                                  "faces_count": len(payload.get("rostos") or []),
+                                 "known_faces_count": known_faces(payload),
                                  "gestures_count": len(gestures),
                                  "alerts_count": sum(len(item.get("alerts") or []) for item in gestures),
                                  **detection_confidences(payload),
@@ -115,7 +123,8 @@ async def run(args):
         "elapsed_seconds": elapsed, "completed_fps": len(rows) / elapsed,
         "rtt_ms": summarize([row["rtt_ms"] for row in rows]),
         "detections": {key: summarize([row[key] for row in rows]) for key in
-                       ("persons_count", "faces_count", "gestures_count", "alerts_count")},
+                       ("persons_count", "faces_count", "known_faces_count", "gestures_count",
+                        "alerts_count")},
         "metrics": {key: summarize([row["metrics"][key] for row in rows
                                     if isinstance(row["metrics"].get(key), (float, int))]) for key in keys},
         "application_bytes_sent": sent_bytes, "application_bytes_received": received_bytes,

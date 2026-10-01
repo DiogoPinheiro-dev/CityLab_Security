@@ -68,6 +68,10 @@ class FaceRecognitionService:
         self.app_insight.prepare(ctx_id=0, det_size=insight_det_size)
         self.latest_metrics: dict[str, float] = {
             "faces_ms": 0.0,
+            "face_detect_ms": 0.0,
+            "face_embed_ms": 0.0,
+            "face_match_ms": 0.0,
+            "face_embeddings": 0.0,
             "persons_ms": 0.0,
         }
         self.latest_ignored_faces: list[dict[str, Any]] = []
@@ -104,6 +108,9 @@ class FaceRecognitionService:
         import time
 
         started_at = time.perf_counter()
+        # Partes do faces_ms. So o prefiltro separa deteccao e embedding: no
+        # FaceAnalysis.get os dois saem juntos e ficam so no total.
+        detect_ms = embed_ms = match_ms = 0.0
         if self.prefilter:
             # Mesmos argumentos e keypoints usados por FaceAnalysis.get.
             bboxes, keypoints = self.app_insight.det_model.detect(
@@ -112,8 +119,11 @@ class FaceRecognitionService:
             faces = [Face(bbox=box[:4], det_score=box[4],
                           kps=keypoints[index] if keypoints is not None else None)
                      for index, box in enumerate(bboxes)]
+            detect_ms = (time.perf_counter() - started_at) * 1000.0
+            embeddings = 0
         else:
             faces = self.app_insight.get(frame_context.processing_frame)
+            embeddings = len(faces)
         results: list[dict[str, Any]] = []
         ignored_faces: list[dict[str, Any]] = []
 
@@ -135,10 +145,15 @@ class FaceRecognitionService:
                 continue
 
             if self.prefilter:
+                embed_started_at = time.perf_counter()
                 for task, model in self.app_insight.models.items():
                     if task != "detection":
                         model.get(frame_context.processing_frame, face)
+                embed_ms += (time.perf_counter() - embed_started_at) * 1000.0
+                embeddings += 1
+            match_started_at = time.perf_counter()
             name, best_score = self._match_face(face.normed_embedding)
+            match_ms += (time.perf_counter() - match_started_at) * 1000.0
 
             results.append(
                 {
@@ -152,7 +167,13 @@ class FaceRecognitionService:
         if self.debug_pipeline:
             self.latest_metrics["ignored_faces"] = float(len(ignored_faces))
         self.latest_ignored_faces = ignored_faces
-        self.latest_metrics["faces_ms"] = (time.perf_counter() - started_at) * 1000.0
+        self.latest_metrics.update({
+            "faces_ms": (time.perf_counter() - started_at) * 1000.0,
+            "face_detect_ms": detect_ms,
+            "face_embed_ms": embed_ms,
+            "face_match_ms": match_ms,
+            "face_embeddings": float(embeddings),
+        })
         return results
 
     def detect_persons(

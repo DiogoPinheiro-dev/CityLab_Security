@@ -180,6 +180,25 @@ class FaceOptimizationTests(unittest.TestCase):
         new.app_insight.det_model.detect.assert_called_once_with(
             new_frame.processing_frame, max_num=0, metric="default")
 
+    def test_face_time_is_split_into_detection_embedding_and_match(self):
+        boxes = [Vector([0, 0, 30, 30, .9]), Vector([0, 0, 10, 10, .9]),
+                 Vector([0, 0, 30, 30, .9])]
+        new, frame, _, _ = self.make_service(True, boxes)
+        new.recognize_faces(frame)
+        metrics = new.latest_metrics
+        # So os dois rostos aceitos pelo filtro de qualidade geram embedding.
+        self.assertEqual(metrics["face_embeddings"], 2.0)
+        for name in ("faces_ms", "face_detect_ms", "face_embed_ms", "face_match_ms"):
+            self.assertGreaterEqual(metrics[name], 0.0)
+        self.assertLessEqual(metrics["face_detect_ms"] + metrics["face_embed_ms"]
+                             + metrics["face_match_ms"], metrics["faces_ms"])
+        # Sem prefiltro o FaceAnalysis.get faz tudo junto: so o total e a contagem.
+        old, old_frame, _, _ = self.make_service(False, boxes)
+        old.recognize_faces(old_frame)
+        self.assertEqual(old.latest_metrics["face_embeddings"], 3.0)
+        self.assertEqual((old.latest_metrics["face_detect_ms"],
+                          old.latest_metrics["face_embed_ms"]), (0.0, 0.0))
+
     def test_empty_scene_and_threshold_boundaries(self):
         for boxes, count in (([], 0), ([Vector([0, 0, 20, 20, .45])], 1)):
             service, frame, recognition, _ = self.make_service(True, boxes)

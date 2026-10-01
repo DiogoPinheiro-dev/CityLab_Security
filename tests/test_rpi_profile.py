@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 from App.inference_runtime import (configure_insight_threads, configure_opencv_threads,
                                    ensure_torch_threads, prepare_native_environment)
 from tools.run_rpi import main as run_rpi
-from tools.benchmark_stream import detection_confidences
+from tools.benchmark_stream import detection_confidences, known_faces
 
 
 class RpiProfileTests(unittest.TestCase):
@@ -187,10 +187,17 @@ class RpiProfileTests(unittest.TestCase):
                 self.assertIsNone(uvicorn.run.call_args.kwargs["ssl_keyfile"])
 
     def test_benchmark_records_confidence_without_identity(self):
-        data = detection_confidences({"pessoas": [{"confidence": .8, "nome": "privado"},
-                                    {"confidence": None}, {"confidence": float("nan")}],
-                                     "gestos": [{"confidence": .7}]})
-        self.assertEqual(data, {"persons_confidence": [.8], "gestures_confidence": [.7]})
+        payload = {"pessoas": [{"confidence": .8, "nome": "privado"},
+                               {"confidence": None}, {"confidence": float("nan")}],
+                   "gestos": [{"confidence": .7}],
+                   "rostos": [{"nome": "privado", "confidence": .6},
+                              {"nome": "NAO ALUNO", "confidence": .2}]}
+        data = detection_confidences(payload)
+        self.assertEqual(data, {"persons_confidence": [.8], "gestures_confidence": [.7],
+                                "faces_confidence": [.6, .2]})
+        # Reconhecido conta, mas o nome nao sai do payload.
+        self.assertEqual(known_faces(payload), 1)
+        self.assertNotIn("privado", json.dumps(data))
 
 
 if __name__ == "__main__":

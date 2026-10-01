@@ -283,6 +283,18 @@ class SharedPipelineTests(unittest.TestCase):
             self.assertEqual(result["metrics"]["persons_ms"], 0)
             self.assertEqual(result["metrics"]["pose_ms"], 5)
 
+    def test_face_time_parts_reach_the_frame_metrics(self):
+        for parallel in (False, True):
+            pipeline, face, _ = self.make_pipeline(parallel, True)
+            face.latest_metrics.update(face_detect_ms=1.5, face_embed_ms=.5,
+                                       face_embeddings=1.0)
+            metrics = pipeline.process_frame(None)["metrics"]
+            self.assertEqual([metrics[name] for name in pipeline.FACE_METRICS],
+                             [2, 1.5, .5, 0.0, 1.0])
+            # Sem rosto as chaves continuam no frame, zeradas.
+            metrics = pipeline.process_frame(None, detect_faces=False)["metrics"]
+            self.assertEqual([metrics[name] for name in pipeline.FACE_METRICS], [0.0] * 5)
+
     def test_empty_scene_still_runs_pose_and_face(self):
         pipeline, face, gesture = self.make_pipeline(False, True)
         self.assertEqual(pipeline.process_frame(None)["persons"], [])

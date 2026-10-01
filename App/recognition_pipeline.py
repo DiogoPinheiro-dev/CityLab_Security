@@ -47,6 +47,10 @@ class UnifiedRecognitionService:
     Orquestra reconhecimento facial e de gestos sobre o mesmo frame.
     """
 
+    # Total do rosto e suas partes, com as mesmas chaves em todo frame.
+    FACE_METRICS = ("faces_ms", "face_detect_ms", "face_embed_ms", "face_match_ms",
+                    "face_embeddings")
+
     def __init__(
         self,
         face_service: Optional["FaceRecognitionService"] = None,
@@ -158,9 +162,9 @@ class UnifiedRecognitionService:
         else:
             if detect_faces and self.face_service is not None:
                 faces = self.face_service.recognize_faces(frame_context)
-                metrics["faces_ms"] = self.face_service.latest_metrics.get("faces_ms", 0.0)
+                self._copy_face_metrics(metrics, ran=True)
             else:
-                metrics["faces_ms"] = 0.0
+                self._copy_face_metrics(metrics, ran=False)
 
             if detect_gestures and self.gesture_service is not None:
                 metrics["gesture_torch_threads"] = ensure_torch_threads(self.torch_threads)
@@ -266,9 +270,9 @@ class UnifiedRecognitionService:
         wait([future for future in (face_future, gesture_future) if future is not None])
         if face_future is not None and self.face_service is not None:
             faces, metrics["face_worker"] = face_future.result()
-            metrics["faces_ms"] = self.face_service.latest_metrics.get("faces_ms", 0.0)
+            self._copy_face_metrics(metrics, ran=True)
         else:
-            metrics["faces_ms"] = 0.0
+            self._copy_face_metrics(metrics, ran=False)
 
         if gesture_future is not None and self.gesture_service is not None:
             gestures, metrics["gesture_worker"], metrics["gesture_torch_threads"] = (
@@ -293,6 +297,10 @@ class UnifiedRecognitionService:
         """Indice do worker do executor, pelo nome da thread; -1 fora dele."""
         prefix, _, index = threading.current_thread().name.rpartition("_")
         return int(index) if prefix == "pipeline" and index.isdigit() else -1
+
+    def _copy_face_metrics(self, metrics: dict[str, float], ran: bool) -> None:
+        for name in self.FACE_METRICS:
+            metrics[name] = self.face_service.latest_metrics.get(name, 0.0) if ran else 0.0
 
     def _recognize_faces_on_worker(self, frame_context: Any) -> tuple[list[dict[str, Any]], int]:
         return self.face_service.recognize_faces(frame_context), self._worker_index()

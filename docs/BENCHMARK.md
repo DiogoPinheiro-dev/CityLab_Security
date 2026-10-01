@@ -3,7 +3,9 @@
 Na implementacao otimizada, cada amostra tambem inclui `persons_confidence` e
 `gestures_confidence` (somente numeros finitos, sem identidade). Esses campos
 nao existem nos JSON historicos. Use-os para investigar falsos positivos antes
-de alterar limiares. Registre a saida de `python tools/run_rpi.py --show-config`
+de alterar limiares. Desde 01/10/2026 entram tambem `faces_confidence`, a
+semelhanca de cada rosto com o cadastro, e `known_faces_count`, quantos rostos
+foram reconhecidos como cadastrados; o nome nunca e gravado. Registre a saida de `python tools/run_rpi.py --show-config`
 junto da rodada; ela informa a configuracao selecionada, nao comprova uso de
 CPU ou velocidade efetiva.
 
@@ -105,6 +107,9 @@ Nao misture resultados do cliente local e remoto.
 - `persons_ms`, `faces_ms`, `pose_ms`, `hands_ms`, `gestures_ms`: duracoes dos
   estagios existentes, nao tempo exclusivo de cada rede. Estagios paralelos e
   tempos de gestos/pose/maos se sobrepoem; nao some esses valores.
+- `face_detect_ms`, `face_embed_ms`, `face_match_ms`: partes do `faces_ms`, so
+  com `FACE_PREFILTER`: deteccao, embedding dos rostos aceitos e comparacao com
+  o cadastro. `face_embeddings` conta os embeddings gerados no frame.
 - `process_rss_mb`: RAM residente do processo servidor; `temperature_c`: leitura
   disponivel no host. Ausencia aparece como null e contagem zero no resumo.
 - `detections`: contagem de pessoas, rostos, gestos e alertas por frame. O
