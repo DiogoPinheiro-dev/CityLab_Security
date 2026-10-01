@@ -17,10 +17,9 @@ alertas. Trabalhar uma acao por vez, medindo no Pi antes e depois.
 
 Ponto de partida medido em 19/09/2026, commit `b05058f`, pipeline completo:
 5,41 s por frame na cena vazia, 13,41 s com uma pessoa e 16,62 s com duas,
-entre 0,06 e 0,18 FPS. A decomposicao por estagio esta no "Balanco da fase 1" e
-a fila de trabalho no "Backlog de otimizacao". Se as acoes 3 e 4 do backlog
-entregarem o que a decomposicao sugere, o frame de duas pessoas cai para algo
-entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
+entre 0,06 e 0,18 FPS. Essa referencia e o backlog original ficam preservados
+como historico. A fila de propostas atual esta em "Pesquisa e planejamento em
+01/10/2026"; os resultados efetivamente medidos, no "Estado verificado".
 
 ## Regras de trabalho
 
@@ -42,13 +41,387 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
    mais que os limiares, as cinco regras colapsaram em "gesto presente em duas
    observacoes". Ver `docs/PLANO_GESTOS.md`.
 
+## Pesquisa e planejamento em 01/10/2026
+
+O responsavel pediu uma revisao do repositorio, pesquisa na internet e um novo
+planejamento de desempenho. Esta secao reabre o levantamento de propostas;
+nao autoriza implementar, mudar o ambiente do Pi ou iniciar medicoes. Cada
+acao continua dependendo de combinacao individual. O ultimo estado medido
+permanece na secao seguinte.
+
+### Base da revisao
+
+Checkout conferido: `main`, commit `89c93b8`, sem alteracoes locais antes deste
+planejamento. Foram revisados o historico Git, os dois planos, o protocolo de
+benchmark, o guia do Pi, README, codigo da pipeline/servidor/cliente, ferramentas,
+dependencias e registros de resultados. Nao houve acesso ao Pi, execucao de
+modelos, leitura de credenciais ou nova medicao de desempenho nesta revisao.
+As fontes externas abaixo foram consultadas em 01/10/2026.
+
+O que ja foi entregue e nao deve voltar como proposta nova:
+
+- Metricas por frame, coletor de webcam/video e tres rodadas por cenario.
+- Uma passada para pessoas e pose, sobreposicao de rosto e gesto, limite de
+  threads nativas e reaplicacao do limite PyTorch em cada tarefa.
+- Gate de movimento que continua analisando cena ocupada e forca nova pose
+  pelo teto de tempo, mais filtro de publicacao das caixas fracas do tracker.
+- InsightFace apenas com deteccao/reconhecimento e filtro de qualidade antes
+  do embedding. Equivalencia conferida com modelos reais em tres fotos no PC.
+- Eventos por episodio, tratamento de falha de insert e controles de cooldown.
+- Replay e evidencia temporal de gestos, criterio de tempo e observacoes,
+  correlacao frame/resposta, timeout e limpeza do overlay na pausa.
+- Pose em 416 no rpi3, com ganho de RTT acima de 5% nas tres rodadas de uma
+  pessoa. Pose em 320 foi reprovada por perder deteccoes.
+- Caminho opcional e exportador NCNN preparados; backend ainda nao medido.
+
+As referencias de tempo disponiveis tem condicoes diferentes:
+
+| Cenario | Ultima serie valida | RTT mediano por rodada | Limite da evidencia |
+|---|---|---|---|
+| Uma pessoa frontal | `c1f1ac0`, pose 416, limite termico 70 C | 5299,0 / 5317,4 / 5319,8 ms | pessoa, rosto e gesto em 90/90 frames, sem alertas |
+| Vazia | `3e67f56`, pose 640, limite 60 C | 1676,3 a 1679,1 ms | nao mede o codigo/perfil completo atual |
+| Duas pessoas | `bc0a441`, pose 640, limite 60 C | 6159,8 a 6182,2 ms | uma frontal e uma de lado; normalmente so um rosto aceito |
+
+Nao usar essa tabela como tres cenarios de uma baseline uniforme. A ultima
+serie de 416 esta em `resultados/pi3-c1f1ac0-pose416/`. Com uma pessoa,
+`faces_ms` ficou em 5276 a 5294 ms, `pose_ms` em 2232 a 2241 ms e
+`gestures_ms` em cerca de 2,7 s. O rosto terminou por ultimo em todos os frames.
+
+### Diagnostico que orienta a ordem
+
+Hoje a resposta espera rosto e gesto. O custo se aproxima do mais lento dos
+dois, acrescido dos demais estagios; nao da soma dos tempos paralelos.
+Otimizar apenas a pose pode liberar CPU/RAM e ajudar cenas sem rosto, mas nao
+garante que o frame frontal fique muito mais rapido. A primeira alavanca a
+investigar e o caminho facial, sem mudar pesos ou filtros.
+
+`faces_ms` junta detector SCRFD, alinhamento/ArcFace e busca na base; ainda
+nao ha decomposicao atual desses custos. O detector recebe 320x320, enquanto
+o reconhecedor usa o recorte facial alinhado. Reduzir `det_size` nao reduz
+automaticamente o custo de gerar embeddings. A comparacao com a base ja e
+vetorizada; trocar o MongoDB ou criar indice vetorial nao e prioridade com os
+poucos cadastros documentados.
+
+A configuracao ORT=1/PyTorch=3 foi escolhida quando a pose ocupava os nucleos
+por mais tempo. Agora ha oportunidade de rever a divisao, mas mais threads
+tambem podem aumentar contencao e temperatura. O ganho precisa aparecer no
+RTT completo, com os dois servicos ligados.
+
+### Fila proposta e pontos de decisao
+
+Esforco abaixo e relativo ao desenvolvimento/validacao, sem prometer prazo
+de calendario nem FPS. A ordem e condicional: cada resultado decide a proxima
+acao, e cada subexperimento altera uma variavel por vez.
+
+| ID | Proposta | Motivo para priorizar | Esforco / risco | Dependencia |
+|---|---|---|---|---|
+| P0 | Fechar referencia em 416 e validar uso continuo | evita decidir com cenarios/temperaturas diferentes | baixo em codigo; exige camera/Pi | primeira acao a combinar |
+| P1 | Decompor rosto e ajustar ONNX Runtime | atua no caminho critico mantendo pesos | baixo a medio / baixo | P0 |
+| P2 | Medir a mesma pose em NCNN | caminho pronto, potencial de CPU/temperatura; RTT incerto | medio / medio | P0; preferir apos P1 |
+| P3 | Avaliar modelo facial menor conforme o perfil medido | pode reduzir o maior custo e a RAM | medio a alto / alto | P1; conjunto facial de validacao |
+| P4 | Provider ARM ou INT8 do mesmo modelo | alternativas se P1/P3 nao bastarem | alto / alto | perfil por operador e prova de compatibilidade |
+| P5 | Separar cadencias de rosto/gesto ou reutilizar identidade | pode aumentar observacoes de gesto sem esperar todo rosto | alto / alto, muda contrato temporal | decisao de produto e replay |
+| P6 | Worker limitado para responsividade | rotas/conexao continuam atendidas durante inferencia | medio / medio | contrato de uma camera e fila definidos |
+
+#### P0 - referencia e qualidade antes de novo ajuste
+
+Combinar tambem o objetivo operacional: quantidade de pessoas/rostos que deve
+suportar, intervalo desejado entre observacoes de gesto e atraso maximo de
+alerta. O criterio de >5% distingue ganho de variacao; nao define sozinho se
+o software ja atende ao uso pretendido.
+
+Primeiro repetir o perfil atual nos tres cenarios do protocolo: vazio, uma
+pessoa frontal e duas pessoas (frontal + perfil). Acrescentar, como cenario
+separado, duas pessoas frontais com dois rostos aceitos: o historico de duas
+pessoas nao demonstra esse custo. Camera escolhida pelo responsavel, mesmos
+cadastros/pesos, API reiniciada, 5 aquecimentos e 30 frames, tres rodadas por
+cenario. Conferir commit, hashes e configuracao no Pi, nao apenas no PC.
+
+Em uma acao separada, conferir perfil e punho levantado nos mesmos frames em
+640/416. Os JSONs de keypoints ja extraidos nao permitem testar uma nova rede:
+precisam dos videos locais ou de novos videos combinados com o responsavel.
+Guardar apenas resultados numericos no Git. Essa verificacao complementa o
+replay e nao presume que mais alertas signifiquem mais recall.
+
+Depois, combinar ensaio continuo inicial de 30 a 60 min, com pessoa/rosto,
+log de `vcgencmd`, RAM disponivel, RSS, swap e `vmstat` (`si`/`so`). Estender
+para a duracao de uso esperada somente se a primeira janela ficar estavel.
+O log de 01/10 cobre horas de relogio, mas tambem repouso e reinicios: nao e
+prova de horas de carga continua. Swap alocado sozinho nao prova que ha I/O
+de swap durante a inferencia.
+
+Entrega: JSONs e LEIAME com ambiente, cenas, variacao entre rodadas e periodo
+continuo, incluindo falhas. Se houver throttling atual, combinar refrigeracao
+antes de comparar codigo. Dissipador/ventoinha e alternativa de estabilidade;
+o limite de 70 C ja esta aplicado, e nao sera aumentado por este plano.
+A documentacao oficial explica a reducao 1,4 -> 1,2 GHz e o limite do 3 B+
+([Raspberry Pi](https://www.raspberrypi.com/documentation/computers/config_txt.html#overclocking)).
+
+#### P1 - ONNX Runtime no caminho facial
+
+1. Medir separadamente detector, alinhamento/embedding por rosto e matching
+   em `App/FaceRecon/service.py`. Encaminhar tempos numericos pela pipeline e
+   coletor, sem nomes/embeddings. Usar o profiler nativo do ORT para uma rodada
+   diagnostica curta e desligar no benchmark de aceite: o tracing tem custo
+   ([profiling oficial](https://onnxruntime.ai/docs/performance/tune-performance/profiling-tools.html)).
+2. Comparar `ONNX_INTRA_OP_THREADS=1`, depois 2 e depois 3 com pose 416 e
+   PyTorch=3 fixos. A opcao ja existe; nao precisa trocar bibliotecas ou pesos.
+   Medir primeiro o cenario frontal; so levar candidatos promissores aos demais.
+3. Se a disputa inicial com a pose limitar o resultado, combinar uma proxima
+   comparacao PyTorch=2 contra 3 mantendo o ORT vencedor. Nao tratar esse teste
+   como repeticao dos resultados da pose em 640: a carga atual e outra.
+4. Com threads escolhidas, avaliar `session.intra_op.allow_spinning=0` em
+   experimento separado. Em ORT=1 nao ha workers intra-op adicionais; nao
+   esperar ganho relevante desse controle sozinho. Se detector/embedding
+   precisarem limites diferentes, propor controle por sessao no startup,
+   sem reconstruir sessoes por frame.
+
+A referencia de threads explica contencao e spinning
+([ORT](https://onnxruntime.ai/docs/performance/tune-performance/threading.html));
+as chaves basicas foram conferidas tambem na versao 1.23.2, citada no projeto
+([codigo da versao](https://github.com/microsoft/onnxruntime/blob/v1.23.2/include/onnxruntime/core/session/onnxruntime_session_options_config_keys.h)).
+Confirmar a versao realmente instalada antes de usar opcoes novas da documentacao.
+
+Entrega de codigo, se autorizada: instrumentacao e controles em
+`App/settings.py`, `App/inference_runtime.py`, `tools/run_rpi.py`, pipeline,
+coletor e testes pertinentes. Preservar flags de retorno e evitar manter duas
+sessoes pesadas em RAM. Controle de arena so entra se houver pressao de memoria
+medida; pode trocar RAM por tempo. `ORT_ENABLE_ALL` ja e o padrao da biblioteca:
+"ligar otimizacoes de grafo" nao e uma nova alavanca. Salvar grafo otimizado
+serve principalmente ao startup e exige hardware/provider compativeis
+([grafos ORT](https://onnxruntime.ai/docs/performance/model-optimizations/graph-optimizations.html)).
+
+#### P2 - NCNN da mesma pose, sem trocar o modelo
+
+Exportar fora do Pi uma copia do `yolov8n-pose.pt`, no ambiente compativel
+com a versao Ultralytics medida. A chamada completa do exportador existente
+e `python tools/export_pose_ncnn.py App/GestureRecon/yolov8n-pose.pt --imgsz 416`;
+preferir substituir o caminho pela copia isolada, pois o diretorio exportado
+e criado junto ao peso. Fixar versoes/hash de peso, exportador, pnnx e NCNN;
+confirmar wheel Linux aarch64/Python 3.11 e executar smoke test no Pi.
+Nao deixar o primeiro startup de producao instalar dependencias do Git.
+Existe wheel CPython 3.11/aarch64 em
+[NCNN 1.0.20260526](https://pypi.org/project/ncnn/1.0.20260526/), candidato a
+comparacao; sua existencia nao comprova compatibilidade deste modelo/wrapper.
+
+A integracao suporta pose, mas a documentacao atual pode usar argumentos
+diferentes dos de 8.3.226: conferir o codigo da versao antes de adaptar
+([NCNN/Ultralytics](https://docs.ultralytics.com/integrations/ncnn/)).
+
+`imgsz=416` nao garante entrada equivalente: no caminho PyTorch com
+`rect=True`, um frame 320x240 pode virar tensor 320x416; o export estatico NCNN
+pode usar 416x416, 30% mais pixels. Registrar shape real e letterbox em ambos,
+comparar primeiro os caminhos como realmente executam, e tratar eventual
+export retangular como outro experimento. Esse comportamento foi conferido
+no pacote local Ultralytics 8.3.226 (`engine/predictor.py`, `nn/autobackend.py`
+e `engine/exporter.py`). Conferir os 17 keypoints, scores,
+caixas, ByteTrack e alertas nos mesmos videos, incluindo perfil, punho,
+oclusao, entrada/saida e duas pessoas.
+
+Medir com pipeline completa e verificar, como diagnostico separado, cenas
+com pessoa sem rosto. `half=False` preserva pesos exportados FP32, mas nao
+prova a precisao interna de todo kernel NCNN. Registrar opcoes efetivas,
+inclusive `net.opt.num_threads`: o limite PyTorch nao limita o pool NCNN.
+Se precisar ajustar o pool, comparar separadamente e expor o controle em
+`App/settings.py`. Nao combinar INT8/FP16/Vulkan nessa primeira comparacao.
+O wrapper ainda importa Ultralytics/PyTorch e
+reaplica threads; exportar nao garante retirar PyTorch da RAM.
+
+Entrega: manifesto do artefato, relatorio de equivalencia e desempenho/RAM,
+ajuste de compatibilidade somente se necessario. `POSE_MODEL_PATH` vazio
+retorna ao .pt. Se a pose melhorar sem >5% de ganho no RTT alvo, registrar
+como ganho de estagio; CPU/RAM/temperatura podem justificar outra decisao
+explicita, sem chamar isso de ganho confirmado de latencia.
+
+#### P3 - modelo facial menor, escolhido pela decomposicao
+
+Antes de trocar pesos, se houver uma prova viavel de baixo custo, comparar os
+mesmos ONNX em OpenCV DNN ou provider alternativo (P4). Isso preserva modelo
+e banco, mas ainda exige reproduzir preprocessamento, alinhamento e outputs.
+O esforco de adaptacao determina se essa prova vem antes da troca de modelo.
+
+Se o detector pesar mais, comparar primeiro SCRFD-2.5GF (como o de `buffalo_m`)
+mantendo o reconhecedor atual de `buffalo_l`, ResNet50/WebFace600K; conferir
+hash do reconhecedor, nao so nome da arquitetura. Se o embedding pesar mais,
+avaliar MobileFaceNet, como o de `buffalo_s`/`buffalo_sc`, em ambiente isolado.
+Esses pacotes tambem mudam o detector para SCRFD-500MF. A tabela oficial mostra
+perda de acuracia do reconhecedor leve em parte dos benchmarks; tamanho de
+pacote no disco nao equivale a RSS do processo
+([modelos oficiais](https://github.com/deepinsight/insightface/blob/master/model_zoo/README.md)).
+
+YuNet + SFace e outra alternativa completa pelo OpenCV. Exige adaptador de
+deteccao/alinhamento/reconhecimento, base de embeddings e limiares proprios,
+alem de conferir a versao OpenCV do apt e o modelo compativel. Nao transferir
+numeros de Pi 4 para o Pi 3 B+ nem tratar como troca equivalente do InsightFace
+([tutorial oficial](https://docs.opencv.org/4.13.0/d0/dd4/tutorial_dnn_face.html),
+[YuNet](https://github.com/opencv/opencv_zoo/tree/main/models/face_detection_yunet),
+[SFace](https://github.com/opencv/opencv_zoo/tree/main/models/face_recognition_sface)).
+
+Entrega de desenvolvimento: selecao explicita de modelos/provedores em
+`App/settings.py`, manifesto com hashes e versao do modelo de embedding,
+validacao de alinhamento, cadastro e inferencia com o mesmo contrato.
+Primeiro provar compatibilidade nas mesmas imagens; se o reconhecedor mudar,
+nao misturar embeddings de modelos diferentes, mesmo com 512 componentes.
+
+A rota de cadastro hoje salva embedding/nome/data, sem a foto de origem.
+Outro reconhecedor pode exigir recadastro; a migracao precisa de decisao
+propria, base de teste, backup e retorno ao modelo/base anteriores. Mesmo
+mantendo ArcFace, outro detector pode alterar os landmarks, alinhamento e
+similaridade. Nao herdar cegamente o limiar 0,52.
+
+Comparar rostos conhecidos e desconhecidos, frontal/perfil, pequeno/distante,
+luz variavel, oclusao e duas pessoas frontais. Medir deteccoes, falso aceite,
+falsa rejeicao e similaridades perto do limiar. Definir tolerancias com o
+responsavel antes do teste; rejeitar candidato que so fica rapido porque
+deixa de aceitar rosto. A avaliacao de licenca dos novos pesos e parte da
+escolha do artefato, sem alterar o escopo de uso do projeto.
+
+#### P4 - providers ARM e quantizacao, experimentos condicionais
+
+- **XNNPACK no ORT:** permite kernels para ARM, mas requer build com o provider
+  e cobertura dos operadores. Conferir `get_available_providers`, registrar
+  fallback CPU e comparar somente um modelo por vez. O provider tem pool de
+  threads proprio: nao somar seu pool ao do ORT sem medir contencao
+  ([XNNPACK oficial](https://onnxruntime.ai/docs/execution-providers/Xnnpack-ExecutionProvider.html)).
+- **INT8 do mesmo SCRFD/ArcFace:** calibrar no PC com imagens representativas
+  separadas do conjunto de validacao, verificar operadores e preservar uma
+  copia FP32. Para essas CNNs, partir de quantizacao estatica com calibracao,
+  testando primeiro o modelo que mais custa. O ORT alerta que
+  quantizacao pode ficar mais lenta em hardware antigo; ARM64 nao garante
+  aceleracao. Aceite inclui deteccao e falsos aceites/rejeicoes, alem de RTT e
+  RAM ([quantizacao ORT](https://onnxruntime.ai/docs/performance/model-optimizations/quantization.html)).
+- **ACL/Arm NN, OpenCV DNN ou TFLite:** reservas se os anteriores falharem,
+  condicionadas a conversao, operadores e runtime no Bookworm/Python 3.11.
+  Implementar somente o backend escolhido pelo perfil, preservando
+  preprocessamento, NMS, alinhamento e resultados. Compilar fora do Pi em
+  ambiente ARM64 compativel, sem instrucoes que o Cortex-A53 nao suporta.
+  ACL e Arm NN sao providers comunitarios, nao recursos automaticos do wheel
+  CPU ([ACL](https://onnxruntime.ai/docs/execution-providers/community-maintained/ACL-ExecutionProvider.html),
+  [Arm NN](https://onnxruntime.ai/docs/execution-providers/community-maintained/ArmNN-ExecutionProvider.html)).
+  A disponibilidade de TFLite ARM64 nao comprova conversao direta dos ONNX
+  InsightFace; exigir prova sem TensorFlow completo no Pi.
+
+Essas alternativas nao entram todas no calendario. Fazer primeiro uma prova
+curta com o modelo real; descartar as que exigem reescrita grande sem vantagem
+medida. Se houver wheel/provider compativel pronto, priorizar a prova do mesmo
+modelo antes de trocar pesos em P3. Atualizar bibliotecas por si so nao
+comprova ganho.
+
+#### P5 - taxa de gesto independente do reconhecimento facial
+
+Se o rosto continuar dominando depois das acoes anteriores, avaliar dois
+caminhos independentes: gestos sobre frames novos e reconhecimento facial
+com cadencia propria. Outra proposta, separada, e reutilizar identidade por
+track por tempo limitado. Nenhuma delas e apenas um ajuste de desempenho:
+muda a idade da informacao e pode esconder troca de pessoa.
+
+Antes de implementar, combinar atraso facial maximo e validade da identidade.
+O desenho precisa de associacao rosto/pessoa, timestamps por resultado,
+invalidacao em entrada/saida, oclusao e cruzamento, reconhecimento imediato
+de nova pessoa e retorno ao processamento integral quando houver duvida.
+Nao reutilizar keypoints/maos como novas observacoes do `GestureAnalyzer`.
+O cadastro precisa invalidar caches; rotulos antigos nao podem abrir/fechar
+episodios como se fossem deteccoes novas.
+
+Entrega: contrato de payload/cliente/coletor e testes de expiracao, troca,
+reconexao e eventos. Medir intervalo entre observacoes reais de gesto, idade
+do frame/rosto, tempo ate alerta, deteccoes e RTT separadamente. O replay de
+`docs/PLANO_GESTOS.md` deve usar os intervalos realmente observados. Reduzir
+o RTT devolvendo resultado velho nao atende ao objetivo.
+
+#### P6 - responsividade do servidor, sem promessa de inferencia mais rapida
+
+Mover o trabalho sincrono do handler para um worker de inferencia com fila
+limitada, mantendo uma camera e um processo. O executor interno de rosto/gesto
+pode permanecer; chamadas completas de `process_frame` devem ser serializadas.
+Cadastro que usa a mesma sessao facial tambem precisa dessa coordenacao.
+`asyncio.to_thread` sem limite nao resolve o estado global do tracker
+([executor no Python 3.11](https://docs.python.org/3.11/library/asyncio-eventloop.html#executing-code-in-thread-or-process-pools)).
+
+Combinar antes a politica de rejeitar/descartar frames e o numero na resposta;
+o cliente atual espera resposta correlacionada para cada envio. Validar
+desconexao/cancelamento sem resetar o tracker enquanto a tarefa anterior roda.
+Medir latencia de `/` e demais rotas durante inferencia e frescor do resultado,
+alem do protocolo atual. Nao abrir varios processos com copias dos modelos.
+
+### Alternativas fora da fila principal
+
+| Opcao | Quando considerar | Restricao / retorno esperado |
+|---|---|---|
+| Refrigeracao ativa | se o ensaio continuo mostrar queda de clock | evita perda termica; nao acelera nucleo ja em 1,4 GHz |
+| ZRAM | se houver I/O de swap relevante apos reduzir memoria dos modelos | comprime paginas na RAM e custa CPU; medir, nao assumir ganho de inferencia |
+| Inferencia em computador da LAN | se a meta de observacao nao couber no Pi | Pi pode manter API/captura; precisa protocolo, timeout, disponibilidade e medicao de ponta a ponta |
+| Placa com mais CPU/RAM | se o requisito exceder o Pi 3 B+ | novo alvo exige perfil e baseline proprios; numeros de Pi 4/5 nao predizem este Pi |
+| Coral USB/Edge TPU | somente apos prova de modelo/runtime compativel | nao executa .pt/ONNX diretamente; exige TFLite INT8 compilado e operadores suportados |
+
+ZRAM e uma mitigacao de memoria, nao substitui reduzir o conjunto ativo dos
+modelos ([kernel Linux](https://docs.kernel.org/admin-guide/blockdev/zram.html)).
+O guia Coral inclui o Pi 3 B+, mas lista PyCoral para Python 3.6 a 3.9; nao
+valida instalacao direta no ambiente Python 3.11/Bookworm do projeto
+([requisitos](https://coral.ai/docs/accelerator/get-started/)). O formato e a
+cobertura do modelo precisam de prova antes de compra
+([modelos Edge TPU](https://coral.ai/docs/edgetpu/models-intro/)).
+
+Nao priorizar: mais workers/processos, batching que acumula frames, somente
+mudar FastAPI/Uvicorn, JPEG/WebSocket/logging ou desligar um reconhecimento.
+Nao repetir como nova proposta pose 320, gate que pula pessoa parada, parar
+runner ocioso para liberar RAM ou mudar recorte/veto de maos ja reprovados.
+MediaPipe em modo VIDEO nao e troca direta: hoje usa IMAGE sobre recortes de
+pessoas no mesmo reconhecedor; estado temporal compartilhado pode misturar
+pessoas, e intervalos de segundos limitam o beneficio.
+
+### Aceite, retorno e encerramento de cada acao
+
+1. Baseline e candidato usam os mesmos pesos, cadastros, camera e condicoes,
+   exceto a variavel explicitamente testada. Registrar versoes, shapes,
+   hashes, configuracao, energia/refrigeracao e cena. Profiler desligado no
+   aceite; microbenchmark de uma rede nao substitui pipeline completa.
+2. Ganho de latencia confirmado somente acima de 5% nas tres rodadas do mesmo
+   cenario. P95 com 30 frames e diagnostico. Nao somar tempos paralelos nem
+   comparar com codigo/temperatura anteriores como se fossem iguais.
+3. Preservar deteccoes nas imagens/videos comuns, rastreamento, cadastro,
+   identidades, episodios e alertas esperados. No Pi, conferir comportamento
+   ao vivo; nenhuma contagem de alerta substitui recall. As limitacoes
+   conhecidas de perfil/punho continuam declaradas.
+4. Sem OOM, crescimento progressivo de memoria ou nova regressao termica.
+   Comparar pico de carga dos modelos e uso continuo, alem de RSS por frame.
+   Economia de RAM/energia sem ganho de RTT e resultado separado, sujeito a
+   decisao explicita sobre o beneficio operacional.
+5. Para codigo, rodar os testes Python/Node aplicaveis e conferir com modelos
+   reais antes do Pi. Manter flags/artefatos/base anterior para retorno. Testes
+   simulados nao comprovam qualidade dos modelos nem desempenho ARM.
+6. Deploy, somente quando combinado: parar API antes do push na `main`,
+   confirmar workflow, arquivos/pesos/configuracao e processo ativo. `rsync`
+   nao apaga artefatos antigos: remover no Pi apenas o que for explicitamente
+   identificado. Reiniciar e conferir startup/HTTP 200 antes de medir.
+7. Atualizar o "Estado verificado" com ganho, empate ou reprovacao, fontes dos
+   resultados e motivo da proxima prioridade. Nenhum candidato vira padrao
+   automaticamente. Se nao restar melhoria que preserve deteccao, encerrar
+   a fila e decidir requisito/hardware, sem prometer tempo real no Pi 3 B+.
+
+Proxima acao recomendada para combinar: **P0, referencia atual em 416**.
+Depois, **P1, decomposicao facial e teste ORT=2**, pelo menor custo de mudanca
+e por atacar o gargalo observado. Demais itens permanecem propostas.
+
+### Decisao do responsavel sobre esta fila
+
+Ainda em 01/10/2026 o responsavel escolheu outra ordem, uma acao por vez: P1
+(rosto com 2 threads), depois as duas partes de P5, primeiro reaproveitar a
+identidade do rosto e depois a cadencia propria dos gestos. P2 (NCNN) e P3
+(modelo facial menor) ficam fora por enquanto. P0 fica para quando ele puder
+estar na frente da camera; ate la, cada opcao e comparada na mesma sessao com
+um video fixo. A decomposicao do rosto entrou no codigo em `9334b9e`, mas, a
+pedido dele, o teste de threads foi medido antes do deploy dela. Resultados em
+"Estado verificado em 01/10/2026".
+
 ## Estado verificado em 01/10/2026
 
 O responsavel reabriu o plano para a acao 7, so na pose: o `det_size` do
 InsightFace ja estava fixo em 320. A pose rodava sem `imgsz`, entao o
 Ultralytics usava 640 e ampliava o frame de 320x240 que sai da `PROCESS_SCALE`.
 Depois da medicao no Pi, no mesmo dia, o responsavel promoveu 416 a padrao do
-perfil rpi3.
+perfil rpi3. Na sequencia vieram as 2 threads no rosto, tambem promovidas, e o
+reuso da identidade do rosto, implementado e ainda nao medido no Pi.
 
 ### Medicao no PC
 
@@ -152,16 +525,83 @@ O responsavel promoveu 416 a padrao do perfil rpi3 em 01/10/2026, com as duas
 situacoes acima sem conferencia. `POSE_IMGSZ=0` volta aos 640. No perfil
 default o valor segue 640, porque nao foi medido.
 
+### Rosto com 2 threads - frame 20% mais rapido com uma pessoa, em video fixo
+
+Com a pose em 416, o rosto ficou sozinho no caminho critico, com 1 thread do
+ONNX Runtime. Codigo medido: `89c93b8`; as duas series so diferem em
+`ONNX_INTRA_OP_THREADS` no `.env`. O valor 2 foi conferido no Pi com
+`--show-config`; o 1, pelo tempo do rosto, igual ao da serie de 416.
+
+O responsavel nao podia ficar na frente da camera, entao a carga foi um video
+fixo, no modo de video de `tools/benchmark_stream.py`: 36 frames de 640x480
+tirados dos videos r1 das seis situacoes de validacao de `docs/PLANO_GESTOS.md`,
+6 de cada, um a cada 5 s, como se o Pi processasse um frame a cada 5 s. Todas as
+rodadas recebem os mesmos frames. O video tem o rosto de quem gravou e fica
+fora do repositorio; os JSONs guardam so o SHA-256 dele. API reiniciada antes de
+cada rodada, 5 frames de aquecimento e 30 medidos. Resultados em
+`resultados/pi3-89c93b8-video-onnx1/` e `resultados/pi3-89c93b8-video-onnx2/`.
+
+| Rodada | 1 thread | 2 threads | Diferenca |
+|---|---|---|---|
+| r1 | 5388,9 ms | 4291,4 ms | -20,4% |
+| r2 | 5324,0 ms | 4295,3 ms | -19,3% |
+| r3 | 5335,7 ms | 4279,0 ms | -19,8% |
+
+- **Ganho confirmado**: mesmo a rodada mais lenta de 2 threads contra a mais
+  rapida de 1 da -19,3%. Amplitude entre rodadas: 1,2% com 1 thread e 0,4% com
+  2.
+- **Deteccao identica frame a frame** nas seis rodadas: pessoa, rosto e gesto
+  em 30/30, rosto reconhecido como cadastrado em 25/30 e 11 alertas; a
+  semelhanca com o cadastro mudou no maximo 0,0001. Os 5 frames sem
+  reconhecimento sao os de rosto menor ou mais virado do video, os mesmos nas
+  duas series.
+- O rosto caiu de 5292 a 5340 ms para 3346 a 3414 ms (-36%), mas a pose subiu
+  de 2235 a 2244 ms para 3681 a 3691 ms: com 2 threads no rosto e 3 no PyTorch,
+  os dois disputam os 4 nucleos. Agora o gesto termina por ultimo em 30/30.
+- Temperatura de 52,1 a 59,6 C, contra 47,8 a 53,7 C com 1 thread, pelo
+  `temperature_c` da API. O log de `vcgencmd` rodou junto, mas o resumo dele
+  nao foi coletado. Rodadas de 2,5 a 3 min; uso continuo nao foi medido.
+- No PC, com os modelos reais e o mesmo video, o embedding foi 81% do rosto com
+  1 thread (271 de 334 ms), a deteccao 19% e a comparacao com o cadastro 0,05
+  ms. No Pi, a decomposicao entra no proximo deploy.
+
+### Promocao das 2 threads e reuso da identidade do rosto
+
+O responsavel promoveu `ONNX_INTRA_OP_THREADS=2` a padrao do perfil rpi3
+(`d98da86`). A divisao de threads entre rosto e pose fica para depois do reuso
+abaixo, que muda a carga do rosto.
+
+No mesmo commit entrou `FACE_REUSE_SECONDS`, desligado por padrao. Um rosto
+aceito pelo filtro de qualidade cuja caixa cobre pelo menos metade da caixa de
+um rosto do frame anterior (IoU de 0,5 ou mais) herda nome e semelhanca do
+reconhecimento feito ha menos de N segundos, sem gerar embedding. Regras
+combinadas com o responsavel: 15 s de validade, contada do reconhecimento e nao
+do ultimo reuso; vale tambem para rosto desconhecido; quando alguem entra ou
+sai, so os rostos novos sao reconhecidos. Conexao nova, pausa de mais de
+`GESTURE_IDLE_RESET_SECONDS` e cadastro alterado esquecem os nomes. A deteccao
+continua em todo frame, entao os episodios de evento seguem as deteccoes reais.
+Consequencia aceita: enquanto a identidade vale, o nome aparece mesmo num frame
+em que o reconhecimento falharia.
+
+No PC, com o video de carga e um frame a cada 4,3 s, houve reuso em 16 de 30
+frames. Nos outros, o rosto, com cerca de 27 px na imagem processada, andou o
+bastante para a sobreposicao ficar abaixo de metade. A mediana do rosto caiu de
+187 para 40 ms.
+
 ### O que fica aberto
 
-1. Conferir, nos mesmos frames em 640 e 416, as duas situacoes que mudaram na
+1. Medir o reuso no Pi, depois do deploy de `9334b9e` e `d98da86`: tres
+   rodadas com o reuso desligado e tres com `FACE_REUSE_SECONDS=15`, com o mesmo
+   video. A primeira serie da tambem a decomposicao do rosto no Pi. A troca de
+   identidade entre duas pessoas nao aparece num video de uma pessoa.
+2. Depois do reuso, rever a divisao de threads entre rosto e pose e a cadencia
+   propria dos gestos, a segunda parte de P5.
+3. Conferir, nos mesmos frames em 640 e 416, as duas situacoes que mudaram na
    rodada com gesto: de lado e punho levantado. Pede gravar videos novos, como
    os de validacao, e comparar no PC.
-2. Cena vazia e duas pessoas nao foram medidas em 416.
-3. Oportunidade, nao ganho medido: com uma pessoa, o rosto agora decide o frame
-   sozinho, com uma thread do ONNX Runtime, enquanto a pose deixa os nucleos
-   livres por cerca de metade do frame. Nenhuma acao combinada.
-4. O resto do "Encerramento em 27/09/2026". A acao 7 ficou feita na pose, e o
+4. Cena vazia, duas pessoas e uso continuo nao foram medidos com a pose em 416
+   nem com 2 threads no rosto. Com 2 threads a temperatura sobe uns 6 C.
+5. O resto do "Encerramento em 27/09/2026". A acao 7 ficou feita na pose, e o
    item 1 de la ganhou um dado: em rodadas de 3,5 min com uma pessoa o Pi ficou
    em ate 63,9 C, sem atingir o limite de 70 C.
 
@@ -1156,6 +1596,10 @@ substitui aquela sequencia e esta ordenado por retorno medido, nao por numero
 de fase.
 
 ## Backlog de otimizacao
+
+Registro historico da fila derivada da linha de base de 19/09. Algumas acoes
+abaixo ja foram feitas; os estados posteriores registram o resultado. Para
+decidir trabalho novo, usar "Pesquisa e planejamento em 01/10/2026".
 
 Nada aqui esta autorizado a ser implementado: a proxima acao e combinada com o
 responsavel, uma por vez, com medicao antes e depois. Os ganhos sao estimativas
