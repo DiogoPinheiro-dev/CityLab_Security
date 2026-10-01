@@ -45,8 +45,12 @@ entre 6 e 11 s: estimativa derivada da medicao, nao meta acordada.
 ## Estado verificado em 01/10/2026
 
 O responsavel reabriu o plano para a acao 7, so na pose: o `det_size` do
-InsightFace ja estava fixo em 320. A pose roda sem `imgsz`, entao o
-Ultralytics usa 640 e amplia o frame de 320x240 que sai da `PROCESS_SCALE`.
+InsightFace ja estava fixo em 320. A pose rodava sem `imgsz`, entao o
+Ultralytics usava 640 e ampliava o frame de 320x240 que sai da `PROCESS_SCALE`.
+Depois da medicao no Pi, no mesmo dia, o responsavel promoveu 416 a padrao do
+perfil rpi3.
+
+### Medicao no PC
 
 Medido no PC, sem o Pi, com os videos de validacao de `docs/PLANO_GESTOS.md`
 (webcam, 18 videos de 30 s) e os seis do celular, extraidos com cada tamanho.
@@ -55,7 +59,7 @@ fases em que o alerta esperado dispara, de 62 por video a cada 6,2 s:
 
 | Pose | Tempo no PC | Mao oculta, webcam | Rendicao, webcam | Mao oculta, celular |
 |---|---:|---:|---:|---:|
-| 640, hoje | 54,5 ms | 184/186 | 167/186 | 26/62 |
+| 640 | 54,5 ms | 184/186 | 167/186 | 26/62 |
 | 416 | 33,5 ms (-39%) | 182/186 | 168/186 | 23/62 |
 | 320 | 25,4 ms (-53%) | 130/186 | 151/186 | 23/62 |
 
@@ -67,18 +71,99 @@ fases em que o alerta esperado dispara, de 62 por video a cada 6,2 s:
   estendido ficou em 42. Os alarmes falsos mudaram para os dois lados: a
   ameaca falsa no braco aberto subiu de 75 para 84 fases, e a mao oculta falsa
   na rendicao caiu de 20 para 4.
-- Quanto isso vale no Pi, onde a pose leva cerca de 5 s, so medindo.
 
-Implementado: `POSE_IMGSZ`, desligado por padrao, com zero mantendo os 640, e
-mostrado em `tools/run_rpi.py --show-config`. A medicao no Pi compara 640 e 416
-com o mesmo codigo, trocando so o `.env`.
+Implementado em `c1f1ac0`: `POSE_IMGSZ`, ainda desligado por padrao, com zero
+mantendo os 640, e mostrado em `tools/run_rpi.py --show-config`, para comparar
+640 e 416 no Pi com o mesmo codigo, trocando so o `.env`.
+
+### Medicao no Pi - frame 6% mais rapido com uma pessoa
+
+Codigo medido: `c1f1ac0`, conferido no Pi por hash e com `--show-config`; as
+duas series so diferem no `POSE_IMGSZ=416` do `.env`. Tres rodadas de uma
+pessoa em cada tamanho, conforme `docs/BENCHMARK.md`: API reiniciada antes de
+cada uma, sondagem de 3 frames, runner do GitHub Actions parado e log de
+`vcgencmd` rodando junto. Resultados em `resultados/pi3-c1f1ac0-pose640/` e
+`resultados/pi3-c1f1ac0-pose416/`.
+
+| Rodada | 640 | 416 | Diferenca |
+|---|---|---|---|
+| r1 | 5632,8 ms | 5299,0 ms | -5,9% |
+| r2 | 5673,9 ms | 5317,4 ms | -6,3% |
+| r3 | 5687,9 ms | 5319,8 ms | -6,5% |
+
+- **Ganho confirmado**: acima de 5% nas tres rodadas. Mesmo a rodada mais lenta
+  de 416 contra a mais rapida de 640 da -5,6%. Amplitude entre rodadas: 1,0% em
+  640 e 0,4% em 416, sem tendencia dentro de nenhuma rodada.
+- **Recall preservado**: pessoa, rosto e gesto em 30/30 frames nas seis rodadas
+  e zero alertas. Confianca da caixa da pessoa entre 0,81 e 0,93 em 416, contra
+  0,85 e 0,91 em 640.
+- A pose caiu de 5012 a 5041 ms para 2232 a 2241 ms (-55%), mas o frame so 6%.
+  Com uma pessoa o rosto ja terminava por ultimo (24, 24 e 29 de 30 frames em
+  640) e agora termina por ultimo em 30/30. O ganho vem do rosto, de 5600 a
+  5660 ms para 5276 a 5294 ms, que fica com a CPU livre depois da pose.
+- `process_rss_mb` entre 661,0 e 673,6 MB, contra 677,5 e 712,8 MB em 640.
+  Temperatura maxima de 54,8 C, contra 63,4 C.
+- Temperatura: `throttled=0x0` nas 3967 leituras do log, das 12:14 as 17:47
+  pelo relogio do Pi, com maxima de 63,9 C no fim da terceira rodada de 640 e o
+  clock nunca em 1,2 GHz. Primeira medicao com o `temp_soft_limit` em 70 C, que
+  nao chegou a atuar. Por isso a serie de 640 ficou 4,5% a 5,4% mais rapida que
+  a de `bc0a441`, que em 26/09 rodou com o limite de 60 C ativo em parte do
+  tempo: e efeito do limite, nao do codigo.
+
+### Rodada com gesto em 416
+
+Mesmo coletor e mesmas nove situacoes da "Rodada com gesto no Pi" de
+`docs/PLANO_GESTOS.md`, com a API em 416. Resultado em
+`resultados/pi3-c1f1ac0-pose416-gestos/rodada-gestos-r1.json`, comparado com as
+rodadas de 640 de 30/09 em `resultados/pi3-338ac06-gestos/`: a r2 para as duas
+poses de braco, que na r1 foram feitas com o braco apontado para a camera.
+
+Primeiro frame em que cada alerta aparece, de 6 por situacao: F mao fechada, A
+mao fechada com braco estendido, B braco estendido, R rendicao, O mao oculta.
+
+| Situacao | Esperado | 640, 30/09 | 416 |
+|---|---|---|---|
+| Neutro, punho com braco solto, de costas | nenhum | nenhum | nenhum |
+| Mao oculta | O3 | O3 | O3 |
+| Rendicao | R3 | R3 e F a mais | R3 e F a mais |
+| Ameaca | F2 A2 B4 | B4 | B4 |
+| Braco estendido | B4 | B4, F e A a mais | B4, F e A a mais |
+| Punho levantado | F2 | F2 | F3 |
+| De lado | O3 | O4 | nenhum |
+
+- Igual em sete situacoes, inclusive nas limitacoes ja conhecidas: o punho na
+  ponta do braco estendido nao e lido, e a mao aberta com o braco levantado e
+  lida fechada.
+- De lado, a mao oculta nao disparou em 416. Nesta rodada o rosto foi
+  reconhecido em 3 dos 6 frames, contra nenhum em 30/09: a pessoa estava menos
+  de perfil.
+- Punho levantado: o alerta veio um frame depois, com o punho lido em 2 frames,
+  contra 3.
+- Com 6 frames por situacao e a pose da pessoa diferente em cada dia, nao da
+  para separar o efeito do tamanho do efeito da cena. Essas duas situacoes nao
+  estao nos videos de validacao.
+- Frame de 5,3 a 5,4 s, contra 5,6 a 5,9 s em 30/09. De costas, sem rosto, 2,7
+  s contra 5,3 s: sem rosto, o caminho critico volta a ser a pose. Sao 6
+  frames, nao medicao de cenario.
+
+### Decisao
+
+O responsavel promoveu 416 a padrao do perfil rpi3 em 01/10/2026, com as duas
+situacoes acima sem conferencia. `POSE_IMGSZ=0` volta aos 640. No perfil
+default o valor segue 640, porque nao foi medido.
 
 ### O que fica aberto
 
-1. Medir no Pi: tres rodadas de uma pessoa com 640 e tres com 416, conforme
-   `docs/BENCHMARK.md`, e uma rodada com gesto em 416. So vira padrao do perfil
-   rpi3 se o ganho passar de 5% nas tres rodadas sem perder deteccao.
-2. O resto do "Encerramento em 27/09/2026".
+1. Conferir, nos mesmos frames em 640 e 416, as duas situacoes que mudaram na
+   rodada com gesto: de lado e punho levantado. Pede gravar videos novos, como
+   os de validacao, e comparar no PC.
+2. Cena vazia e duas pessoas nao foram medidas em 416.
+3. Oportunidade, nao ganho medido: com uma pessoa, o rosto agora decide o frame
+   sozinho, com uma thread do ONNX Runtime, enquanto a pose deixa os nucleos
+   livres por cerca de metade do frame. Nenhuma acao combinada.
+4. O resto do "Encerramento em 27/09/2026". A acao 7 ficou feita na pose, e o
+   item 1 de la ganhou um dado: em rodadas de 3,5 min com uma pessoa o Pi ficou
+   em ate 63,9 C, sem atingir o limite de 70 C.
 
 ## Encerramento em 27/09/2026
 

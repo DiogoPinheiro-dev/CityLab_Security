@@ -84,8 +84,8 @@ credenciais.
 `CITYLAB_PROFILE=rpi3` escolhe 1 thread para o ONNX Runtime, 3 para o PyTorch e
 1 para o OpenCV, e um frame pendente por vez no cliente. Tambem liga a passada
 unica de pessoas e pose e o gate de movimento, que pula a pose quando a cena
-esta parada e desocupada. Um valor explicito no ambiente sempre prevalece sobre
-o perfil.
+esta parada e desocupada, e roda a pose em 416 px em vez de 640. Um valor
+explicito no ambiente sempre prevalece sobre o perfil.
 
 Resultado medido no Pi com webcam, tres rodadas por cenario, mediana do tempo
 por frame:
@@ -93,14 +93,16 @@ por frame:
 | Cenario | Linha de base (19/09/2026) | Perfil atual | Ganho |
 |---|---|---|---|
 | Cena vazia | 5,41 s | 1,68 s | -69% |
-| Uma pessoa | 13,41 s | 5,95 s | -56% |
+| Uma pessoa | 13,41 s | 5,32 s | -60% |
 | Duas pessoas | 16,62 s | 6,17 s | -63% |
 
 Nenhuma deteccao de rosto, pessoa ou gesto se perdeu em relacao a linha de
 base, e a caixa de pessoa falsa que ela produzia sumiu. A cena vazia foi medida
-antes do ajuste de threads do PyTorch, que so afeta frames com pose. Sob carga
-continua o Pi atinge 60 C e o firmware baixa o clock para 1,2 GHz, o que custa
-de 3% a 7%; um dissipador com ventoinha evita isso. Detalhes em
+antes do ajuste de threads do PyTorch, que so afeta frames com pose. Uma pessoa
+foi medida em 01/10/2026, com a pose em 416 px, padrao do perfil desde entao, e
+o limite de temperatura em 70 C; as outras cenas, com a pose em 640 e o limite
+de 60 C. Com 60 C, sob carga continua o firmware baixa o clock para 1,2 GHz, o
+que custa de 3% a 7%; um dissipador com ventoinha evita isso. Detalhes em
 [docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md) e
 [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 
@@ -323,14 +325,19 @@ node --test tests/client_stream.test.cjs
 ## Estado final e limitacoes conhecidas
 
 O trabalho de desempenho foi encerrado em 27/09/2026 com o perfil do Pi
-descrito acima, e as regras de gesto foram revistas em 29 e 30/09/2026. O que
-ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
+descrito acima, e as regras de gesto foram revistas em 29 e 30/09/2026. Em
+01/10/2026 a pose passou a rodar em 416 px no perfil. O que ficou para depois
+esta nos dois planos. Limitacoes conhecidas desta versao:
 
-- **Regras de gesto no Pi.** Com o frame em cerca de 6 s, cada regra exige de 2
-  a 4 observacoes seguidas: uns 6 s para mao fechada e ameaca, 12 s para
-  rendicao e mao oculta e 18 s para braco estendido. Os limiares de 0,20 a
-  0,40 s so pesam com vazao alta. Conferido no Pi em 30/09/2026, numa rodada
-  com gesto.
+- **Regras de gesto no Pi.** Com o frame entre 5 e 6 s, cada regra exige de 2
+  a 4 observacoes seguidas: uns 5 a 6 s para mao fechada e ameaca, 11 a 12 s
+  para rendicao e mao oculta e 16 a 18 s para braco estendido. Os limiares de
+  0,20 a 0,40 s so pesam com vazao alta. Conferido no Pi em 30/09/2026, numa
+  rodada com gesto.
+- **Pose em 416 px.** Na rodada com gesto em 416, a mao oculta de lado nao
+  disparou e o punho levantado disparou um frame depois do que em 640. Com 6
+  frames por situacao e a pessoa em outra posicao, nao deu para separar o
+  efeito do tamanho do efeito da cena. `POSE_IMGSZ=0` volta aos 640.
 - **Mao fechada.** Com a mao solta ao lado do corpo, o reconhecedor da mao nao
   separa o punho da mao relaxada. Por isso, desde 30/09/2026 o punho so conta,
   no alerta de mao fechada e no de ameaca, com o braco levantado a 45 graus ou
@@ -349,7 +356,8 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   pessoas ou mais cameras podem esgotar a RAM.
 - **Temperatura.** Sem dissipador, o Pi 3 B+ baixa o clock ao atingir o
   `temp_soft_limit`. No Pi do projeto o limite foi elevado para 70 C em
-  27/09/2026, sem medicao depois; ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
+  27/09/2026; em 01/10/2026, em rodadas de 3,5 min com uma pessoa, o Pi chegou
+  a 63,9 C sem baixar o clock. Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
   globais.
 

@@ -372,7 +372,7 @@ class PoseOutputTests(unittest.TestCase):
         service, context = self.make_service([])
         service.detect_gestures(context)
         self.assertNotIn("imgsz", service.pose_model.track.call_args.kwargs)
-        # 416 manteve os gestos nos videos de validacao; segue opcional ate medir no Pi.
+        # 416 e o padrao do rpi3 desde a medicao no Pi de 01/10/2026.
         service.pose_imgsz = 416
         service.detect_gestures(context)
         self.assertEqual(service.pose_model.track.call_args.kwargs["imgsz"], 416)

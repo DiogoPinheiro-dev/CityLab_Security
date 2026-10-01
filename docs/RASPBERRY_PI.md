@@ -24,8 +24,9 @@ CITYLAB_PROFILE=rpi3
 Mescle `.env.rpi.example` no `.env` existente, preservando as credenciais.
 Nao sobrescreva seu arquivo de ambiente inteiro. O perfil escolhe ONNX=1,
 PyTorch=3 e OpenCV=1 thread, um frame pendente no cliente, a passada unica de
-pessoas e pose (`PIPELINE_SHARED_PERSON_POSE`) e o gate de movimento antes da
-pose (`GESTURE_MOTION_GATE`). Nao desativa reconhecimento nem reduz a
+pessoas e pose (`PIPELINE_SHARED_PERSON_POSE`), o gate de movimento antes da
+pose (`GESTURE_MOTION_GATE`) e a pose em 416 px (`POSE_IMGSZ`), em vez dos 640
+do Ultralytics. Nao desativa reconhecimento nem reduz a
 qualidade da imagem. Qualquer valor explicito dessas variaveis no ambiente tem
 precedencia; confira tambem `Server/.env`.
 
@@ -54,11 +55,13 @@ nao garantem um total fixo de threads de todas as bibliotecas.
 
 O perfil completo foi medido no Pi entre 21 e 27/09/2026: -56% com uma pessoa,
 -63% com duas e -69% na cena vazia, sem perda de deteccao (ver
-`docs/PLANO_OTIMIZACAO.md`). Os ajustes individuais nao foram medidos
+`docs/PLANO_OTIMIZACAO.md`). A pose em 416 px entrou no perfil em 01/10/2026,
+depois de deixar o frame com uma pessoa 6% mais rapido; cena vazia e duas
+pessoas nao foram medidas com ela. Os ajustes individuais nao foram medidos
 isoladamente. Para comparar uma mudanca por vez, use `CITYLAB_PROFILE=default`
 e ajuste individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
-`OPENCV_NUM_THREADS`, `MAX_IN_FLIGHT_FRAMES`, `PIPELINE_SHARED_PERSON_POSE` e
-`GESTURE_MOTION_GATE`. Reinicie o servidor e recarregue
+`OPENCV_NUM_THREADS`, `MAX_IN_FLIGHT_FRAMES`, `PIPELINE_SHARED_PERSON_POSE`,
+`GESTURE_MOTION_GATE` e `POSE_IMGSZ`. Reinicie o servidor e recarregue
 o cliente quando mudar o limite de frames. Para voltar ao automatico, use
 perfil default e remova os overrides, ou defina as tres opcoes de threads em 0.
 O carregamento ajustado de ONNX libera a referencia da sessao antiga antes de
@@ -145,9 +148,11 @@ Ar-condicionado na sala nao substitui o dissipador. Em 27/09/2026, com o ar em
 ativo em cerca de metade das leituras, contra tres quartos com a sala sem ar.
 Abaixo do limite a velocidade e a mesma: o ar so adia o limite e reduz a perda.
 
-No Pi do projeto o limite esta em 70 C desde 27/09/2026, sem rodada medida
-depois disso. A copia do `config.txt` original ficou ao lado; para voltar aos
-60 C:
+No Pi do projeto o limite esta em 70 C desde 27/09/2026. Em 01/10/2026, em
+seis rodadas de 3,5 min com uma pessoa, o Pi chegou a 63,9 C, com
+`throttled=0x0` em todas as leituras e o clock nunca em 1,2 GHz. Uma rodada
+longa ainda nao foi medida. A copia do `config.txt` original ficou ao
+lado; para voltar aos 60 C:
 
 ```bash
 sudo cp /boot/firmware/config.txt.bak /boot/firmware/config.txt && sudo reboot
@@ -246,6 +251,9 @@ mesmo peso (pode exigir dependencias adicionais; preferir exportar fora do Pi):
 ```bash
 python tools/export_pose_ncnn.py App/GestureRecon/yolov8n-pose.pt --imgsz 640
 ```
+
+Exporte com o mesmo tamanho da inferencia: `--imgsz 416` no perfil rpi3, que
+roda a pose em 416 desde 01/10/2026, ou 640 com `POSE_IMGSZ=0`.
 
 Copie o diretorio gerado para o Pi e configure:
 

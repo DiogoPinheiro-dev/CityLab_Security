@@ -626,6 +626,10 @@ E o unico caminho que desfaz o dilema da acao 2. Candidatos, um por vez:
   usa 640. O frame ja chega reduzido por `PROCESS_SCALE=0.5`. Fixar 320 corta a
   computacao em cerca de 4x. Se a pose cair de 6,9 s para perto de 2 s, o
   intervalo vai a cerca de 3 s e N=3 passa a significar 9 s em vez de 22 s.
+  Medido em 01/10/2026 em `docs/PLANO_OTIMIZACAO.md`: 320 perdeu deteccao, e
+  416 virou padrao do rpi3. A pose caiu de 5,0 para 2,2 s, mas o frame com uma
+  pessoa so de 5,7 para 5,3 s, porque o rosto passou a decidir o frame: o
+  intervalo entre observacoes quase nao mudou.
 - **NCNN no modelo de pose.** Ja preparado em `tools/export_pose_ncnn.py` e
   `POSE_MODEL_PATH`. Exportar no PC, nunca no Pi: sao 906 MB de RAM. Falta
   confirmar o pacote `ncnn` instalado no dispositivo.
