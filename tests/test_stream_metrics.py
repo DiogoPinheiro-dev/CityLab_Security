@@ -52,7 +52,8 @@ class StreamMetricsTest(unittest.TestCase):
 
         namespace = dict(time=SimpleNamespace(perf_counter=lambda: clock[0]),
                          recognizer=SimpleNamespace(process_frame=process,
-                             reset_gesture_history=lambda: resets.append("gestos")),
+                             reset_gesture_history=lambda: resets.append("gestos"),
+                             reset_face_identities=lambda: resets.append("rostos")),
                          np=SimpleNamespace(frombuffer=lambda *args: None, uint8=None),
                          cv2=SimpleNamespace(imdecode=imdecode, IMREAD_COLOR=1),
                          event_logger=SimpleNamespace(log_face_events=log, log_gesture_events=log,
@@ -74,13 +75,14 @@ class StreamMetricsTest(unittest.TestCase):
         self.assertNotIn('total_ms', responses[0])
         self.assertAlmostEqual(recorded[0]['total_ms'], 700)
         self.assertAlmostEqual(recorded[0]['send_ms'], 500)
-        # O episodio de alerta reinicia junto com o historico de gestos.
-        self.assertEqual(resets, ["gestos", "eventos"])
+        # O episodio de alerta reinicia junto com o historico de gestos, e
+        # nenhum rosto herda nome da conexao anterior.
+        self.assertEqual(resets, ["gestos", "rostos", "eventos"])
 
     def test_slow_inference_is_not_a_pause_but_idle_is(self):
         responses, _, resets = self.run_stream(waits=(0, 0, 6, 0), processing_seconds=17)
         self.assertEqual(len(responses), 4)
-        self.assertEqual(resets, ["gestos", "eventos"] * 2)
+        self.assertEqual(resets, ["gestos", "rostos", "eventos"] * 2)
 
     def test_every_response_carries_the_frame_number(self):
         # Acao 9: o cliente casa a resposta pelo numero, inclusive a de erro.

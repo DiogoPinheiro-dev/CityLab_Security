@@ -22,7 +22,7 @@ CITYLAB_PROFILE=rpi3
 ```
 
 Mescle `.env.rpi.example` no `.env` existente, preservando as credenciais.
-Nao sobrescreva seu arquivo de ambiente inteiro. O perfil escolhe ONNX=1,
+Nao sobrescreva seu arquivo de ambiente inteiro. O perfil escolhe ONNX=2,
 PyTorch=3 e OpenCV=1 thread, um frame pendente no cliente, a passada unica de
 pessoas e pose (`PIPELINE_SHARED_PERSON_POSE`), o gate de movimento antes da
 pose (`GESTURE_MOTION_GATE`) e a pose em 416 px (`POSE_IMGSZ`), em vez dos 640
@@ -56,8 +56,9 @@ nao garantem um total fixo de threads de todas as bibliotecas.
 O perfil completo foi medido no Pi entre 21 e 27/09/2026: -56% com uma pessoa,
 -63% com duas e -69% na cena vazia, sem perda de deteccao (ver
 `docs/PLANO_OTIMIZACAO.md`). A pose em 416 px entrou no perfil em 01/10/2026,
-depois de deixar o frame com uma pessoa 6% mais rapido; cena vazia e duas
-pessoas nao foram medidas com ela. Os ajustes individuais nao foram medidos
+depois de deixar o frame com uma pessoa 6% mais rapido, e as 2 threads do ONNX
+Runtime no mesmo dia, com mais 20% num video fixo de uma pessoa; cena vazia e
+duas pessoas nao foram medidas com elas. Os ajustes individuais nao foram medidos
 isoladamente. Para comparar uma mudanca por vez, use `CITYLAB_PROFILE=default`
 e ajuste individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
 `OPENCV_NUM_THREADS`, `MAX_IN_FLIGHT_FRAMES`, `PIPELINE_SHARED_PERSON_POSE`,

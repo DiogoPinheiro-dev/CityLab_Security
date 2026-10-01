@@ -49,7 +49,7 @@ class UnifiedRecognitionService:
 
     # Total do rosto e suas partes, com as mesmas chaves em todo frame.
     FACE_METRICS = ("faces_ms", "face_detect_ms", "face_embed_ms", "face_match_ms",
-                    "face_embeddings")
+                    "face_embeddings", "face_reused")
 
     def __init__(
         self,
@@ -331,6 +331,11 @@ class UnifiedRecognitionService:
         if self.executor is not None:
             self.executor.shutdown(wait=True)
             self.executor = None
+
+    def reset_face_identities(self) -> None:
+        reset = getattr(self.face_service, "reset_identities", None)
+        if reset is not None:
+            reset()
 
     def reset_gesture_history(self) -> None:
         if self.gesture_service is not None:

@@ -54,8 +54,14 @@ FACE_MIN_HEIGHT = _get_int("FACE_MIN_HEIGHT", 40)
 FACE_MIN_CONFIDENCE = _get_float("FACE_MIN_CONFIDENCE", 0.45)
 FACE_MINIMAL_MODULES = _get_bool("FACE_MINIMAL_MODULES", True)
 FACE_PREFILTER = _get_bool("FACE_PREFILTER", True)
-# Zero preserva a escolha automatica da biblioteca.
-ONNX_INTRA_OP_THREADS = max(0, _get_int("ONNX_INTRA_OP_THREADS", 1 if _RPI3 else 0))
+# Segundos em que um rosto no mesmo lugar herda o nome ja reconhecido, sem
+# embedding; conhecido e desconhecido. Zero desliga. Exige FACE_PREFILTER.
+# Em avaliacao no Pi (docs/PLANO_OTIMIZACAO.md); 15 s combinado em 01/10/2026.
+FACE_REUSE_SECONDS = max(0.0, _get_float("FACE_REUSE_SECONDS", 0.0))
+# Zero preserva a escolha automatica da biblioteca. 2 no rpi3: com a pose em
+# 416 o rosto virou o caminho critico, e 2 threads deixaram o frame com uma
+# pessoa 20% mais rapido, medido em 01/10/2026 (docs/PLANO_OTIMIZACAO.md).
+ONNX_INTRA_OP_THREADS = max(0, _get_int("ONNX_INTRA_OP_THREADS", 2 if _RPI3 else 0))
 # 3 no rpi3: com 2, a pose levava ~7,0 s; com 3, que o Ultralytics aplicava sem
 # querer num dos workers, ~5,0 s (medido em 26/09/2026, docs/PLANO_OTIMIZACAO.md).
 TORCH_NUM_THREADS = max(0, _get_int("TORCH_NUM_THREADS", 3 if _RPI3 else 0))

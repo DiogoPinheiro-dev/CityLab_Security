@@ -290,10 +290,17 @@ class SharedPipelineTests(unittest.TestCase):
                                        face_embeddings=1.0)
             metrics = pipeline.process_frame(None)["metrics"]
             self.assertEqual([metrics[name] for name in pipeline.FACE_METRICS],
-                             [2, 1.5, .5, 0.0, 1.0])
+                             [2, 1.5, .5, 0.0, 1.0, 0.0])
             # Sem rosto as chaves continuam no frame, zeradas.
             metrics = pipeline.process_frame(None, detect_faces=False)["metrics"]
-            self.assertEqual([metrics[name] for name in pipeline.FACE_METRICS], [0.0] * 5)
+            self.assertEqual([metrics[name] for name in pipeline.FACE_METRICS], [0.0] * 6)
+
+    def test_reset_forgets_face_names_only_when_the_service_keeps_them(self):
+        pipeline, face, _ = self.make_pipeline(False, True)
+        pipeline.reset_face_identities()
+        face.reset_identities = Mock()
+        pipeline.reset_face_identities()
+        face.reset_identities.assert_called_once_with()
 
     def test_empty_scene_still_runs_pose_and_face(self):
         pipeline, face, gesture = self.make_pipeline(False, True)

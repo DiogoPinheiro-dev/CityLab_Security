@@ -81,7 +81,7 @@ credenciais.
 
 ## Perfil do Raspberry Pi 3 B+
 
-`CITYLAB_PROFILE=rpi3` escolhe 1 thread para o ONNX Runtime, 3 para o PyTorch e
+`CITYLAB_PROFILE=rpi3` escolhe 2 threads para o ONNX Runtime, 3 para o PyTorch e
 1 para o OpenCV, e um frame pendente por vez no cliente. Tambem liga a passada
 unica de pessoas e pose e o gate de movimento, que pula a pose quando a cena
 esta parada e desocupada, e roda a pose em 416 px em vez de 640. Um valor
@@ -101,8 +101,11 @@ base, e a caixa de pessoa falsa que ela produzia sumiu. A cena vazia foi medida
 antes do ajuste de threads do PyTorch, que so afeta frames com pose. Uma pessoa
 foi medida em 01/10/2026, com a pose em 416 px, padrao do perfil desde entao, e
 o limite de temperatura em 70 C; as outras cenas, com a pose em 640 e o limite
-de 60 C. Com 60 C, sob carga continua o firmware baixa o clock para 1,2 GHz, o
-que custa de 3% a 7%; um dissipador com ventoinha evita isso. Detalhes em
+de 60 C. Depois disso, ainda em 01/10, as 2 threads do ONNX Runtime deixaram o
+frame com uma pessoa 20% mais rapido num video fixo, de 5,33 para 4,29 s; com a
+webcam, nao foram medidas. Com 60 C, sob carga continua o firmware baixa o
+clock para 1,2 GHz, o que custa de 3% a 7%; um dissipador com ventoinha evita
+isso. Detalhes em
 [docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md) e
 [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 
@@ -329,9 +332,9 @@ descrito acima, e as regras de gesto foram revistas em 29 e 30/09/2026. Em
 01/10/2026 a pose passou a rodar em 416 px no perfil. O que ficou para depois
 esta nos dois planos. Limitacoes conhecidas desta versao:
 
-- **Regras de gesto no Pi.** Com o frame entre 5 e 6 s, cada regra exige de 2
-  a 4 observacoes seguidas: uns 5 a 6 s para mao fechada e ameaca, 11 a 12 s
-  para rendicao e mao oculta e 16 a 18 s para braco estendido. Os limiares de
+- **Regras de gesto no Pi.** Com o frame entre 4 e 6 s, cada regra exige de 2
+  a 4 observacoes seguidas: uns 4 a 6 s para mao fechada e ameaca, 9 a 12 s
+  para rendicao e mao oculta e 13 a 18 s para braco estendido. Os limiares de
   0,20 a 0,40 s so pesam com vazao alta. Conferido no Pi em 30/09/2026, numa
   rodada com gesto.
 - **Pose em 416 px.** Na rodada com gesto em 416, a mao oculta de lado nao

@@ -329,6 +329,8 @@ async def websocket_reconhecimento(websocket: WebSocket):
             pipeline_started_at = time.perf_counter()
             if first_valid_frame or receive_wait_ms > GESTURE_IDLE_RESET_SECONDS * 1000:
                 current_recognizer.reset_gesture_history()
+                # Conexao nova ou pausa: nenhum rosto herda nome da cena anterior.
+                current_recognizer.reset_face_identities()
                 event_logger.reset_episodes()
             first_valid_frame = False
             results = current_recognizer.process_frame(frame)

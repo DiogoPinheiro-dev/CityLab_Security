@@ -11,11 +11,15 @@ from ultralytics import YOLO  # type: ignore
 from App.frame_context import FrameContext
 from App.settings import (DEBUG_PIPELINE, FACE_MIN_CONFIDENCE, FACE_MIN_HEIGHT,
                           FACE_MIN_WIDTH, FACE_MINIMAL_MODULES, FACE_PREFILTER,
-                          ONNX_INTRA_OP_THREADS)
+                          FACE_REUSE_SECONDS, ONNX_INTRA_OP_THREADS)
 from App.inference_runtime import configure_insight_threads
 
 
 class FaceRecognitionService:
+    # Sobreposicao minima entre caixas de rosto de frames seguidos para tratar
+    # como o mesmo rosto.
+    REUSE_MIN_IOU = 0.5
+
     def __init__(
         self,
         base_dir: Optional[str] = None,
@@ -33,6 +37,7 @@ class FaceRecognitionService:
         minimal_modules: bool = FACE_MINIMAL_MODULES,
         prefilter: bool = FACE_PREFILTER,
         onnx_threads: int = ONNX_INTRA_OP_THREADS,
+        reuse_seconds: float = FACE_REUSE_SECONDS,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -53,6 +58,10 @@ class FaceRecognitionService:
         self.face_min_confidence = face_min_confidence
         self.debug_pipeline = debug_pipeline
         self.prefilter = prefilter
+        # Zero desliga: todo rosto aceito gera embedding em todo frame.
+        self.reuse_seconds = reuse_seconds
+        self._identities: list[dict[str, Any]] = []
+        self._identity_generation = 0
 
         self.known_face_embeddings = np.empty((0, 512), dtype=np.float32)
         self.known_face_names: list[str] = []
@@ -72,6 +81,7 @@ class FaceRecognitionService:
             "face_embed_ms": 0.0,
             "face_match_ms": 0.0,
             "face_embeddings": 0.0,
+            "face_reused": 0.0,
             "persons_ms": 0.0,
         }
         self.latest_ignored_faces: list[dict[str, Any]] = []
@@ -94,6 +104,8 @@ class FaceRecognitionService:
     def replace_known_faces(
         self, names: list[str], embeddings: list[np.ndarray] | np.ndarray
     ) -> None:
+        # Nome guardado pode ser de quem saiu do cadastro.
+        self.reset_identities()
         self.known_face_names = list(names)
         if len(embeddings) == 0:
             self.known_face_embeddings = np.empty((0, 512), dtype=np.float32)
@@ -126,6 +138,7 @@ class FaceRecognitionService:
             embeddings = len(faces)
         results: list[dict[str, Any]] = []
         ignored_faces: list[dict[str, Any]] = []
+        accepted = []
 
         for face in faces:
             bbox_processing = face.bbox.astype(int).tolist()
@@ -143,17 +156,36 @@ class FaceRecognitionService:
                         }
                     )
                 continue
+            accepted.append((face, bbox_processing, bbox_original))
 
-            if self.prefilter:
-                embed_started_at = time.perf_counter()
-                for task, model in self.app_insight.models.items():
-                    if task != "detection":
-                        model.get(frame_context.processing_frame, face)
-                embed_ms += (time.perf_counter() - embed_started_at) * 1000.0
-                embeddings += 1
-            match_started_at = time.perf_counter()
-            name, best_score = self._match_face(face.normed_embedding)
-            match_ms += (time.perf_counter() - match_started_at) * 1000.0
+        # Rosto no mesmo lugar de um reconhecido ha menos de reuse_seconds herda
+        # nome e semelhanca, sem embedding. So o prefiltro separa as duas etapas.
+        now = getattr(frame_context, "observed_at", None) or time.monotonic()
+        generation = self._identity_generation
+        reuse = self.prefilter and self.reuse_seconds > 0
+        reused = self._assign_identities(
+            [bbox for _, bbox, _ in accepted], now) if reuse else {}
+        identities = []
+
+        for index, (face, bbox_processing, bbox_original) in enumerate(accepted):
+            if index in reused:
+                entry = reused[index]
+                name, best_score = entry["name"], entry["score"]
+                recognized_at = entry["recognized_at"]
+            else:
+                if self.prefilter:
+                    embed_started_at = time.perf_counter()
+                    for task, model in self.app_insight.models.items():
+                        if task != "detection":
+                            model.get(frame_context.processing_frame, face)
+                    embed_ms += (time.perf_counter() - embed_started_at) * 1000.0
+                    embeddings += 1
+                match_started_at = time.perf_counter()
+                name, best_score = self._match_face(face.normed_embedding)
+                match_ms += (time.perf_counter() - match_started_at) * 1000.0
+                recognized_at = now
+            identities.append({"bbox": bbox_processing, "name": name,
+                               "score": best_score, "recognized_at": recognized_at})
 
             results.append(
                 {
@@ -164,6 +196,9 @@ class FaceRecognitionService:
                 }
             )
 
+        # Cadastro trocado no meio do frame: nao guardar nomes da base antiga.
+        if reuse and generation == self._identity_generation:
+            self._identities = identities
         if self.debug_pipeline:
             self.latest_metrics["ignored_faces"] = float(len(ignored_faces))
         self.latest_ignored_faces = ignored_faces
@@ -173,8 +208,47 @@ class FaceRecognitionService:
             "face_embed_ms": embed_ms,
             "face_match_ms": match_ms,
             "face_embeddings": float(embeddings),
+            "face_reused": float(len(reused)),
         })
         return results
+
+    def reset_identities(self) -> None:
+        """Esquece as identidades guardadas: conexao nova ou cadastro alterado."""
+        self._identities = []
+        self._identity_generation += 1
+
+    def _assign_identities(
+        self, boxes: list[list[int]], now: float
+    ) -> dict[int, dict[str, Any]]:
+        """Liga cada rosto a no maximo uma identidade valida, pela maior sobreposicao."""
+        valid = [entry for entry in self._identities
+                 if now - entry["recognized_at"] < self.reuse_seconds]
+        pairs = sorted(
+            ((self._iou(box, entry["bbox"]), index, slot)
+             for index, box in enumerate(boxes)
+             for slot, entry in enumerate(valid)),
+            reverse=True,
+        )
+        assigned: dict[int, dict[str, Any]] = {}
+        used: set[int] = set()
+        for overlap, index, slot in pairs:
+            if overlap < self.REUSE_MIN_IOU:
+                break
+            if index not in assigned and slot not in used:
+                assigned[index] = valid[slot]
+                used.add(slot)
+        return assigned
+
+    @staticmethod
+    def _iou(first: list[int], second: list[int]) -> float:
+        width = min(first[2], second[2]) - max(first[0], second[0])
+        height = min(first[3], second[3]) - max(first[1], second[1])
+        if width <= 0 or height <= 0:
+            return 0.0
+        intersection = width * height
+        area = ((first[2] - first[0]) * (first[3] - first[1])
+                + (second[2] - second[0]) * (second[3] - second[1]) - intersection)
+        return intersection / area if area > 0 else 0.0
 
     def detect_persons(
         self,

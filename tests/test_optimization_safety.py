@@ -127,16 +127,22 @@ class Vector(list):
 
 
 class FaceOptimizationTests(unittest.TestCase):
-    def make_service(self, prefilter, boxes, minimal=True):
+    def make_service(self, prefilter, boxes, minimal=True, reuse_seconds=0.0):
+        numpy_stub = SimpleNamespace(empty=lambda shape, dtype=None: [], float32=float,
+                                     asarray=lambda value, dtype=None: value)
         cls = load_class("App/FaceRecon/service.py", "FaceRecognitionService",
                          DEBUG_PIPELINE=True, FACE_MIN_WIDTH=40, FACE_MIN_HEIGHT=40,
                          FACE_MIN_CONFIDENCE=.45, FACE_MINIMAL_MODULES=True,
-                         FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0, Face=SimpleNamespace)
+                         FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
+                         FACE_REUSE_SECONDS=0.0, Face=SimpleNamespace, np=numpy_stub)
         service = cls.__new__(cls)
         service.prefilter = prefilter
         service.debug_pipeline = True
         service.face_min_width = service.face_min_height = 40
         service.face_min_confidence = .45
+        service.reuse_seconds = reuse_seconds
+        service._identities = []
+        service._identity_generation = 0
         service.latest_metrics = {}
         service._match_face = lambda embedding: ("Aluno", embedding[0])
         keys = [object() for _ in boxes]
@@ -198,6 +204,82 @@ class FaceOptimizationTests(unittest.TestCase):
         self.assertEqual(old.latest_metrics["face_embeddings"], 3.0)
         self.assertEqual((old.latest_metrics["face_detect_ms"],
                           old.latest_metrics["face_embed_ms"]), (0.0, 0.0))
+
+    def reuse_frames(self, unknown=False):
+        """Servico com reuso de 15 s e uma funcao que roda um frame no instante dado."""
+        service, context, recognition, _ = self.make_service(True, [], reuse_seconds=15.0)
+        if unknown:
+            service._match_face = lambda embedding: ("NAO ALUNO", .3)
+        keys = []
+
+        def recognize(frame, face):
+            face.normed_embedding = [.87]
+
+        recognition.get.side_effect = recognize
+
+        def frame(at, *boxes):
+            kps = [object() for _ in boxes]
+            keys.extend(kps)
+            service.app_insight.det_model.detect.return_value = (list(boxes), kps)
+            return service.recognize_faces(SimpleNamespace(**vars(context), observed_at=at))
+        return service, recognition, frame
+
+    def test_face_in_place_keeps_its_name_until_the_reuse_window_ends(self):
+        service, recognition, frame = self.reuse_frames()
+        face = Vector([0, 0, 30, 30, .9])
+        first = frame(100.0, face)
+        self.assertEqual(recognition.get.call_count, 1)
+        # 4 s depois, no mesmo lugar: mesmo nome e semelhanca, sem embedding.
+        self.assertEqual(frame(104.0, face), first)
+        self.assertEqual(recognition.get.call_count, 1)
+        self.assertEqual((service.latest_metrics["face_reused"],
+                          service.latest_metrics["face_embeddings"]), (1.0, 0.0))
+        # A validade conta do reconhecimento, nao do ultimo reuso: aos 15 s reconfere.
+        frame(112.0, face)
+        self.assertEqual(recognition.get.call_count, 1)
+        frame(115.0, face)
+        self.assertEqual(recognition.get.call_count, 2)
+
+    def test_moved_or_new_face_is_recognized_and_the_others_keep_their_name(self):
+        service, recognition, frame = self.reuse_frames()
+        first, moved, new = (Vector([0, 0, 30, 30, .9]), Vector([40, 40, 70, 70, .9]),
+                             Vector([100, 100, 130, 130, .9]))
+        frame(100.0, first)
+        frame(104.0, moved)
+        self.assertEqual(recognition.get.call_count, 2)
+        # Alguem entra: so o rosto novo gera embedding; quem ficou mantem o nome.
+        self.assertEqual(len(frame(108.0, moved, new)), 2)
+        self.assertEqual(recognition.get.call_count, 3)
+        self.assertEqual(service.latest_metrics["face_reused"], 1.0)
+
+    def test_unknown_face_is_reused_too(self):
+        _, recognition, frame = self.reuse_frames(unknown=True)
+        face = Vector([0, 0, 30, 30, .9])
+        self.assertEqual(frame(100.0, face)[0]["name"], "NAO ALUNO")
+        self.assertEqual(frame(104.0, face)[0]["name"], "NAO ALUNO")
+        self.assertEqual(recognition.get.call_count, 1)
+
+    def test_registration_or_new_connection_forget_the_names(self):
+        service, recognition, frame = self.reuse_frames()
+        face = Vector([0, 0, 30, 30, .9])
+        frame(100.0, face)
+        service.replace_known_faces(["Outro"], [[.1]])
+        frame(101.0, face)
+        self.assertEqual(recognition.get.call_count, 2)
+        service.reset_identities()
+        frame(102.0, face)
+        self.assertEqual(recognition.get.call_count, 3)
+
+    def test_reuse_off_or_without_prefilter_recognizes_every_frame(self):
+        face = Vector([0, 0, 30, 30, .9])
+        for prefilter, reuse in ((True, 0.0), (False, 15.0)):
+            service, context, recognition, _ = self.make_service(prefilter, [face],
+                                                                 reuse_seconds=reuse)
+            for _ in range(3):
+                service.recognize_faces(context)
+            calls = recognition.get.call_count
+            self.assertEqual(calls, 3)
+            self.assertEqual(service.latest_metrics["face_reused"], 0.0)
 
     def test_empty_scene_and_threshold_boundaries(self):
         for boxes, count in (([], 0), ([Vector([0, 0, 20, 20, .45])], 1)):
