@@ -495,12 +495,37 @@ mesmo processo e `throttled` ficou em `0x0`.
 - Decisao do responsavel: deixar a rede como esta, como risco conhecido. As
   opcoes eram cabo de rede, a mais firme, ou desligar a economia de energia.
 
+### Cena vazia com o perfil atual - 0,93 s, sem deteccao falsa
+
+Primeira cena dos testes com camera. Codigo `af2872d` no Pi, so o perfil rpi3,
+API como servico e reiniciada antes de cada rodada. Webcam do PC apontada para
+um canto sem ninguem, 5 frames de aquecimento e 30 medidos, com sondagem de 3
+frames que exige o quadro vazio. Resultado em `resultados/pi3-af2872d-vazia/`.
+
+| Rodada | Mediana | p95 | Contra 27/09 |
+|---|---|---|---|
+| r1 | 930,6 ms | 1195,5 ms | -44,5% |
+| r2 | 932,3 ms | 942,8 ms | -44,4% |
+| r3 | 936,1 ms | 964,2 ms | -44,2% |
+
+- **Ganho confirmado** contra os 1676,3 a 1679,1 ms de `3e67f56` em 27/09;
+  contra a linha de base de 19/09, 5,41 s, -83%. Amplitude de 0,6%.
+- O ganho vem das 2 threads no rosto: com a pose pulada pelo gate, o frame e a
+  busca por rostos, que roda em todo frame e caiu para cerca de 0,91 s.
+- **Sem deteccao falsa**: nenhuma pessoa, rosto, gesto ou alerta nos 90 frames.
+- Pose pulada em 87 de 90 frames, sem movimento na imagem. Ela rodou uma vez
+  por rodada, na passada obrigatoria de 30 em 30 s, com o frame em cerca de
+  2,8 s; por isso a media fica perto de 1 s.
+- Temperatura de 45,1 a 51,5 C, `throttled=0x0` em todo o log; RSS da API de
+  655 a 709 MB.
+
 ### O que fica aberto
 
-1. Com camera: cena vazia, duas pessoas, dois rostos de frente e duas pessoas
-   trocando de lugar, que mostra se o reuso troca nomes.
-2. Conferir, nos mesmos frames em 640 e 416, as situacoes de lado e punho
-   levantado, com videos novos.
+1. Com camera: duas pessoas, dois rostos de frente e duas pessoas trocando de
+   lugar, que mostra se o reuso troca nomes. A cena vazia foi feita.
+2. De lado e punho levantado em 416: o responsavel decidiu em 02/10/2026 nao
+   gravar videos novos para comparar com 640. Fica como risco conhecido, ja
+   anotado no README.
 3. Testes de dias, agora com a API como servico. Reinicio programado ou limpeza
    de memoria so se aparecer crescimento.
 4. Rede: Wi-Fi com economia de energia e uma queda de 9 min em 24 h, mantido
@@ -508,8 +533,11 @@ mesmo processo e `throttled` ficou em `0x0`.
 5. Deploy automatico, pedido pelo responsavel em 02/10/2026: o workflow para o
    servico antes de sincronizar e instalar e o sobe no fim, mesmo se a
    instalacao falhar. O runner roda como `citylab`, o mesmo usuario do servico,
-   entao nao precisa de `sudo`. Falta conferir no primeiro deploy com ele. As
-   dependencias seguem indo para `citylab_venv`, e nao para o `.venv` da API.
+   entao nao precisa de `sudo`. No primeiro deploy com ele (`af2872d`), o job
+   terminou as 12:19:51 e a API respondeu as 12:21:03, sem ninguem mexer no Pi;
+   a API ja estava parada, entao o passo de parar ainda nao foi visto com ela
+   rodando. As dependencias seguem indo para `citylab_venv`, e nao para o
+   `.venv` da API.
 6. P4 e P6 da fila de 01/10, sem acao combinada.
 7. O resto do "Encerramento em 27/09/2026".
 

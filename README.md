@@ -96,16 +96,16 @@ por frame:
 
 | Cenario | Linha de base (19/09/2026) | Perfil atual | Ganho |
 |---|---|---|---|
-| Cena vazia | 5,41 s | 1,68 s | -69% |
+| Cena vazia | 5,41 s | 0,93 s | -83% |
 | Uma pessoa | 13,41 s | 5,32 s | -60% |
 | Duas pessoas | 16,62 s | 6,17 s | -63% |
 
 Nenhuma deteccao de rosto, pessoa ou gesto se perdeu em relacao a linha de
 base, e a caixa de pessoa falsa que ela produzia sumiu. A cena vazia foi medida
-antes do ajuste de threads do PyTorch, que so afeta frames com pose. Uma pessoa
-foi medida em 01/10/2026, com a pose em 416 px, padrao do perfil desde entao, e
-o limite de temperatura em 70 C; as outras cenas, com a pose em 640 e o limite
-de 60 C. Depois disso, ainda em 01/10, as 2 threads do ONNX Runtime deixaram o
+em 02/10/2026 com o perfil atual completo, sem nenhuma deteccao falsa. Uma
+pessoa foi medida em 01/10/2026, com a pose em 416 px e o limite de temperatura
+em 70 C; duas pessoas, em setembro, com a pose em 640 e o limite de 60 C.
+Depois disso, ainda em 01/10, as 2 threads do ONNX Runtime deixaram o
 frame com uma pessoa 20% mais rapido num video fixo, de 5,33 para 4,29 s, e o
 reuso da identidade do rosto tirou mais 13% na media, para 3,72 s; com a
 webcam, nao foram medidos. Com 60 C, sob carga continua o firmware baixa o
