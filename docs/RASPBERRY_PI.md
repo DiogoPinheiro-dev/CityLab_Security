@@ -59,8 +59,10 @@ O perfil completo foi medido no Pi entre 21 e 27/09/2026: -56% com uma pessoa,
 `docs/PLANO_OTIMIZACAO.md`). A pose em 416 px entrou no perfil em 01/10/2026,
 depois de deixar o frame com uma pessoa 6% mais rapido, e no mesmo dia as 2
 threads do ONNX Runtime, com mais 20% num video fixo de uma pessoa, e o reuso
-do nome do rosto, com mais 13% na media; cena vazia e duas pessoas nao foram
-medidas com eles. Os ajustes individuais nao foram medidos isoladamente. Para
+do nome do rosto, com mais 13% na media. Com tudo isso, em 02/10/2026, a cena
+vazia ficou em 0,93 s e duas pessoas em 3,41 s, -83% e -80% contra 19/09; uma
+pessoa nao foi medida com eles na webcam. Os ajustes individuais nao foram
+medidos isoladamente. Para
 comparar uma mudanca por vez, use `CITYLAB_PROFILE=default` e ajuste
 individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
 `OPENCV_NUM_THREADS`, `MAX_IN_FLIGHT_FRAMES`, `PIPELINE_SHARED_PERSON_POSE`,

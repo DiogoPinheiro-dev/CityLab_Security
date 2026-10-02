@@ -519,25 +519,96 @@ frames que exige o quadro vazio. Resultado em `resultados/pi3-af2872d-vazia/`.
 - Temperatura de 45,1 a 51,5 C, `throttled=0x0` em todo o log; RSS da API de
   655 a 709 MB.
 
+### Deploy automatico - para e sobe a API sozinho
+
+Pedido pelo responsavel em 02/10/2026 e entregue em `af2872d`: o workflow para o
+servico antes de sincronizar e instalar e o sobe no fim, mesmo se a instalacao
+falhar. O runner roda como `citylab`, o mesmo usuario do servico, entao nao
+precisa de `sudo`. As dependencias seguem indo para `citylab_venv`, e nao para o
+`.venv` da API.
+
+- Primeiro deploy, de `af2872d`, com a API ja parada: o job terminou as
+  12:19:51 e a API respondeu as 12:21:03, sem ninguem mexer no Pi.
+- Deploy de `61d7961`, com a API rodando, pela vigia do PC: o job ja rodava as
+  18:28:25, a API estava fora do ar as 18:28:35, o job tinha terminado as
+  18:30:30 e a API voltou as 18:31:23. O passo de parar esta conferido.
+- Antes, esse job ficou na fila das 18:17 as 18:28: o runner nao tinha
+  conectado depois de o Pi ser ligado, e reiniciar o servico dele resolveu.
+  Deploy parado na fila aponta primeiro para o runner.
+
+### Duas pessoas com o perfil atual - 3,41 s, sem perder deteccao
+
+Segunda cena com camera. Codigo `61d7961` no Pi, levado pelo deploy acima, so o
+perfil rpi3, API como servico: a r1 pegou o processo subido pelo deploy, e
+antes da r2 e da r3 o servico foi reiniciado. Webcam do PC ao vivo, com a cena
+de setembro: duas pessoas reais, uma de frente, com cadastro, e outra de lado,
+sem cadastro. 5 frames de aquecimento e 30 medidos, com sondagem de 3 frames
+que exige duas pessoas e um rosto. Resultado em
+`resultados/pi3-61d7961-duas-pessoas/`.
+
+| Rodada | Mediana | p95 | Media | Contra 26/09, mediana | Contra 26/09, media |
+|---|---|---|---|---|---|
+| r1 | 3550,5 ms | 4663,8 ms | 3706,1 ms | -42,6% | -39,9% |
+| r2 | 3405,1 ms | 4578,0 ms | 3633,7 ms | -44,8% | -40,8% |
+| r3 | 3389,3 ms | 4469,1 ms | 3588,7 ms | -45,0% | -41,5% |
+
+- **Ganho confirmado** contra `bc0a441`, de 26/09, rodada a rodada, pela
+  mediana e pela media; o pior cruzamento da -42,4% na mediana. Contra a linha
+  de base de 19/09, 16,62 s, -80% na mediana das medianas. Vazao de 0,162 a
+  0,163 para 0,269 a 0,278 FPS. Amplitude entre rodadas de 4,8%: a r1, com a
+  API subida pelo deploy, foi a mais lenta.
+- O ganho soma tudo o que mudou desde 26/09: pose em 416, 2 threads e reuso no
+  rosto e o limite de temperatura em 70 C, que sozinho deixou a serie de uma
+  pessoa em 640 de 4,5% a 5,4% mais rapida.
+- Com o reuso o frame tem dois ritmos, e a media e a medida justa, como no
+  video de uma pessoa: 23 ou 24 dos 30 frames reaproveitam o nome e levam
+  cerca de 3,4 s; os 6 ou 7 que geram embedding, cerca de 4,4 s.
+- O gesto termina por ultimo nos 90 frames. Com o nome reaproveitado, o rosto
+  fica so na deteccao, cerca de 1,2 s, e a pose roda em cerca de 2,7 s, contra
+  5,3 a 5,4 s em 26/09. Nos frames com embedding o rosto leva cerca de 3,3 s, a
+  pose sobe para cerca de 3,7 s, disputando os nucleos com ele, e o gesto para
+  cerca de 4,4 s.
+- **Deteccao preservada**: 2 pessoas, 1 rosto e 2 tracks de gesto em 90/90; a
+  pessoa de lado continua sem rosto aceito, como em setembro. Confianca das
+  caixas de pessoa entre 0,51 e 0,94.
+- **Reconhecimento perto do limite**: a pessoa de frente saiu como cadastrada
+  em 9, 21 e 25 dos 30 frames, e nos outros como desconhecida. Nas 20
+  comparacoes com o cadastro dentro das rodadas, a semelhanca ficou entre 0,424
+  e 0,589, mediana de 0,531, e 12 passaram do limite de 0,52. No video fixo,
+  gravado a uns 2 ou 3 m, a mesma pessoa sozinha teve mediana de 0,60. O
+  limite e o `det_size` de 320 sao os mesmos desde o primeiro commit, e threads
+  e reuso nao mudam o embedding. O reuso so agrupa o resultado em blocos de
+  15 s: 60% das comparacoes e 61% dos frames reconhecidos. A causa nao foi
+  identificada, porque o benchmark nao guarda o tamanho do rosto; luz e rosto
+  virado sao candidatos.
+- Alertas: 16, 15 e 33 por rodada, em 16, 15 e 23 frames, contra 55 a 60 em
+  26/09. Ninguem fez gesto de alerta. O benchmark conta os alertas sem guardar
+  a regra que disparou; a mao oculta de quem esta de lado, limitacao conhecida,
+  e candidata, mas nao da para afirmar. Pela regra 7, a contagem nao compara
+  versoes.
+- `process_rss_mb` de 650 a 660 MB, contra 666 a 727 MB em 26/09. Temperatura
+  de 50,5 a 56,9 C pela API, contra ate 60,1 C. Sem log de `vcgencmd`, que tinha
+  parado depois da cena vazia: `get_throttled` deu `0x0` as 19:37 com o Pi
+  ligado desde 17:50 sem reiniciar, entao nao houve subtensao, corte de clock
+  nem limite de temperatura desde o boot.
+
 ### O que fica aberto
 
-1. Com camera: duas pessoas, dois rostos de frente e duas pessoas trocando de
-   lugar, que mostra se o reuso troca nomes. A cena vazia foi feita.
-2. De lado e punho levantado em 416: o responsavel decidiu em 02/10/2026 nao
+1. Com camera: dois rostos de frente, com videos que o responsavel vai gravar,
+   e por ultimo duas pessoas trocando de lugar, que mostra se o reuso troca
+   nomes. Cena vazia e duas pessoas foram feitas. A linha de uma pessoa do
+   README ainda e de 01/10, antes das 2 threads e do reuso, que so foram
+   medidos com video.
+2. Reconhecimento perto do limite com duas pessoas, acima. Para achar a causa,
+   o benchmark pode passar a guardar a largura do rosto e o nome dos alertas,
+   sem imagem nem nome de pessoa.
+3. De lado e punho levantado em 416: o responsavel decidiu em 02/10/2026 nao
    gravar videos novos para comparar com 640. Fica como risco conhecido, ja
    anotado no README.
-3. Testes de dias, agora com a API como servico. Reinicio programado ou limpeza
+4. Testes de dias, agora com a API como servico. Reinicio programado ou limpeza
    de memoria so se aparecer crescimento.
-4. Rede: Wi-Fi com economia de energia e uma queda de 9 min em 24 h, mantido
+5. Rede: Wi-Fi com economia de energia e uma queda de 9 min em 24 h, mantido
    por decisao do responsavel.
-5. Deploy automatico, pedido pelo responsavel em 02/10/2026: o workflow para o
-   servico antes de sincronizar e instalar e o sobe no fim, mesmo se a
-   instalacao falhar. O runner roda como `citylab`, o mesmo usuario do servico,
-   entao nao precisa de `sudo`. No primeiro deploy com ele (`af2872d`), o job
-   terminou as 12:19:51 e a API respondeu as 12:21:03, sem ninguem mexer no Pi;
-   a API ja estava parada, entao o passo de parar ainda nao foi visto com ela
-   rodando. As dependencias seguem indo para `citylab_venv`, e nao para o
-   `.venv` da API.
 6. P4 e P6 da fila de 01/10, sem acao combinada.
 7. O resto do "Encerramento em 27/09/2026".
 

@@ -98,19 +98,21 @@ por frame:
 |---|---|---|---|
 | Cena vazia | 5,41 s | 0,93 s | -83% |
 | Uma pessoa | 13,41 s | 5,32 s | -60% |
-| Duas pessoas | 16,62 s | 6,17 s | -63% |
+| Duas pessoas | 16,62 s | 3,41 s | -80% |
 
 Nenhuma deteccao de rosto, pessoa ou gesto se perdeu em relacao a linha de
-base, e a caixa de pessoa falsa que ela produzia sumiu. A cena vazia foi medida
-em 02/10/2026 com o perfil atual completo, sem nenhuma deteccao falsa. Uma
-pessoa foi medida em 01/10/2026, com a pose em 416 px e o limite de temperatura
-em 70 C; duas pessoas, em setembro, com a pose em 640 e o limite de 60 C.
-Depois disso, ainda em 01/10, as 2 threads do ONNX Runtime deixaram o
-frame com uma pessoa 20% mais rapido num video fixo, de 5,33 para 4,29 s, e o
-reuso da identidade do rosto tirou mais 13% na media, para 3,72 s; com a
-webcam, nao foram medidos. Com 60 C, sob carga continua o firmware baixa o
-clock para 1,2 GHz, o que custa de 3% a 7%; um dissipador com ventoinha evita
-isso. Detalhes em
+base, e a caixa de pessoa falsa que ela produzia sumiu. Cena vazia e duas
+pessoas foram medidas em 02/10/2026 com o perfil atual completo. Na vazia,
+nenhuma deteccao falsa. Com duas pessoas, uma de frente e outra de lado, as
+duas, o rosto de frente e os gestos das duas foram detectados em todos os
+frames, e a media, que conta os frames que reconhecem o rosto de novo, foi de
+3,59 a 3,71 s. Uma pessoa foi medida em 01/10/2026, com a pose em 416 px, mas
+antes das 2 threads do ONNX Runtime e do reuso da identidade do rosto; por isso
+aparece mais lenta que duas. Num video fixo de uma pessoa, as 2 threads
+deixaram o frame 20% mais rapido, de 5,33 para 4,29 s, e o reuso tirou mais
+13% na media, para 3,72 s; com a webcam, nao foram medidos. Com 60 C, sob
+carga continua o firmware baixa o clock para 1,2 GHz, o que custa de 3% a 7%;
+um dissipador com ventoinha evita isso. Detalhes em
 [docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md) e
 [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 
@@ -351,6 +353,11 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   desconhecido. Nesse intervalo o nome aparece mesmo num frame em que o
   reconhecimento falharia, e a troca de nome entre duas pessoas que trocam de
   lugar nao foi testada. `FACE_REUSE_SECONDS=0` volta a reconhecer todo frame.
+- **Reconhecimento perto do limite.** Em 02/10/2026, com duas pessoas na
+  frente da webcam, o rosto cadastrado de frente teve semelhanca de 0,42 a 0,59
+  com o cadastro, em volta do limite de 0,52, e foi reconhecido em 9, 21 e 25
+  dos 30 frames das tres rodadas; nos outros, saiu como desconhecido. A causa
+  ainda nao foi identificada.
 - **Pose em 416 px.** Na rodada com gesto em 416, a mao oculta de lado nao
   disparou e o punho levantado disparou um frame depois do que em 640. Com 6
   frames por situacao e a pessoa em outra posicao, nao deu para separar o
