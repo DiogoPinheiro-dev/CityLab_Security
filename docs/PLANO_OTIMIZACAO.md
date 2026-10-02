@@ -414,6 +414,64 @@ um video fixo. A decomposicao do rosto entrou no codigo em `9334b9e`, mas, a
 pedido dele, o teste de threads foi medido antes do deploy dela. Resultados em
 "Estado verificado em 01/10/2026".
 
+## Estado verificado em 02/10/2026
+
+### Teste de uma noite - 10,5 h sem degradar
+
+O responsavel definiu em 01/10/2026 que o sistema deve ficar ligado sem parar,
+com cuidado de memoria para nao cair, e escolheu medir antes de limpar. Codigo
+`3ab0547`, so o perfil rpi3 no `.env`; API iniciada com `nohup`, fora da sessao
+SSH. Uma conexao de 10,48 h com o video de carga em loop, com as opcoes novas
+`--loop` e `--samples-jsonl` de `tools/benchmark_stream.py`, e no Pi um
+registro a cada 30 s com `vcgencmd`, `free`, `vmstat` e a memoria da API em
+`/proc`. Resultado em `resultados/pi3-3ab0547-video-noite/`.
+
+| Hora, no PC | Frame, media | p95 | RSS da API | Temperatura |
+|---|---|---|---|---|
+| 23h | 3783 ms | 4400 ms | 645 a 662 MB | 49,9 a 60,1 C |
+| 00h | 3765 ms | 4412 ms | 484 a 646 MB | 58,5 a 62,8 C |
+| 01h a 05h | 3764 a 3770 ms | 4404 a 4418 ms | 485 a 508 MB | 56,4 a 63,4 C |
+| 06h a 10h | 3764 a 3772 ms | 4400 a 4429 ms | 486 a 509 MB | 58,5 a 62,8 C |
+
+- **Sem degradacao**: a media por hora ficou entre 3764 e 3783 ms nas 10,5 h, o
+  pior frame levou 5,2 s e nenhum intervalo entre amostras passou de 15 s;
+  0,265 FPS no total.
+- **Sem vazamento de memoria**: na primeira meia hora o sistema mandou cerca de
+  210 MB da API para o swap, e o RSS dela caiu de cerca de 650 para 500 MB.
+  Depois tudo parou: nas leituras de hora em hora, RSS da API de 501 a 508 MB,
+  API no swap de 208 a 210 MB, swap total de 281 a 298 MB e memoria disponivel
+  de 316 a 344 MB. A troca com o swap quase nao aconteceu: `si` acima de zero
+  em 18 e `so` em 4 das 1320 leituras, no comeco da noite.
+- A queda de RSS do teste de 33,6 min tem a mesma explicacao: memoria da API
+  mandada para o swap, nao devolvida pelo processo.
+- **Temperatura** entre 56 e 63,4 C depois do aquecimento, `throttled=0x0` nas
+  1318 leituras.
+- **Deteccao estavel**: pessoa, rosto e gesto nos 10.000 frames; a cada hora,
+  cerca de 50% dos rostos reaproveitados, 89% reconhecidos e 12 alertas a cada
+  36 frames. A gravacao de eventos rodou junto a noite toda.
+- Limites: um video de uma pessoa, sem cadastro mudando nem conexao caindo e
+  voltando, e 10,5 h, nao dias.
+
+### Leitura para o uso continuo
+
+Com a memoria parada depois da primeira meia hora, uma limpeza periodica nao tem
+crescimento para conter. O risco que sobra para ficar ligado sem parar e o
+processo cair, por falta de memoria com mais pessoas, falha ou queda da sessao
+SSH em que a API e iniciada, e ninguem subir de novo.
+
+### O que fica aberto
+
+1. Rodar a API como servico do sistema (systemd): sobe com o Pi, volta sozinha
+   se cair e nao depende de sessao SSH. Proposta, sem acao combinada.
+2. Com camera: cena vazia, duas pessoas, dois rostos de frente e duas pessoas
+   trocando de lugar, que mostra se o reuso troca nomes.
+3. Conferir, nos mesmos frames em 640 e 416, as situacoes de lado e punho
+   levantado, com videos novos.
+4. Testes de dias, depois que a API rodar como servico. Reinicio programado ou
+   limpeza de memoria so se aparecer crescimento.
+5. P4 e P6 da fila de 01/10, sem acao combinada.
+6. O resto do "Encerramento em 27/09/2026".
+
 ## Estado verificado em 01/10/2026
 
 O responsavel reabriu o plano para a acao 7, so na pose: o `det_size` do

@@ -153,10 +153,10 @@ Abaixo do limite a velocidade e a mesma: o ar so adia o limite e reduz a perda.
 
 No Pi do projeto o limite esta em 70 C desde 27/09/2026. Em 01/10/2026, em
 seis rodadas de 3,5 min com uma pessoa, o Pi chegou a 63,9 C, com
-`throttled=0x0` em todas as leituras e o clock nunca em 1,2 GHz. No mesmo dia,
-em 33,6 min seguidos com o perfil atual, a temperatura parou entre 59 e 61 C
-depois de uns 10 min, com maxima de 62,3 C e `throttled=0x0`; o uso por horas
-nao foi medido. A copia do `config.txt` original ficou ao
+`throttled=0x0` em todas as leituras e o clock nunca em 1,2 GHz. De 01 para
+02/10/2026, em 10,5 h seguidas com o perfil atual, a temperatura ficou entre 56
+e 63,4 C, com `throttled=0x0` em todas as 1318 leituras; uso por dias nao foi
+medido. A copia do `config.txt` original ficou ao
 lado; para voltar aos 60 C:
 
 ```bash

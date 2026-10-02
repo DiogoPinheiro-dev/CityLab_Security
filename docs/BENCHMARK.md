@@ -87,7 +87,10 @@ python tools/benchmark_stream.py videos/varias-pessoas.mp4 --scenario many-perso
 
 Reinicie a API antes de cada execucao para zerar rastreador e caches de eventos.
 Repita cada cenario tres vezes com o mesmo aquecimento e estado inicial do banco.
-Espere temperatura comparavel antes das repeticoes. O cliente pode rodar em outra
+Espere temperatura comparavel antes das repeticoes. Para uso continuo, por horas
+numa conexao so, `--loop` volta ao inicio do video quando ele acaba e
+`--samples-jsonl ARQUIVO` grava cada amostra, com o horario UTC, assim que ela
+chega: uma queda no meio nao perde o que ja foi medido. O cliente pode rodar em outra
 maquina usando `--url ws://ENDERECO:8000/stream`; registre a topologia de rede.
 Nao misture resultados do cliente local e remoto.
 

@@ -15,7 +15,7 @@ from unittest.mock import Mock, patch
 from App.inference_runtime import (configure_insight_threads, configure_opencv_threads,
                                    ensure_torch_threads, prepare_native_environment)
 from tools.run_rpi import main as run_rpi
-from tools.benchmark_stream import detection_confidences, known_faces
+from tools.benchmark_stream import detection_confidences, known_faces, read_frame
 
 
 class RpiProfileTests(unittest.TestCase):
@@ -210,6 +210,29 @@ class RpiProfileTests(unittest.TestCase):
         # Reconhecido conta, mas o nome nao sai do payload.
         self.assertEqual(known_faces(payload), 1)
         self.assertNotIn("privado", json.dumps(data))
+
+    def test_benchmark_loop_rewinds_the_video_only_when_asked(self):
+        class Capture:
+            def __init__(self):
+                self.position, self.frames = 0, ["a", "b"]
+
+            def read(self):
+                if self.position >= len(self.frames):
+                    return False, None
+                self.position += 1
+                return True, self.frames[self.position - 1]
+
+            def set(self, prop, value):
+                self.position = value
+
+        cv2 = SimpleNamespace(CAP_PROP_POS_FRAMES=1)
+        capture = Capture()
+        self.assertEqual([read_frame(capture, True, cv2)[1] for _ in range(5)],
+                         ["a", "b", "a", "b", "a"])
+        # Sem loop, o video curto continua acusando falta de frames.
+        capture = Capture()
+        self.assertEqual([read_frame(capture, False, cv2)[0] for _ in range(3)],
+                         [True, True, False])
 
 
 if __name__ == "__main__":

@@ -1,0 +1,172 @@
+{
+  "scenario": "one-person",
+  "source_type": "video",
+  "video_sha256": "b0ef593552469c93881cfa6bb1b0a6f7715f3f4452b0f34e90bd787a887b0431",
+  "started_at_utc": "2026-10-02T02:54:14.294805+00:00",
+  "client_python": "3.13.15",
+  "client_platform": "Windows-11-10.0.26300-SP0",
+  "server_run_label": "pi3-3ab0547-video-noite-r1",
+  "config": {
+    "width": 640,
+    "height": 480,
+    "jpeg_quality": 65,
+    "warmup_frames": 5,
+    "frames": 10000,
+    "max_in_flight": 1
+  },
+  "elapsed_seconds": 37724.8168352,
+  "completed_fps": 0.26507749643118933,
+  "rtt_ms": {
+    "count": 10000,
+    "median": 3912.374399998953,
+    "p95": 4412.734799989266
+  },
+  "detections": {
+    "persons_count": {
+      "count": 10000,
+      "median": 1.0,
+      "p95": 1
+    },
+    "faces_count": {
+      "count": 10000,
+      "median": 1.0,
+      "p95": 1
+    },
+    "known_faces_count": {
+      "count": 10000,
+      "median": 1.0,
+      "p95": 1
+    },
+    "gestures_count": {
+      "count": 10000,
+      "median": 1.0,
+      "p95": 1
+    },
+    "alerts_count": {
+      "count": 10000,
+      "median": 0.0,
+      "p95": 1
+    }
+  },
+  "metrics": {
+    "decode_ms": {
+      "count": 10000,
+      "median": 7.296806998056127,
+      "p95": 7.429555000271648
+    },
+    "face_detect_ms": {
+      "count": 10000,
+      "median": 1162.755842498882,
+      "p95": 1321.1614829997416
+    },
+    "face_embed_ms": {
+      "count": 10000,
+      "median": 1000.7286585023394,
+      "p95": 2338.4491159959
+    },
+    "face_embeddings": {
+      "count": 10000,
+      "median": 0.5,
+      "p95": 1.0
+    },
+    "face_match_ms": {
+      "count": 10000,
+      "median": 0.11184850154677406,
+      "p95": 0.2885409921873361
+    },
+    "face_reused": {
+      "count": 10000,
+      "median": 0.5,
+      "p95": 1.0
+    },
+    "face_worker": {
+      "count": 10000,
+      "median": 0.0,
+      "p95": 0
+    },
+    "faces_ms": {
+      "count": 10000,
+      "median": 2571.6245565017744,
+      "p95": 3551.0395940073067
+    },
+    "frame_interval_ms": {
+      "count": 10000,
+      "median": 3911.93852950164,
+      "p95": 4431.1766710015945
+    },
+    "gesture_torch_threads": {
+      "count": 10000,
+      "median": 3.0,
+      "p95": 3
+    },
+    "gesture_worker": {
+      "count": 10000,
+      "median": 1.0,
+      "p95": 1
+    },
+    "gestures_ms": {
+      "count": 10000,
+      "median": 3880.4782115039416,
+      "p95": 4379.240947004291
+    },
+    "hands_ms": {
+      "count": 10000,
+      "median": 621.0086790015339,
+      "p95": 623.9475430047605
+    },
+    "logs_ms": {
+      "count": 10000,
+      "median": 0.05442649489850737,
+      "p95": 65.96216099569574
+    },
+    "motion_ratio": {
+      "count": 10000,
+      "median": 0.08255208333333333,
+      "p95": 0.22083333333333333
+    },
+    "persons_ms": {
+      "count": 10000,
+      "median": 0.0,
+      "p95": 0.0
+    },
+    "pipeline_ms": {
+      "count": 10000,
+      "median": 3885.2166599936027,
+      "p95": 4383.238221002102
+    },
+    "pose_ms": {
+      "count": 10000,
+      "median": 3484.754065000743,
+      "p95": 3793.64199200063
+    },
+    "pose_skipped": {
+      "count": 10000,
+      "median": 0.0,
+      "p95": 0.0
+    },
+    "process_rss_mb": {
+      "count": 10000,
+      "median": 506.92578125,
+      "p95": 508.5546875
+    },
+    "receive_wait_ms": {
+      "count": 10000,
+      "median": 16.160550498170778,
+      "p95": 22.331722007947974
+    },
+    "response_ready_ms": {
+      "count": 10000,
+      "median": 3892.710177497065,
+      "p95": 4397.835337003926
+    },
+    "temperature_c": {
+      "count": 10000,
+      "median": 60.686,
+      "p95": 62.3
+    }
+  },
+  "application_bytes_sent": 172597248,
+  "application_bytes_received": 9324248,
+  "application_bytes_per_second": 4822.329470669662,
+  "samples_file": "amostras.jsonl.gz"
+}

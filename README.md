@@ -362,15 +362,15 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
 - **Eventos por episodio.** Rostos e alertas gravam quando aparecem e nao se
   repetem enquanto continuam. Um frame em que o detector perde a pessoa encerra
   o episodio, e a volta grava um evento novo.
-- **Memoria.** A API ocupa entre 570 e 745 MB numa placa de 906 MB, e o
-  sistema mantem 250 a 300 MB em swap. Em 33,6 min seguidos houve rajadas de
-  troca com o swap, sem efeito no tempo dos frames. Mais pessoas ou mais
-  cameras podem esgotar a RAM.
+- **Memoria.** A API ocupa cerca de 710 MB numa placa de 906 MB. Em uso
+  continuo o sistema manda uns 210 MB dela para o swap na primeira meia hora e
+  depois fica parado: em 10,5 h seguidas, cerca de 500 MB em RAM, sem crescer e
+  quase sem troca com o swap. Mais pessoas ou mais cameras podem esgotar a RAM.
 - **Temperatura.** Sem dissipador, o Pi 3 B+ baixa o clock ao atingir o
   `temp_soft_limit`. No Pi do projeto o limite foi elevado para 70 C em
-  27/09/2026; em 01/10/2026, em 33,6 min seguidos com uma pessoa e o perfil
-  atual, o Pi parou entre 59 e 62 C, sem baixar o clock. Uso por horas nao foi
-  medido. Ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
+  27/09/2026; em 10,5 h seguidas com uma pessoa e o perfil atual, de 01 para
+  02/10/2026, o Pi ficou entre 56 e 63,4 C, sem baixar o clock. Ver
+  [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
   globais.
 

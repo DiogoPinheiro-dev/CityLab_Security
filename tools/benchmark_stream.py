@@ -41,6 +41,15 @@ def known_faces(payload):
                if face.get("nome") not in (None, "NAO ALUNO"))
 
 
+def read_frame(capture, loop, cv2):
+    """Le o proximo frame; com loop, volta ao inicio do video quando ele acaba."""
+    ok, frame = capture.read()
+    if not ok and loop:
+        capture.set(cv2.CAP_PROP_POS_FRAMES, 0)
+        ok, frame = capture.read()
+    return ok, frame
+
+
 def open_source(args, cv2):
     if args.camera_index is not None:
         capture = cv2.VideoCapture(args.camera_index)
@@ -73,11 +82,17 @@ async def run(args):
     run_started_at_utc = datetime.now(timezone.utc).isoformat()
     rows = []
     sent_bytes = received_bytes = 0
+    # Rodada longa: cada amostra vai ao disco assim que chega, para uma queda
+    # no meio nao levar o que ja foi medido.
+    samples_file = None
+    if args.samples_jsonl is not None:
+        args.samples_jsonl.parent.mkdir(parents=True, exist_ok=True)
+        samples_file = args.samples_jsonl.open("a", encoding="utf-8")
     try:
         async with connect(args.url, max_size=4 * 1024 * 1024, compression=None) as ws:
             started = None
             for index in range(args.warmup + args.frames):
-                ok, frame = capture.read()
+                ok, frame = read_frame(capture, args.loop, cv2)
                 if not ok:
                     if args.camera_index is not None:
                         raise RuntimeError("Falha ao ler frame da webcam")
@@ -107,10 +122,16 @@ async def run(args):
                                  "alerts_count": sum(len(item.get("alerts") or []) for item in gestures),
                                  **detection_confidences(payload),
                                  "metrics": payload["metrics"]})
+                    if samples_file is not None:
+                        line = dict(rows[-1], at_utc=datetime.now(timezone.utc).isoformat())
+                        samples_file.write(json.dumps(line, ensure_ascii=False) + "\n")
+                        samples_file.flush()
                     sent_bytes += len(jpeg)
                     received_bytes += len(raw.encode("utf-8") if isinstance(raw, str) else raw)
             elapsed = time.perf_counter() - started
     finally:
+        if samples_file is not None:
+            samples_file.close()
         capture.release()
     keys = sorted({key for row in rows for key in row["metrics"]})
     report = {
@@ -150,9 +171,15 @@ def main():
     parser.add_argument("--height", type=int, default=480)
     parser.add_argument("--quality", type=int, default=65)
     parser.add_argument("--timeout", type=float, default=120)
+    parser.add_argument("--loop", action="store_true",
+                        help="Volta ao inicio do video quando ele acaba, para rodadas longas")
+    parser.add_argument("--samples-jsonl", type=Path,
+                        help="Grava cada amostra numa linha deste arquivo assim que chega")
     args = parser.parse_args()
     if (args.video is None) == (args.camera_index is None):
         parser.error("Informe um video ou --camera-index")
+    if args.loop and args.video is None:
+        parser.error("--loop so vale com video")
     if args.camera_index is not None and args.camera_index < 0:
         parser.error("--camera-index deve ser zero ou maior")
     if min(args.frames, args.width, args.height, args.timeout) <= 0 or args.warmup < 0 or not 1 <= args.quality <= 100:
