@@ -109,7 +109,8 @@ Nao misture resultados do cliente local e remoto.
   tempos de gestos/pose/maos se sobrepoem; nao some esses valores.
 - `face_detect_ms`, `face_embed_ms`, `face_match_ms`: partes do `faces_ms`, so
   com `FACE_PREFILTER`: deteccao, embedding dos rostos aceitos e comparacao com
-  o cadastro. `face_embeddings` conta os embeddings gerados no frame.
+  o cadastro. `face_embeddings` conta os embeddings gerados no frame, e
+  `face_reused` os rostos que herdaram o nome com `FACE_REUSE_SECONDS`.
 - `process_rss_mb`: RAM residente do processo servidor; `temperature_c`: leitura
   disponivel no host. Ausencia aparece como null e contagem zero no resumo.
 - `detections`: contagem de pessoas, rostos, gestos e alertas por frame. O

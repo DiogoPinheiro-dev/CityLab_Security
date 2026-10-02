@@ -420,8 +420,9 @@ O responsavel reabriu o plano para a acao 7, so na pose: o `det_size` do
 InsightFace ja estava fixo em 320. A pose rodava sem `imgsz`, entao o
 Ultralytics usava 640 e ampliava o frame de 320x240 que sai da `PROCESS_SCALE`.
 Depois da medicao no Pi, no mesmo dia, o responsavel promoveu 416 a padrao do
-perfil rpi3. Na sequencia vieram as 2 threads no rosto, tambem promovidas, e o
-reuso da identidade do rosto, implementado e ainda nao medido no Pi.
+perfil rpi3. Na sequencia vieram as 2 threads no rosto e o reuso da identidade
+do rosto, os dois promovidos; 2 threads no PyTorch e o spinning desligado do
+ONNX Runtime foram medidos e nao entraram.
 
 ### Medicao no PC
 
@@ -588,19 +589,89 @@ frames. Nos outros, o rosto, com cerca de 27 px na imagem processada, andou o
 bastante para a sobreposicao ficar abaixo de metade. A mediana do rosto caiu de
 187 para 40 ms.
 
+### Reuso no Pi - frame 13% mais rapido na media, com uma pessoa em video fixo
+
+Codigo medido: `419ca7f`, que traz `9334b9e` e `d98da86`, conferido no Pi por
+hash e com `--show-config`; as duas series so diferem em `FACE_REUSE_SECONDS`
+no `.env`. Mesmo video e protocolo da serie de threads acima. Resultados em
+`resultados/pi3-419ca7f-video-reuso0/` e `resultados/pi3-419ca7f-video-reuso15/`.
+
+Primeiro, a decomposicao do rosto no Pi, com 2 threads e sem reuso: deteccao
+1173 ms (34%), embedding 2250 ms (66%) e comparacao com o cadastro 0,25 ms, na
+mediana da r1. O reuso corta o embedding.
+
+| Rodada | Sem reuso, media | Com 15 s, media | Diferenca | Mediana com 15 s |
+|---|---|---|---|---|
+| r1 | 4284,3 ms | 3709,3 ms | -13,4% | 3324,7 ms (-22,8%) |
+| r2 | 4270,7 ms | 3710,2 ms | -13,1% | 3359,5 ms (-22,3%) |
+| r3 | 4266,7 ms | 3739,0 ms | -12,4% | 3491,5 ms (-18,6%) |
+
+- **Ganho confirmado** pela media e pela mediana nas tres rodadas; o pior
+  cruzamento da -12,4% na media. Vazao de 0,233 a 0,234 para 0,267 a 0,269
+  FPS. Sem reuso, as medianas foram 4309,0, 4321,5 e 4290,8 ms.
+- **A media e a medida justa**: o frame fica com dois ritmos. Com o nome
+  reaproveitado, 16 dos 30 frames, os mesmos nas tres rodadas, levam cerca de
+  3,2 s; os que reconhecem de novo continuam em cerca de 4,3 s. A mediana cai
+  num ritmo ou no outro conforme a rodada e exagera o ganho.
+- Nos frames com reuso o rosto fica so na deteccao, cerca de 1,2 s, e a pose
+  cai de 3,7 para 2,6 s, porque para de disputar os nucleos. O gesto continua
+  terminando por ultimo em 30/30 nas duas series.
+- **Deteccao**: os mesmos 11 alertas, frame a frame. O rosto aparece como
+  cadastrado em 26/30 contra 25/30: no frame 15 o nome foi herdado de um frame
+  em que o reconhecimento passou, embora sozinho ele ficasse em 0,516, logo
+  abaixo do limite de 0,52. E a consequencia aceita. Um frame que vinha como
+  desconhecido continuou desconhecido.
+- Temperatura maxima de 56,9 a 58,0 C, contra 59,1 a 60,1 C sem reuso. Log de
+  `vcgencmd` da serie sem reuso: `throttled=0x0` nas 378 leituras.
+- A troca de nome entre duas pessoas que trocam de lugar nao aparece num video
+  de uma pessoa e nao foi testada.
+
+### PyTorch com 2 threads - reprovado
+
+No lugar da cadencia propria dos gestos, que pelos numeros acima nao ganharia
+nada, o responsavel pediu medir `TORCH_NUM_THREADS=2` com o reuso ligado, para
+tirar a disputa de nucleos. Base: a serie com reuso acima. Resultado em
+`resultados/pi3-419ca7f-video-torch2/`; uma primeira tentativa rodou com 3
+threads e ficou em `descartadas/`.
+
+- Media de 3620,0 ms contra 3709,3 a 3739,0 ms: -2,4% a -3,2%, abaixo do
+  criterio. Como a r1 ja nao passa, a serie parou nela.
+- O frame fica mais regular, com p95 de 3820,5 ms contra 4343,1 a 4489,2 ms: a
+  pose fica mais lenta nos frames com reuso (cerca de 2,9 s) e mais rapida nos
+  que reconhecem (cerca de 3,2 s). A mediana piora, 3606,8 ms.
+- Fica em 3 threads.
+
+### Spinning do ONNX Runtime desligado - sem efeito
+
+Passo 4 de P1: `ONNX_ALLOW_SPINNING=0` faz as threads do rosto dormirem entre
+operadores em vez de girar a espera (`session.intra_op.allow_spinning`). Entrou
+desligado por padrao em `3ab0547`, junto com a promocao do reuso. Medido com
+esse commit no Pi, conferido por hash, ONNX Runtime 1.23.2. Base: a serie com
+reuso acima. Resultado em `resultados/pi3-3ab0547-video-spin0/`.
+
+- Media de 3733,8 ms contra 3709,3 a 3739,0 ms: igual. Os tempos de cada
+  etapa tambem. A serie parou na r1, e a opcao fica no padrao da biblioteca.
+
+### Decisoes
+
+O responsavel promoveu `FACE_REUSE_SECONDS=15` a padrao do perfil rpi3
+(`3ab0547`); no perfil default segue desligado. PyTorch fica em 3 threads e o
+spinning no padrao. A cadencia propria dos gestos, segunda parte de P5, ficou
+fora: com o gesto ja no caminho critico em todos os frames, separar o rosto nao
+encurta o frame.
+
 ### O que fica aberto
 
-1. Medir o reuso no Pi, depois do deploy de `9334b9e` e `d98da86`: tres
-   rodadas com o reuso desligado e tres com `FACE_REUSE_SECONDS=15`, com o mesmo
-   video. A primeira serie da tambem a decomposicao do rosto no Pi. A troca de
-   identidade entre duas pessoas nao aparece num video de uma pessoa.
-2. Depois do reuso, rever a divisao de threads entre rosto e pose e a cadencia
-   propria dos gestos, a segunda parte de P5.
+1. Teste continuo de 30 a 60 min com o perfil atual (P0), que da para fazer com
+   um video mais longo, sem camera. Com 2 threads no rosto a temperatura sobe
+   uns 6 C; o reuso devolve parte disso.
+2. Com camera: cena vazia, duas pessoas e dois rostos de frente, que nao foram
+   medidos com a pose em 416, 2 threads e o reuso. Duas pessoas trocando de
+   lugar mostram se o reuso troca nomes.
 3. Conferir, nos mesmos frames em 640 e 416, as duas situacoes que mudaram na
    rodada com gesto: de lado e punho levantado. Pede gravar videos novos, como
    os de validacao, e comparar no PC.
-4. Cena vazia, duas pessoas e uso continuo nao foram medidos com a pose em 416
-   nem com 2 threads no rosto. Com 2 threads a temperatura sobe uns 6 C.
+4. P4 e P6 da fila de 01/10, sem acao combinada.
 5. O resto do "Encerramento em 27/09/2026". A acao 7 ficou feita na pose, e o
    item 1 de la ganhou um dado: em rodadas de 3,5 min com uma pessoa o Pi ficou
    em ate 63,9 C, sem atingir o limite de 70 C.
