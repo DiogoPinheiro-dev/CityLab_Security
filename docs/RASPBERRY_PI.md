@@ -121,6 +121,10 @@ O deploy nao reinicia o servico: pare antes do push e suba depois que o
 workflow terminar, como com a API iniciada a mao. O `.env` continua valendo; so
 e preciso reinstalar se o certificado mudar de lugar.
 
+Medido em 02/10/2026: depois de um `kill -9` a API voltou a responder em 1 min
+51 s, e depois de `sudo reboot` ficou pronta em cerca de 2,5 min, sem ninguem
+logar. Quase todo esse tempo e a carga dos modelos.
+
 ## Pipeline parcial
 
 O Raspberry Pi 3 B+ tem pouca memoria e as dependencias de visao sao sensiveis a

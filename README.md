@@ -377,6 +377,10 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   27/09/2026; em 10,5 h seguidas com uma pessoa e o perfil atual, de 01 para
   02/10/2026, o Pi ficou entre 56 e 63,4 C, sem baixar o clock. Ver
   [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
+- **Rede do Pi por Wi-Fi.** Em 02/10/2026 o Wi-Fi se reconectou sozinho e o Pi
+  ficou fora de alcance por uns 9 min, com a API rodando o tempo todo. Foi a
+  unica reconexao em 24 h; a economia de energia do Wi-Fi esta ligada. Cabo de
+  rede evita isso.
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
   globais.
 

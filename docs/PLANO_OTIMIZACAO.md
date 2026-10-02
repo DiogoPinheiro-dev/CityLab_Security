@@ -459,18 +459,56 @@ crescimento para conter. O risco que sobra para ficar ligado sem parar e o
 processo cair, por falta de memoria com mais pessoas, falha ou queda da sessao
 SSH em que a API e iniciada, e ninguem subir de novo.
 
+### API como servico - volta sozinha em menos de 2 min
+
+O responsavel pediu o servico em seguida. `3caba9b` traz
+`tools/citylab-api.service` e `tools/instalar_servico_rpi.sh`: servico do
+usuario `citylab`, com `Restart=always`, 10 s de espera e sem limite de
+tentativas, e linger ligado para rodar sem ninguem logado. Instalado no Pi em
+02/10/2026 as 11:14, com os arquivos conferidos por hash e `Linger=yes`; a API
+respondeu um minuto depois.
+
+- Queda simulada com `pkill -9`, o sinal que o sistema usa quando mata por
+  falta de memoria: o servico subiu outra API 10 s depois, e ela voltou a
+  responder 1 min 51 s depois da queda, quase todo o tempo carregando modelos.
+- Reinicio do Pi com `sudo reboot` as 11:43:12, sem ninguem logar depois: o
+  servico foi iniciado as 11:43:25 e a API ficou pronta as 11:45:41
+  ("Application startup complete" no `journalctl`), cerca de 2,5 min depois do
+  comando.
+- O deploy continua sem reiniciar a API: parar o servico antes do push e subir
+  depois.
+
+### Queda de rede - Wi-Fi reconectado, Pi fora de alcance por 9 min
+
+Logo depois do teste acima, as 11:22:21 pelo relogio do Pi, o Wi-Fi se
+reassociou sozinho ao ponto de acesso da mesma rede, agora na faixa de 5 GHz, e
+renovou o mesmo IP em 3 s. Para o Pi a rede voltou ali; o PC, porem, ficou sem
+alcancar o Pi, nem por ping, SSH ou API, por cerca de 9 min. O mais provavel e o
+roteador, ou o PC, ter continuado mandando pacotes pelo caminho antigo ate a
+tabela de enderecos expirar. O Pi nao reiniciou, a API seguiu rodando com o
+mesmo processo e `throttled` ficou em `0x0`.
+
+- Foi a unica reassociacao no registro desde 01/10 as 11:20, incluindo a noite
+  de teste, sem nenhuma pausa no stream.
+- A economia de energia do Wi-Fi esta ligada (`Power save: on`), causa comum de
+  reconexoes no Raspberry Pi.
+- Decisao do responsavel: deixar a rede como esta, como risco conhecido. As
+  opcoes eram cabo de rede, a mais firme, ou desligar a economia de energia.
+
 ### O que fica aberto
 
-1. Rodar a API como servico do sistema (systemd): sobe com o Pi, volta sozinha
-   se cair e nao depende de sessao SSH. Proposta, sem acao combinada.
-2. Com camera: cena vazia, duas pessoas, dois rostos de frente e duas pessoas
+1. Com camera: cena vazia, duas pessoas, dois rostos de frente e duas pessoas
    trocando de lugar, que mostra se o reuso troca nomes.
-3. Conferir, nos mesmos frames em 640 e 416, as situacoes de lado e punho
+2. Conferir, nos mesmos frames em 640 e 416, as situacoes de lado e punho
    levantado, com videos novos.
-4. Testes de dias, depois que a API rodar como servico. Reinicio programado ou
-   limpeza de memoria so se aparecer crescimento.
-5. P4 e P6 da fila de 01/10, sem acao combinada.
-6. O resto do "Encerramento em 27/09/2026".
+3. Testes de dias, agora com a API como servico. Reinicio programado ou limpeza
+   de memoria so se aparecer crescimento.
+4. Rede: Wi-Fi com economia de energia e uma queda de 9 min em 24 h, mantido
+   por decisao do responsavel.
+5. Deploy automatico: o workflow poderia parar e subir o servico sozinho, sem
+   `sudo`, por ser servico do usuario. Proposta, sem acao combinada.
+6. P4 e P6 da fila de 01/10, sem acao combinada.
+7. O resto do "Encerramento em 27/09/2026".
 
 ## Estado verificado em 01/10/2026
 
