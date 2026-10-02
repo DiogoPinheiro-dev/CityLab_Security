@@ -225,6 +225,16 @@ class RpiProfileTests(unittest.TestCase):
         self.assertIn("enable-linger", installer)
         self.assertIn("systemctl --user enable --now citylab-api.service", installer)
 
+    def test_deploy_stops_the_api_first_and_always_starts_it_again(self):
+        workflow = Path(".github/workflows/deploy.yml").read_text(encoding="utf-8")
+        stop = workflow.index("systemctl --user stop citylab-api.service")
+        start = workflow.index("systemctl --user start citylab-api.service")
+        # Para antes da sincronizacao e da instalacao, que nao cabem com a API.
+        self.assertLess(stop, workflow.index("rsync"))
+        self.assertLess(workflow.index("pip install"), start)
+        # O passo de subir roda mesmo se a instalacao falhar.
+        self.assertIn("if: always()", workflow[workflow.index("Start API service"):start])
+
     def test_benchmark_loop_rewinds_the_video_only_when_asked(self):
         class Capture:
             def __init__(self):

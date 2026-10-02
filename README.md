@@ -35,15 +35,16 @@ gesto em paralelo sobre o mesmo frame.
 
 - `main`: branch estavel. Um push nela dispara
   [.github/workflows/deploy.yml](.github/workflows/deploy.yml), que roda no
-  runner self-hosted do proprio Pi: sincroniza os arquivos em
-  `/home/citylab/CityLab_Security` e instala as dependencias em `citylab_venv`.
-  O workflow nao reinicia a API.
+  runner self-hosted do proprio Pi: para o servico da API, sincroniza os
+  arquivos em `/home/citylab/CityLab_Security`, instala as dependencias em
+  `citylab_venv` e sobe o servico de novo, mesmo se a instalacao falhar.
 - outras branches: features, correcoes e experimentos.
 
-No Pi 3 B+, pare a API antes do push: com 1 GB de RAM o deploy disputa memoria
-com ela, e o runner ja caiu num deploy feito com a API rodando. Com a API como
-servico, `systemctl --user stop citylab-api` antes do push e `start` depois do
-deploy.
+No Pi 3 B+ a API nao pode rodar durante o deploy: com 1 GB de RAM ele disputa
+memoria com ela, e o runner ja caiu num deploy feito com a API rodando. Com a
+API como servico, o workflow cuida disso; com ela iniciada a mao, pare antes do
+push. As dependencias vao para `citylab_venv`, nao para o `.venv` que a API
+usa: uma dependencia nova precisa ser instalada no `.venv` a mao.
 
 ## Requisitos e instalacao
 

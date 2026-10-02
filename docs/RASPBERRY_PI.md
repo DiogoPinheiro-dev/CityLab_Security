@@ -112,14 +112,15 @@ estar logado. Depois:
 
 ```bash
 systemctl --user status citylab-api     # estado
-systemctl --user stop citylab-api       # parar, por exemplo antes de um push
+systemctl --user stop citylab-api       # parar
 systemctl --user start citylab-api      # subir de novo
 journalctl --user-unit citylab-api -f   # log; se vier vazio, use sudo
 ```
 
-O deploy nao reinicia o servico: pare antes do push e suba depois que o
-workflow terminar, como com a API iniciada a mao. O `.env` continua valendo; so
-e preciso reinstalar se o certificado mudar de lugar.
+O deploy para o servico antes de sincronizar e instalar, e sobe de novo no fim,
+mesmo se a instalacao falhar; funciona sem `sudo` porque o runner roda com o
+mesmo usuario `citylab`. O `.env` continua valendo; so e preciso reinstalar se
+o certificado mudar de lugar.
 
 Medido em 02/10/2026: depois de um `kill -9` a API voltou a responder em 1 min
 51 s, e depois de `sudo reboot` ficou pronta em cerca de 2,5 min, sem ninguem

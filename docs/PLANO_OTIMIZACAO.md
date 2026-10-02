@@ -505,8 +505,11 @@ mesmo processo e `throttled` ficou em `0x0`.
    de memoria so se aparecer crescimento.
 4. Rede: Wi-Fi com economia de energia e uma queda de 9 min em 24 h, mantido
    por decisao do responsavel.
-5. Deploy automatico: o workflow poderia parar e subir o servico sozinho, sem
-   `sudo`, por ser servico do usuario. Proposta, sem acao combinada.
+5. Deploy automatico, pedido pelo responsavel em 02/10/2026: o workflow para o
+   servico antes de sincronizar e instalar e o sobe no fim, mesmo se a
+   instalacao falhar. O runner roda como `citylab`, o mesmo usuario do servico,
+   entao nao precisa de `sudo`. Falta conferir no primeiro deploy com ele. As
+   dependencias seguem indo para `citylab_venv`, e nao para o `.venv` da API.
 6. P4 e P6 da fila de 01/10, sem acao combinada.
 7. O resto do "Encerramento em 27/09/2026".
 

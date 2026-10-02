@@ -12,6 +12,18 @@ jobs:
       DEPLOY_DIR: /home/citylab/CityLab_Security
 
     steps:
+    # A API roda como servico do usuario citylab, o mesmo do runner
+    # (tools/instalar_servico_rpi.sh). Com 1 GB de RAM, a instalacao de
+    # dependencias nao cabe junto com ela.
+    - name: Stop API service
+      run: |
+        export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+        if systemctl --user cat citylab-api.service >/dev/null 2>&1; then
+          systemctl --user stop citylab-api.service
+        else
+          echo "Servico citylab-api nao instalado: pare a API a mao antes do push."
+        fi
+
     - name: Check out repository
       uses: actions/checkout@v4
 
@@ -39,6 +51,12 @@ jobs:
         python -c "import cv2; import mediapipe"
         python -m pip check
 
-    # - name: Restart Application
-    #   run: |
-    #     sudo systemctl restart citylab.service
+    # Sobe mesmo se um passo anterior falhar: o sistema nao pode ficar sem API.
+    - name: Start API service
+      if: always()
+      run: |
+        export XDG_RUNTIME_DIR="/run/user/$(id -u)"
+        if systemctl --user cat citylab-api.service >/dev/null 2>&1; then
+          systemctl --user start citylab-api.service
+          systemctl --user --no-pager --lines=0 status citylab-api.service
+        fi
