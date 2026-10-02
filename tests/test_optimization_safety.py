@@ -134,7 +134,8 @@ class FaceOptimizationTests(unittest.TestCase):
                          DEBUG_PIPELINE=True, FACE_MIN_WIDTH=40, FACE_MIN_HEIGHT=40,
                          FACE_MIN_CONFIDENCE=.45, FACE_MINIMAL_MODULES=True,
                          FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
-                         FACE_REUSE_SECONDS=0.0, Face=SimpleNamespace, np=numpy_stub)
+                         ONNX_ALLOW_SPINNING=True, FACE_REUSE_SECONDS=0.0,
+                         Face=SimpleNamespace, np=numpy_stub)
         service = cls.__new__(cls)
         service.prefilter = prefilter
         service.debug_pipeline = True
@@ -308,7 +309,7 @@ class FaceOptimizationTests(unittest.TestCase):
                                  minimal_modules=minimal, onnx_threads=2)
             self.assertEqual(factory.call_args.kwargs["allowed_modules"],
                              ["detection", "recognition"] if minimal else None)
-            configure.assert_called_once_with(app, 2)
+            configure.assert_called_once_with(app, 2, allow_spinning=True)
             app.prepare.assert_called_once_with(ctx_id=0, det_size=(320, 320))
             # O cadastro continua usando get na imagem completa, sem o filtro do stream.
             self.assertEqual(len(service.app_insight.get(frame.processing_frame)), 1)
@@ -363,6 +364,25 @@ class ThreadConfigurationTests(unittest.TestCase):
         self.assertEqual(kwargs["providers"], ["CPUExecutionProvider"])
         self.assertEqual(kwargs["provider_options"], [{}])
         self.assertIs(model.session, ort.InferenceSession.return_value)
+
+    def test_spinning_is_turned_off_only_when_asked(self):
+        class Options:
+            def __init__(self):
+                self.entries = {}
+
+            def add_session_config_entry(self, key, value):
+                self.entries[key] = value
+
+        for allow, expected in ((True, {}), (False, {"session.intra_op.allow_spinning": "0"})):
+            old = SimpleNamespace(get_providers=lambda: ["CPUExecutionProvider"],
+                                  get_provider_options=lambda: {})
+            model = SimpleNamespace(session=old, model_file="same.onnx")
+            ort = SimpleNamespace(SessionOptions=Options, InferenceSession=Mock())
+            with patch.dict(sys.modules, {"onnxruntime": ort}):
+                configure_insight_threads(SimpleNamespace(models={"recognition": model}), 2,
+                                          allow_spinning=allow)
+            self.assertEqual(ort.InferenceSession.call_args.kwargs["sess_options"].entries,
+                             expected)
 
 
 if __name__ == "__main__":

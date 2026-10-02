@@ -25,8 +25,9 @@ Mescle `.env.rpi.example` no `.env` existente, preservando as credenciais.
 Nao sobrescreva seu arquivo de ambiente inteiro. O perfil escolhe ONNX=2,
 PyTorch=3 e OpenCV=1 thread, um frame pendente no cliente, a passada unica de
 pessoas e pose (`PIPELINE_SHARED_PERSON_POSE`), o gate de movimento antes da
-pose (`GESTURE_MOTION_GATE`) e a pose em 416 px (`POSE_IMGSZ`), em vez dos 640
-do Ultralytics. Nao desativa reconhecimento nem reduz a
+pose (`GESTURE_MOTION_GATE`), a pose em 416 px (`POSE_IMGSZ`), em vez dos 640
+do Ultralytics, e o reuso por 15 s do nome de um rosto que continua no mesmo
+lugar (`FACE_REUSE_SECONDS`). Nao desativa reconhecimento nem reduz a
 qualidade da imagem. Qualquer valor explicito dessas variaveis no ambiente tem
 precedencia; confira tambem `Server/.env`.
 
@@ -56,14 +57,15 @@ nao garantem um total fixo de threads de todas as bibliotecas.
 O perfil completo foi medido no Pi entre 21 e 27/09/2026: -56% com uma pessoa,
 -63% com duas e -69% na cena vazia, sem perda de deteccao (ver
 `docs/PLANO_OTIMIZACAO.md`). A pose em 416 px entrou no perfil em 01/10/2026,
-depois de deixar o frame com uma pessoa 6% mais rapido, e as 2 threads do ONNX
-Runtime no mesmo dia, com mais 20% num video fixo de uma pessoa; cena vazia e
-duas pessoas nao foram medidas com elas. Os ajustes individuais nao foram medidos
-isoladamente. Para comparar uma mudanca por vez, use `CITYLAB_PROFILE=default`
-e ajuste individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
+depois de deixar o frame com uma pessoa 6% mais rapido, e no mesmo dia as 2
+threads do ONNX Runtime, com mais 20% num video fixo de uma pessoa, e o reuso
+do nome do rosto, com mais 13% na media; cena vazia e duas pessoas nao foram
+medidas com eles. Os ajustes individuais nao foram medidos isoladamente. Para
+comparar uma mudanca por vez, use `CITYLAB_PROFILE=default` e ajuste
+individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
 `OPENCV_NUM_THREADS`, `MAX_IN_FLIGHT_FRAMES`, `PIPELINE_SHARED_PERSON_POSE`,
-`GESTURE_MOTION_GATE` e `POSE_IMGSZ`. Reinicie o servidor e recarregue
-o cliente quando mudar o limite de frames. Para voltar ao automatico, use
+`GESTURE_MOTION_GATE`, `POSE_IMGSZ` e `FACE_REUSE_SECONDS`. Reinicie o servidor
+e recarregue o cliente quando mudar o limite de frames. Para voltar ao automatico, use
 perfil default e remova os overrides, ou defina as tres opcoes de threads em 0.
 O carregamento ajustado de ONNX libera a referencia da sessao antiga antes de
 recria-la; ainda e necessario medir RAM nativa no hardware.

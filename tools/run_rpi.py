@@ -50,8 +50,9 @@ def main(argv=None):
     native = prepare_native_environment(settings.NATIVE_NUM_THREADS)
     # Lista explicita: nunca imprimir credenciais ou todo o ambiente.
     config = {name: getattr(settings, name) for name in (
-        "CITYLAB_PROFILE", "ONNX_INTRA_OP_THREADS", "TORCH_NUM_THREADS",
-        "OPENCV_NUM_THREADS", "NATIVE_NUM_THREADS", "PIPELINE_RUN_IN_PARALLEL",
+        "CITYLAB_PROFILE", "ONNX_INTRA_OP_THREADS", "ONNX_ALLOW_SPINNING",
+        "TORCH_NUM_THREADS", "OPENCV_NUM_THREADS", "NATIVE_NUM_THREADS",
+        "PIPELINE_RUN_IN_PARALLEL",
         "PIPELINE_MAX_WORKERS", "PIPELINE_SHARED_PERSON_POSE", "GESTURE_MOTION_GATE",
         "GESTURE_PUBLISH_MIN_CONFIDENCE", "FACE_MINIMAL_MODULES", "FACE_PREFILTER",
         "MAX_IN_FLIGHT_FRAMES", "PROCESS_SCALE", "POSE_IMGSZ", "FACE_REUSE_SECONDS",

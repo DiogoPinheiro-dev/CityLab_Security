@@ -33,13 +33,16 @@ class RpiProfileTests(unittest.TestCase):
                          [2, 3, 1, 1])
         for name in ("PROCESS_SCALE", "STREAM_WIDTH", "STREAM_HEIGHT", "JPEG_QUALITY",
                      "FACE_MIN_CONFIDENCE", "FACE_MIN_WIDTH", "FACE_MIN_HEIGHT",
-                     "GESTURE_PUBLISH_MIN_CONFIDENCE", "POSE_MODEL_PATH",
-                     "FACE_REUSE_SECONDS"):
+                     "GESTURE_PUBLISH_MIN_CONFIDENCE", "POSE_MODEL_PATH"):
             self.assertEqual(pi[name], normal[name])
 
-    def test_face_reuse_is_opt_in_until_measured(self):
-        self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3")["FACE_REUSE_SECONDS"], 0.0)
-        self.assertEqual(self.settings(FACE_REUSE_SECONDS="15")["FACE_REUSE_SECONDS"], 15.0)
+    def test_face_reuse_is_15_seconds_only_on_the_pi(self):
+        # Medido so no rpi3; o perfil default reconhece todo rosto em todo frame.
+        self.assertEqual(self.settings()["FACE_REUSE_SECONDS"], 0.0)
+        self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3")["FACE_REUSE_SECONDS"], 15.0)
+        # Zero explicito desliga, para comparar no Pi com o mesmo codigo.
+        self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3",
+                                       FACE_REUSE_SECONDS="0")["FACE_REUSE_SECONDS"], 0.0)
         self.assertEqual(self.settings(FACE_REUSE_SECONDS="-3")["FACE_REUSE_SECONDS"], 0.0)
 
     def test_pose_input_size_is_416_only_on_the_pi(self):
@@ -159,7 +162,9 @@ class RpiProfileTests(unittest.TestCase):
         self.assertEqual(configured["GESTURE_PUBLISH_MIN_CONFIDENCE"], 0.25)
         # Mostra o tamanho da pose, para a rodada no Pi registrar qual valeu.
         self.assertEqual(configured["POSE_IMGSZ"], 416)
-        self.assertEqual(configured["FACE_REUSE_SECONDS"], 0.0)
+        self.assertEqual(configured["FACE_REUSE_SECONDS"], 15.0)
+        # Spinning so muda pelo .env, enquanto esta em avaliacao.
+        self.assertIs(configured["ONNX_ALLOW_SPINNING"], True)
         self.assertNotIn("segredo", output.getvalue())
 
     def test_launcher_validates_and_forwards_the_tls_pair(self):

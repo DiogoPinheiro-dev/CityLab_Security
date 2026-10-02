@@ -47,7 +47,7 @@ def ensure_torch_threads(count: int) -> int:
     return current
 
 
-def configure_insight_threads(app, count: int) -> None:
+def configure_insight_threads(app, count: int, allow_spinning: bool = True) -> None:
     if count <= 0:
         return
     import onnxruntime as ort
@@ -58,6 +58,10 @@ def configure_insight_threads(app, count: int) -> None:
         previous = model.session
         options = ort.SessionOptions()
         options.intra_op_num_threads = count
+        if not allow_spinning:
+            # Threads intra-op dormem entre operadores em vez de girar a espera:
+            # menos CPU tomada da pose, com algum custo para acordar.
+            options.add_session_config_entry("session.intra_op.allow_spinning", "0")
         providers = previous.get_providers()
         provider_options = previous.get_provider_options()
         # No Pi de 1 GB, nao manter duas copias da sessao durante a troca.
@@ -71,4 +75,5 @@ def configure_insight_threads(app, count: int) -> None:
             providers=providers,
             provider_options=[provider_options.get(provider, {}) for provider in providers],
         )
-    logger.info("InsightFace intra-op threads por sessao: %s", count)
+    logger.info("InsightFace intra-op threads por sessao: %s, spinning: %s",
+                count, allow_spinning)

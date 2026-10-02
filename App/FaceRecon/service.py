@@ -11,7 +11,8 @@ from ultralytics import YOLO  # type: ignore
 from App.frame_context import FrameContext
 from App.settings import (DEBUG_PIPELINE, FACE_MIN_CONFIDENCE, FACE_MIN_HEIGHT,
                           FACE_MIN_WIDTH, FACE_MINIMAL_MODULES, FACE_PREFILTER,
-                          FACE_REUSE_SECONDS, ONNX_INTRA_OP_THREADS)
+                          FACE_REUSE_SECONDS, ONNX_ALLOW_SPINNING,
+                          ONNX_INTRA_OP_THREADS)
 from App.inference_runtime import configure_insight_threads
 
 
@@ -38,6 +39,7 @@ class FaceRecognitionService:
         prefilter: bool = FACE_PREFILTER,
         onnx_threads: int = ONNX_INTRA_OP_THREADS,
         reuse_seconds: float = FACE_REUSE_SECONDS,
+        onnx_allow_spinning: bool = ONNX_ALLOW_SPINNING,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -73,7 +75,8 @@ class FaceRecognitionService:
             providers=insight_providers or ["CPUExecutionProvider"],
             allowed_modules=["detection", "recognition"] if minimal_modules else None,
         )
-        configure_insight_threads(self.app_insight, onnx_threads)
+        configure_insight_threads(self.app_insight, onnx_threads,
+                                  allow_spinning=onnx_allow_spinning)
         self.app_insight.prepare(ctx_id=0, det_size=insight_det_size)
         self.latest_metrics: dict[str, float] = {
             "faces_ms": 0.0,

@@ -84,8 +84,9 @@ credenciais.
 `CITYLAB_PROFILE=rpi3` escolhe 2 threads para o ONNX Runtime, 3 para o PyTorch e
 1 para o OpenCV, e um frame pendente por vez no cliente. Tambem liga a passada
 unica de pessoas e pose e o gate de movimento, que pula a pose quando a cena
-esta parada e desocupada, e roda a pose em 416 px em vez de 640. Um valor
-explicito no ambiente sempre prevalece sobre o perfil.
+esta parada e desocupada, roda a pose em 416 px em vez de 640 e deixa um rosto
+no mesmo lugar herdar por ate 15 s o nome ja reconhecido. Um valor explicito no
+ambiente sempre prevalece sobre o perfil.
 
 Resultado medido no Pi com webcam, tres rodadas por cenario, mediana do tempo
 por frame:
@@ -102,8 +103,9 @@ antes do ajuste de threads do PyTorch, que so afeta frames com pose. Uma pessoa
 foi medida em 01/10/2026, com a pose em 416 px, padrao do perfil desde entao, e
 o limite de temperatura em 70 C; as outras cenas, com a pose em 640 e o limite
 de 60 C. Depois disso, ainda em 01/10, as 2 threads do ONNX Runtime deixaram o
-frame com uma pessoa 20% mais rapido num video fixo, de 5,33 para 4,29 s; com a
-webcam, nao foram medidas. Com 60 C, sob carga continua o firmware baixa o
+frame com uma pessoa 20% mais rapido num video fixo, de 5,33 para 4,29 s, e o
+reuso da identidade do rosto tirou mais 13% na media, para 3,72 s; com a
+webcam, nao foram medidos. Com 60 C, sob carga continua o firmware baixa o
 clock para 1,2 GHz, o que custa de 3% a 7%; um dissipador com ventoinha evita
 isso. Detalhes em
 [docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md) e
@@ -337,6 +339,11 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   para rendicao e mao oculta e 13 a 18 s para braco estendido. Os limiares de
   0,20 a 0,40 s so pesam com vazao alta. Conferido no Pi em 30/09/2026, numa
   rodada com gesto.
+- **Nome herdado pelo rosto.** No perfil rpi3, um rosto no mesmo lugar herda
+  por ate 15 s o nome ja reconhecido, sem reconhecer de novo, inclusive o de
+  desconhecido. Nesse intervalo o nome aparece mesmo num frame em que o
+  reconhecimento falharia, e a troca de nome entre duas pessoas que trocam de
+  lugar nao foi testada. `FACE_REUSE_SECONDS=0` volta a reconhecer todo frame.
 - **Pose em 416 px.** Na rodada com gesto em 416, a mao oculta de lado nao
   disparou e o punho levantado disparou um frame depois do que em 640. Com 6
   frames por situacao e a pessoa em outra posicao, nao deu para separar o
