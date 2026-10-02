@@ -211,6 +211,20 @@ class RpiProfileTests(unittest.TestCase):
         self.assertEqual(known_faces(payload), 1)
         self.assertNotIn("privado", json.dumps(data))
 
+    def test_service_keeps_the_api_up_without_a_terminal(self):
+        unit = Path("tools/citylab-api.service").read_text(encoding="utf-8")
+        installer = Path("tools/instalar_servico_rpi.sh").read_text(encoding="utf-8")
+        # Volta sozinha, sem limite de tentativas, e sobe com o Pi.
+        for line in ("Restart=always", "StartLimitIntervalSec=0", "WantedBy=default.target",
+                     "ExecStart=@REPO@/.venv/bin/python tools/run_rpi.py"):
+            self.assertIn(line, unit)
+        for marker in ("@REPO@", "@CERT@", "@KEY@"):
+            self.assertIn(marker, unit)
+            self.assertIn(marker, installer)
+        # Linger: o servico do usuario roda sem ele logado.
+        self.assertIn("enable-linger", installer)
+        self.assertIn("systemctl --user enable --now citylab-api.service", installer)
+
     def test_benchmark_loop_rewinds_the_video_only_when_asked(self):
         class Capture:
             def __init__(self):

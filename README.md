@@ -41,7 +41,9 @@ gesto em paralelo sobre o mesmo frame.
 - outras branches: features, correcoes e experimentos.
 
 No Pi 3 B+, pare a API antes do push: com 1 GB de RAM o deploy disputa memoria
-com ela, e o runner ja caiu num deploy feito com a API rodando.
+com ela, e o runner ja caiu num deploy feito com a API rodando. Com a API como
+servico, `systemctl --user stop citylab-api` antes do push e `start` depois do
+deploy.
 
 ## Requisitos e instalacao
 
@@ -138,6 +140,10 @@ carregar modelos nem conectar ao banco:
 ```
 
 A saida lista so opcoes de desempenho, nunca credenciais.
+
+Para uso continuo, sem depender de um terminal aberto, instale a API como
+servico, que sobe com o Pi e volta sozinha se cair: ver "Rodar como servico" em
+[docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 
 ### Enderecos
 

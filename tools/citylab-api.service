@@ -1,0 +1,19 @@
+# Servico de usuario da API no Raspberry Pi. Nao use direto: o
+# tools/instalar_servico_rpi.sh troca os marcadores @REPO@, @CERT@ e @KEY@ e
+# instala o resultado em ~/.config/systemd/user/.
+[Unit]
+Description=CityLab Security API (perfil rpi3)
+# Sem limite de tentativas: a API deve ficar no ar sem parar.
+StartLimitIntervalSec=0
+
+[Service]
+Type=simple
+WorkingDirectory=@REPO@
+ExecStart=@REPO@/.venv/bin/python tools/run_rpi.py --host 0.0.0.0 --port 8000 --ssl-certfile @CERT@ --ssl-keyfile @KEY@
+Environment=PYTHONUNBUFFERED=1
+Restart=always
+# Da tempo para o sistema recolher a memoria do processo que caiu.
+RestartSec=10
+
+[Install]
+WantedBy=default.target

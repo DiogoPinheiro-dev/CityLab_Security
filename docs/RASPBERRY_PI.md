@@ -95,6 +95,32 @@ Suba a API com o inicializador do perfil, descrito acima:
 python tools/run_rpi.py --host 0.0.0.0 --port 8000
 ```
 
+## Rodar como servico (uso continuo)
+
+Para a API ficar no ar sem parar, instale-a como servico do usuario `citylab`:
+ela sobe quando o Pi liga, volta sozinha 10 s depois de cair, por erro ou por
+falta de memoria, e nao depende de sessao SSH. Uma vez so, na raiz do projeto:
+
+```bash
+bash tools/instalar_servico_rpi.sh CAMINHO/certificado.pem CAMINHO/chave.pem
+```
+
+O script recusa instalar se houver uma API iniciada a mao rodando, porque as
+duas disputariam a porta 8000. Pede `sudo` uma vez, para o
+`loginctl enable-linger`, que deixa os servicos do usuario rodarem sem ele
+estar logado. Depois:
+
+```bash
+systemctl --user status citylab-api     # estado
+systemctl --user stop citylab-api       # parar, por exemplo antes de um push
+systemctl --user start citylab-api      # subir de novo
+journalctl --user-unit citylab-api -f   # log; se vier vazio, use sudo
+```
+
+O deploy nao reinicia o servico: pare antes do push e suba depois que o
+workflow terminar, como com a API iniciada a mao. O `.env` continua valendo; so
+e preciso reinstalar se o certificado mudar de lugar.
+
 ## Pipeline parcial
 
 O Raspberry Pi 3 B+ tem pouca memoria e as dependencias de visao sao sensiveis a
