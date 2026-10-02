@@ -660,21 +660,51 @@ spinning no padrao. A cadencia propria dos gestos, segunda parte de P5, ficou
 fora: com o gesto ja no caminho critico em todos os frames, separar o rosto nao
 encurta o frame.
 
+### Teste continuo de 33,6 min - estavel
+
+Parte de P0 que nao precisa de camera. Codigo `3ab0547` no Pi, so o perfil
+rpi3 no `.env` (pose em 416, 2 threads no rosto, 3 no PyTorch, reuso de 15 s),
+API reiniciada antes. Uma conexao so, 5 frames de aquecimento e 535 medidos, com
+os 36 frames do video de carga repetidos 15 vezes; no Pi, um registro a cada 5
+a 6 s com `vcgencmd`, `free` e `vmstat`. Resultado em
+`resultados/pi3-3ab0547-video-continuo/`.
+
+- **Velocidade estavel**: media de 3766,8 ms e 0,265 FPS no total. Cada volta
+  de 36 frames ficou entre 3738 e 3792 ms, 3775 ms na primeira completa e 3768
+  ms na ultima, sem piora ao longo da rodada. Igual as rodadas curtas com reuso.
+- **Deteccao estavel**: pessoa, rosto e gesto em 535/535; em toda volta
+  completa, 18 rostos reaproveitados, 32 reconhecidos como cadastrados e 12
+  alertas.
+- **Temperatura**: sobe ate 59 a 61 C em uns 10 min e fica ali; maxima de 62,3
+  C. `throttled=0x0` nas 532 leituras do registro.
+- **Memoria**: o swap ja estava em 255 MB antes da rodada, chegou a 302 MB e
+  terminou em 267 MB; a memoria disponivel minima foi 150 MB, no inicio. Houve
+  troca com o swap em 34 de 532 leituras (`si` ate 8156 KiB/s) e saida para ele
+  em 4 (`so` ate 10568 KiB/s): rajadas, nao troca continua, e sem efeito
+  visivel no tempo dos frames. O `process_rss_mb` da API caiu de cerca de 686
+  para 573 a 588 MB na 12a volta, quando o swap ja estava descendo; parece
+  memoria devolvida pelo proprio processo, mas sem o swap por processo nao da
+  para afirmar.
+- Uma rodada de 33,6 min nao prova horas de uso; a primeira janela ficou
+  estavel, como pede P0 para estender.
+
 ### O que fica aberto
 
-1. Teste continuo de 30 a 60 min com o perfil atual (P0), que da para fazer com
-   um video mais longo, sem camera. Com 2 threads no rosto a temperatura sobe
-   uns 6 C; o reuso devolve parte disso.
-2. Com camera: cena vazia, duas pessoas e dois rostos de frente, que nao foram
+1. Com camera: cena vazia, duas pessoas e dois rostos de frente, que nao foram
    medidos com a pose em 416, 2 threads e o reuso. Duas pessoas trocando de
    lugar mostram se o reuso troca nomes.
+2. Uso continuo: o responsavel definiu em 01/10/2026 que o sistema deve ficar
+   ligado sem parar. Falta um teste de horas, e a memoria e o ponto de atencao:
+   o swap passa de 250 MB. Hoje a API e iniciada a mao num terminal SSH, entao
+   cair a conexao derruba a API.
 3. Conferir, nos mesmos frames em 640 e 416, as duas situacoes que mudaram na
    rodada com gesto: de lado e punho levantado. Pede gravar videos novos, como
    os de validacao, e comparar no PC.
 4. P4 e P6 da fila de 01/10, sem acao combinada.
 5. O resto do "Encerramento em 27/09/2026". A acao 7 ficou feita na pose, e o
-   item 1 de la ganhou um dado: em rodadas de 3,5 min com uma pessoa o Pi ficou
-   em ate 63,9 C, sem atingir o limite de 70 C.
+   item 1 de la ganhou dados: em rodadas de 3,5 min com uma pessoa o Pi ficou em
+   ate 63,9 C, e em 33,6 min seguidos com o perfil atual, em ate 62,3 C, sem
+   atingir o limite de 70 C.
 
 ## Encerramento em 27/09/2026
 
