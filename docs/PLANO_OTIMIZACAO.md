@@ -518,16 +518,63 @@ apagava os antigos. O banco crescia sem limite. O responsavel escolheu 30 dias.
   indice falhando. Sem MongoDB no PC, a criacao do indice de verdade fica para
   o deploy: o log da API mostra a retencao aplicada ou o aviso.
 
+### NCNN na pose (P2) - igual ao PyTorch com a entrada retangular
+
+Com o gesto no caminho critico em todos os frames, a pose e a maior parte do
+tempo que sobrou: cerca de 2,65 s dos 3,4 s do frame com o nome reaproveitado.
+O responsavel tinha deixado o P2 de fora em 01/10 e o pos de volta na ordem
+de 03/10, por ultimo.
+
+- Exportado no PC com Ultralytics 8.3.226, PyTorch 2.9.0, pnnx 20260526 e ncnn
+  1.0.20260526, em FP32, do mesmo `yolov8n-pose.pt` (sha256 `c6fa93dd...d212`).
+  O controle de aplicativos do Windows bloqueava a DLL do `ncnn`; o
+  responsavel o desligou.
+- Primeiro quadrado, em 416x416, como o export sai por padrao. Nos 18 videos
+  de validacao (5.400 frames), contra a extracao `json-pose416` do `.pt`: a
+  pessoa nos mesmos frames e os keypoints a 0,45% da altura da caixa na
+  mediana, mas a mao oculta caiu de 182 para 152 fases, e a rendicao falsa na
+  ameaca subiu de 11 para 32.
+- O `.pt` com a mesma entrada quadrada (`rect=False`) deu exatamente os mesmos
+  numeros do NCNN quadrado: a perda vem da forma, nao do NCNN. O `.pt` roda o
+  frame de 320x240 em 416 como 320x416, com 4 px de preenchimento; o quadrado
+  acrescenta 52 px em cima e embaixo.
+- Exportado em 320x416, o NCNN repete o `.pt`: keypoints iguais ate a quinta
+  casa decimal, caixas com IoU de 1,000 e os mesmos alertas nas seis
+  situacoes. No servico de verdade, com o rastreador, os 36 frames do video de
+  carga sairam iguais em track, caixa e alertas.
+
+| Alerta esperado, fases de 186 | `.pt` 320x416 | `.pt` 416x416 | NCNN 416x416 | NCNN 320x416 |
+|---|---|---|---|---|
+| Mao oculta | 182 | 152 | 152 | 182 |
+| Rendicao | 168 | 170 | 170 | 168 |
+| Mao fechada na ameaca | 185 | 186 | 186 | 185 |
+| Ameaca | 48 | 48 | 48 | 48 |
+
+- Codigo: o servico de gestos usa a forma do `metadata.yaml` de um modelo
+  exportado, em vez do `POSE_IMGSZ`, e para na subida se o modelo for NCNN e o
+  pacote `ncnn` faltar; sem ele, o Ultralytics tentaria compilar o ncnn a
+  partir do Git. `tools/export_pose_ncnn.py` aceita altura e largura
+  (`--imgsz 320 416`).
+- A pasta exportada fica fora do Git, como o `.gitignore` ja previa, e vai para
+  o Pi a mao; o deploy nao a apaga. sha256 do `model.ncnn.param`
+  `aaa7f61e...7cb3` e do `model.ncnn.bin` `d74d660a...d004`.
+- No PC o tempo nao serve de referencia: o gesto ficou em 79 ms com o NCNN e
+  73 ms com o `.pt`. O NCNN usa por padrao uma thread por nucleo fisico, 4 no
+  Pi, sem o limite do PyTorch, e vai disputar a CPU com o rosto.
+
 ### O que fica aberto
 
 1. Medir no Pi, com o video de carga, sem precisar de duas pessoas:
    - o padrao contra `FACE_EMBED_FULL_FRAME=1` no `.env`;
    - o frame com a thread de inferencia, contra as series de 01 e 02/10, e um
      GET repetido durante o stream;
+   - a pose em NCNN contra o `.pt`: instalar o `ncnn`, copiar a pasta e ligar o
+     `POSE_MODEL_PATH`, conforme `docs/RASPBERRY_PI.md`; se ganhar, comparar
+     as threads do NCNN;
    - depois de recadastrar com 3 a 5 fotos e tirar o cadastro antigo do banco,
      a semelhanca de novo.
 2. Conferir no log do deploy que a retencao de 30 dias foi aplicada.
-3. A seguir na ordem combinada: o NCNN na pose.
+3. A ordem combinada em 03/10 terminou; o resto da lista de 02/10 continua.
 
 ## Estado verificado em 02/10/2026
 

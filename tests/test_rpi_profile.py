@@ -267,6 +267,33 @@ class RpiProfileTests(unittest.TestCase):
         # O passo de subir roda mesmo se a instalacao falhar.
         self.assertIn("if: always()", workflow[workflow.index("Start API service"):start])
 
+    def test_ncnn_export_takes_one_side_or_height_and_width(self):
+        from tools.export_pose_ncnn import main as export_ncnn
+        calls = []
+
+        class Model:
+            def __init__(self, path, task):
+                self.task = task
+
+            def export(self, **options):
+                calls.append(options)
+                return "ok"
+
+        with tempfile.TemporaryDirectory() as folder, patch.dict(
+                sys.modules, {"ultralytics": SimpleNamespace(YOLO=Model)}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            weight = Path(folder) / "pose.pt"
+            weight.write_bytes(b"")
+            # rpi3: o frame 4:3 entra na pose como 320x416; quadrado perdia alerta.
+            export_ncnn([str(weight), "--imgsz", "320", "416"])
+            export_ncnn([str(weight), "--imgsz", "416"])
+            for wrong in (["400"], ["320", "416", "32"]):
+                with self.assertRaises(SystemExit), \
+                        contextlib.redirect_stderr(io.StringIO()):
+                    export_ncnn([str(weight), "--imgsz", *wrong])
+        self.assertEqual([call["imgsz"] for call in calls], [[320, 416], 416])
+        self.assertTrue(all(call["format"] == "ncnn" and call["half"] is False for call in calls))
+
     def test_benchmark_loop_rewinds_the_video_only_when_asked(self):
         class Capture:
             def __init__(self):

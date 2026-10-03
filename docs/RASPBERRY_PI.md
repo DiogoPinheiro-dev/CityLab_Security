@@ -293,24 +293,43 @@ continuam impossiveis de recuperar por software.
 
 ## Backend NCNN opcional
 
-Em um ambiente com Ultralytics e ferramentas de exportacao, gere uma copia do
-mesmo peso (pode exigir dependencias adicionais; preferir exportar fora do Pi):
+Exporte fora do Pi, num ambiente com Ultralytics; a exportacao instala `ncnn`
+e `pnnx` se faltarem. Use uma copia do peso, porque a pasta sai ao lado dele:
 
 ```bash
-python tools/export_pose_ncnn.py App/GestureRecon/yolov8n-pose.pt --imgsz 640
+python tools/export_pose_ncnn.py copia/yolov8n-pose.pt --imgsz 320 416
 ```
 
-Exporte com o mesmo tamanho da inferencia: `--imgsz 416` no perfil rpi3, que
-roda a pose em 416 desde 01/10/2026, ou 640 com `POSE_IMGSZ=0`.
+O NCNN roda na forma fixa do export, altura e largura. No perfil rpi3 o frame
+de 640x480 e reduzido a 320x240 e o `.pt` o roda em 416 como 320x416; exportado
+assim, o NCNN deu, nos 18 videos de validacao, os mesmos keypoints ate a quinta
+casa decimal e os mesmos alertas. Exportado quadrado, em 416x416, a mao oculta
+caiu de 182 para 152 fases, por causa das faixas de preenchimento. O servico
+le a forma do `metadata.yaml` da pasta e ignora o `POSE_IMGSZ` nesse caso.
 
-Copie o diretorio gerado para o Pi e configure:
+No Pi, instale o pacote no ambiente da API antes de ligar. Sem ele, o
+Ultralytics tentaria compilar o ncnn a partir do Git na subida da API; por isso
+o servico de gestos para antes, dizendo o que falta:
+
+```bash
+cd ~/CityLab_Security && .venv/bin/pip install ncnn==1.0.20260526
+```
+
+A pasta exportada fica fora do Git (`*_ncnn_model/` no `.gitignore`). Copie
+para o Pi; o deploy nao a apaga, porque o `rsync` dele nao remove arquivos:
+
+```bash
+scp -r App/GestureRecon/yolov8n-pose_ncnn_model citylab@<ip-do-pi>:~/CityLab_Security/App/GestureRecon/
+```
+
+E configure no `.env` do Pi:
 
 ```env
 POSE_MODEL_PATH=App/GestureRecon/yolov8n-pose_ncnn_model
 ```
 
 Caminhos relativos sao resolvidos a partir da raiz do projeto. Deixe a variavel
-vazia para voltar ao .pt. O export usa FP32 e nao altera o peso original. Ainda
-e necessario comparar caixas, keypoints, rastreamento e alertas no Pi: formato
-e padding podem alterar resultados. Nao habilitar junto com outra mudanca na
-mesma rodada, nem assumir ganho antes da medicao.
+vazia para voltar ao .pt. O export usa FP32 e nao altera o peso original. O
+NCNN usa por padrao uma thread por nucleo fisico, 4 no Pi, sem o limite do
+`TORCH_NUM_THREADS`, e disputa a CPU com o rosto. Medir no Pi antes de assumir
+ganho, sem outra mudanca na mesma rodada.

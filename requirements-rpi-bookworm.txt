@@ -31,3 +31,6 @@ mediapipe==0.10.18
 # ultralytics==8.3.226
 # insightface==0.7.3
 # onnxruntime==1.23.2
+# So com POSE_MODEL_PATH apontando para o modelo NCNN; instale antes de ligar,
+# senao o Ultralytics tenta compilar o ncnn do Git. Wheel Linux aarch64, 4,3 MB.
+# ncnn==1.0.20260526

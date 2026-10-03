@@ -3,6 +3,7 @@ import ast
 import asyncio
 import logging
 import math
+import tempfile
 import threading
 import unittest
 from concurrent.futures import ThreadPoolExecutor, wait
@@ -378,6 +379,40 @@ class PoseOutputTests(unittest.TestCase):
                                   map_bbox_to_original=lambda box: [v * 2 for v in box],
                                   clip_original_bbox=lambda box: box)
         return service, context
+
+    def test_ncnn_model_without_the_package_fails_with_the_reason(self):
+        found = {"ncnn": None}
+        cls = load_class("App/GestureRecon/service.py", "GestureRecognitionService",
+                         GESTURE_ANALYZER_FPS=12, GESTURE_PUBLISH_MIN_CONFIDENCE=.25,
+                         GESTURE_MOTION_GATE=False, GESTURE_MOTION_MIN_RATIO=.002,
+                         GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.,
+                         POSE_IMGSZ=0, importlib=SimpleNamespace(util=SimpleNamespace(
+                             find_spec=lambda name: found.get(name))))
+        ncnn_model = Path("App/GestureRecon/yolov8n-pose_ncnn_model")
+        # Sem o pacote, o servico para antes de o Ultralytics tentar instalar.
+        with self.assertRaisesRegex(RuntimeError, "pacote ncnn"):
+            cls._require_backend_package(ncnn_model)
+        # O peso .pt nao depende do ncnn; com o pacote, o modelo NCNN carrega.
+        cls._require_backend_package(Path("App/GestureRecon/yolov8n-pose.pt"))
+        found["ncnn"] = object()
+        cls._require_backend_package(ncnn_model)
+
+    def test_exported_model_runs_at_its_export_size(self):
+        cls = load_class("App/GestureRecon/service.py", "GestureRecognitionService",
+                         GESTURE_ANALYZER_FPS=12, GESTURE_PUBLISH_MIN_CONFIDENCE=.25,
+                         GESTURE_MOTION_GATE=False, GESTURE_MOTION_MIN_RATIO=.002,
+                         GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.,
+                         POSE_IMGSZ=0)
+        with tempfile.TemporaryDirectory() as folder:
+            exported = Path(folder) / "yolov8n-pose_ncnn_model"
+            exported.mkdir()
+            # O peso .pt e uma pasta sem metadata seguem no POSE_IMGSZ.
+            self.assertIsNone(cls._export_imgsz(Path(folder) / "yolov8n-pose.pt"))
+            self.assertIsNone(cls._export_imgsz(exported))
+            # Export retangular: altura e largura, como o PyTorch faz com o frame 4:3.
+            (exported / "metadata.yaml").write_text("task: pose\nimgsz:\n- 320\n- 416\n",
+                                                    encoding="utf-8")
+            self.assertEqual(cls._export_imgsz(exported), [320, 416])
 
     def test_boxes_preserved_even_without_keypoints(self):
         result = SimpleNamespace(boxes=SimpleNamespace(xyxy=[[1, 2, 3, 4]], conf=[.8]),

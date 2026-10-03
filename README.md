@@ -112,7 +112,9 @@ aparece mais lenta que duas. Num video fixo de uma pessoa, as 2 threads
 deixaram o frame 20% mais rapido, de 5,33 para 4,29 s, e o reuso tirou mais
 13% na media, para 3,72 s; com a webcam, nao foram medidos. Com 60 C, sob
 carga continua o firmware baixa o clock para 1,2 GHz, o que custa de 3% a 7%;
-um dissipador com ventoinha evita isso. Detalhes em
+um dissipador com ventoinha evita isso. A pose tambem pode rodar em NCNN, que
+nos videos de validacao deu os mesmos keypoints e alertas do `.pt`; o tempo
+ainda nao foi medido no Pi. Detalhes em
 [docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md) e
 [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 

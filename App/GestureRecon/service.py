@@ -1,3 +1,4 @@
+import importlib.util
 from pathlib import Path
 from typing import Any
 from typing import Optional
@@ -45,6 +46,10 @@ class GestureRecognitionService:
             raise FileNotFoundError(
                 f"Modelo de pose nao encontrado: {self.pose_model_path}"
             )
+        self._require_backend_package(self.pose_model_path)
+        # O modelo exportado tem a entrada fixa do export: a pose roda nela, e
+        # nao no POSE_IMGSZ, que vale para o peso .pt.
+        self.pose_imgsz = self._export_imgsz(self.pose_model_path) or self.pose_imgsz
 
         self.pose_model = YOLO(str(self.pose_model_path), task="pose")
         self.analyzer = GestureAnalyzer(fps=fps, max_observation_gap=GESTURE_MAX_OBSERVATION_GAP_SECONDS)
@@ -64,6 +69,29 @@ class GestureRecognitionService:
         self.scene_occupied = False
         self.latest_metrics: dict[str, float] = {}
         self._store_metrics(0.0, 0.0, 0.0, 0.0, False)
+
+    @staticmethod
+    def _require_backend_package(model_path: Path) -> None:
+        """Modelo NCNN sem o pacote ncnn: falha ja, dizendo o que falta.
+
+        Sem o pacote, o Ultralytics tentaria instalar o ncnn sozinho na subida
+        da API, e no Pi, que e ARM, a partir do codigo no Git.
+        """
+        if model_path.name.endswith("_ncnn_model") and importlib.util.find_spec("ncnn") is None:
+            raise RuntimeError(
+                f"POSE_MODEL_PATH aponta para o modelo NCNN {model_path.name}, mas o "
+                "pacote ncnn nao esta instalado no ambiente da API; veja docs/RASPBERRY_PI.md.")
+
+    @staticmethod
+    def _export_imgsz(model_path: Path) -> Optional[list[int]]:
+        """Altura e largura da entrada gravadas no metadata.yaml do export; None no .pt."""
+        metadata = model_path / "metadata.yaml"
+        if not model_path.is_dir() or not metadata.is_file():
+            return None
+        import yaml
+
+        imgsz = (yaml.safe_load(metadata.read_text(encoding="utf-8")) or {}).get("imgsz")
+        return [int(value) for value in imgsz] if imgsz else None
 
     def _store_metrics(self, pose_ms: float, hands_ms: float, gestures_ms: float,
                        motion_ratio: float, pose_skipped: bool) -> None:
