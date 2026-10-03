@@ -53,12 +53,13 @@ class RpiProfileTests(unittest.TestCase):
         self.assertEqual(self.settings(EVENT_RETENTION_DAYS="0")["EVENT_RETENTION_DAYS"], 0)
         self.assertEqual(self.settings(EVENT_RETENTION_DAYS="-5")["EVENT_RETENTION_DAYS"], 0)
 
-    def test_full_frame_embedding_is_off_until_measured(self):
-        # Desligado nos dois perfis; o .env liga para comparar no Pi.
+    def test_full_frame_embedding_is_on_only_on_the_pi(self):
+        # Medido so no rpi3, em 03/10/2026; o perfil default segue na imagem reduzida.
         self.assertIs(self.settings()["FACE_EMBED_FULL_FRAME"], False)
-        self.assertIs(self.settings(CITYLAB_PROFILE="rpi3")["FACE_EMBED_FULL_FRAME"], False)
+        self.assertIs(self.settings(CITYLAB_PROFILE="rpi3")["FACE_EMBED_FULL_FRAME"], True)
+        # Zero explicito volta a imagem reduzida, para comparar com o mesmo codigo.
         self.assertIs(self.settings(CITYLAB_PROFILE="rpi3",
-                                    FACE_EMBED_FULL_FRAME="1")["FACE_EMBED_FULL_FRAME"], True)
+                                    FACE_EMBED_FULL_FRAME="0")["FACE_EMBED_FULL_FRAME"], False)
 
     def test_pose_input_size_is_416_only_on_the_pi(self):
         # Medido so no rpi3; o perfil default fica no padrao do Ultralytics.
@@ -178,9 +179,9 @@ class RpiProfileTests(unittest.TestCase):
         # Mostra o tamanho da pose, para a rodada no Pi registrar qual valeu.
         self.assertEqual(configured["POSE_IMGSZ"], 416)
         self.assertEqual(configured["FACE_REUSE_SECONDS"], 15.0)
-        # Spinning e embedding no frame inteiro so mudam pelo .env.
+        # Spinning so muda pelo .env; o embedding no frame inteiro vem do perfil.
         self.assertIs(configured["ONNX_ALLOW_SPINNING"], True)
-        self.assertIs(configured["FACE_EMBED_FULL_FRAME"], False)
+        self.assertIs(configured["FACE_EMBED_FULL_FRAME"], True)
         self.assertEqual(configured["EVENT_RETENTION_DAYS"], 30)
         self.assertNotIn("segredo", output.getvalue())
 

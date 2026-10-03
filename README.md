@@ -87,8 +87,9 @@ credenciais.
 `CITYLAB_PROFILE=rpi3` escolhe 2 threads para o ONNX Runtime, 3 para o PyTorch e
 1 para o OpenCV, e um frame pendente por vez no cliente. Tambem liga a passada
 unica de pessoas e pose e o gate de movimento, que pula a pose quando a cena
-esta parada e desocupada, roda a pose em 416 px em vez de 640 e deixa um rosto
-no mesmo lugar herdar por ate 15 s o nome ja reconhecido. Um valor explicito no
+esta parada e desocupada, roda a pose em 416 px em vez de 640, deixa um rosto
+no mesmo lugar herdar por ate 15 s o nome ja reconhecido e gera o embedding do
+rosto no frame original, e nao na imagem reduzida. Um valor explicito no
 ambiente sempre prevalece sobre o perfil.
 
 Resultado medido no Pi com webcam, tres rodadas por cenario, mediana do tempo
@@ -374,9 +375,10 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   com o cadastro, em volta do limite de 0,52, e foi reconhecido em 9, 21 e 25
   dos 30 frames das tres rodadas; nos outros, saiu como desconhecido. No PC, a
   causa principal foi o cadastro de uma foto so; desde 03/10/2026 ele aceita
-  ate 5 fotos e guarda a media, mas so ajuda quem for recadastrado.
-  `FACE_EMBED_FULL_FRAME=1` gera o embedding no frame original, o que ajudou
-  os rostos pequenos no PC. Os dois ainda nao foram medidos no Pi.
+  ate 5 fotos e guarda a media, mas so ajuda quem for recadastrado; no Pi
+  ainda nao foi medido. O embedding no frame original, ligado no perfil do Pi
+  desde 03/10/2026, subiu um pouco a semelhanca no Pi, mais nos rostos
+  dificeis, sem custo de tempo.
 - **Pose em 416 px.** Na rodada com gesto em 416, a mao oculta de lado nao
   disparou e o punho levantado disparou um frame depois do que em 640. Com 6
   frames por situacao e a pessoa em outra posicao, nao deu para separar o

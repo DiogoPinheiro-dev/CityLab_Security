@@ -66,9 +66,10 @@ FACE_PREFILTER = _get_bool("FACE_PREFILTER", True)
 FACE_REUSE_SECONDS = max(0.0, _get_float("FACE_REUSE_SECONDS", 15.0 if _RPI3 else 0.0))
 # True gera o embedding no frame original, com os pontos do rosto achados na
 # imagem reduzida pela PROCESS_SCALE: o ArcFace recorta os mesmos 112x112 de um
-# rosto com o dobro de pixels, quase sem custo. Exige FACE_PREFILTER. Em
-# avaliacao no Pi; no PC subiu a semelhanca dos rostos menores.
-FACE_EMBED_FULL_FRAME = _get_bool("FACE_EMBED_FULL_FRAME", False)
+# rosto com o dobro de pixels. Exige FACE_PREFILTER. Ligado no rpi3: no Pi, em
+# 03/10/2026, a semelhanca com o cadastro subiu, mais nos rostos dificeis, sem
+# custo de tempo (docs/PLANO_OTIMIZACAO.md); no perfil default segue desligado.
+FACE_EMBED_FULL_FRAME = _get_bool("FACE_EMBED_FULL_FRAME", _RPI3)
 # Zero preserva a escolha automatica da biblioteca. 2 no rpi3: com a pose em
 # 416 o rosto virou o caminho critico, e 2 threads deixaram o frame com uma
 # pessoa 20% mais rapido, medido em 01/10/2026 (docs/PLANO_OTIMIZACAO.md).

@@ -61,7 +61,8 @@ depois de deixar o frame com uma pessoa 6% mais rapido, e no mesmo dia as 2
 threads do ONNX Runtime, com mais 20% num video fixo de uma pessoa, e o reuso
 do nome do rosto, com mais 13% na media. Com tudo isso, em 02/10/2026, a cena
 vazia ficou em 0,93 s e duas pessoas em 3,41 s, -83% e -80% contra 19/09; uma
-pessoa nao foi medida com eles na webcam. Os ajustes individuais nao foram
+pessoa nao foi medida com eles na webcam. Em 03/10/2026 entrou o embedding do
+rosto no frame original, sem custo de tempo. Os ajustes individuais nao foram
 medidos isoladamente. Para
 comparar uma mudanca por vez, use `CITYLAB_PROFILE=default` e ajuste
 individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
@@ -259,11 +260,13 @@ que seriam descartados. Cadastro, pesos, resolucao e similaridade permanecem
 iguais. Para voltar ao caminho facial anterior, defina ambas as flags FACE
 acima como `0` e reinicie. Para A/B, altere somente uma flag por rodada.
 
-`FACE_EMBED_FULL_FRAME=1`, desligado nos dois perfis, gera o embedding no frame
-original em vez da imagem reduzida pela `PROCESS_SCALE`; a deteccao continua na
-imagem reduzida. Vale so com `FACE_PREFILTER=1`. No PC, em 03/10/2026, subiu a
-semelhanca dos rostos de 41 a 47 px em 0,05 a 0,10, com praticamente o mesmo
-tempo de embedding; no Pi ainda nao foi medido.
+`FACE_EMBED_FULL_FRAME`, ligado no perfil rpi3 desde 03/10/2026, gera o
+embedding no frame original em vez da imagem reduzida pela `PROCESS_SCALE`; a
+deteccao continua na imagem reduzida. Vale so com `FACE_PREFILTER=1`. No Pi,
+com o video de carga, a semelhanca com o cadastro subiu 0,008 na mediana e ate
+0,089 no rosto mais dificil, sem mudar o tempo do frame; no PC, os rostos de
+41 a 47 px subiram de 0,05 a 0,10. `FACE_EMBED_FULL_FRAME=0` volta a imagem
+reduzida.
 
 A equivalencia foi conferida em 27/09/2026 com os modelos reais, no PC: em 3
 fotos de webcam com duas pessoas, o rosto aceito de cada foto teve a mesma

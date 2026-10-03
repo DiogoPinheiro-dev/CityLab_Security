@@ -515,8 +515,9 @@ apagava os antigos. O banco crescia sem limite. O responsavel escolheu 30 dias.
 - O horario e gravado pelo relogio local, 3 h atras de UTC, e o MongoDB le
   como UTC: o evento vence umas 3 h antes dos 30 dias exatos.
 - Coberto por testes com uma colecao simulada e pela subida da API com o
-  indice falhando. Sem MongoDB no PC, a criacao do indice de verdade fica para
-  o deploy: o log da API mostra a retencao aplicada ou o aviso.
+  indice falhando. No Pi, no deploy de `06a3040` em 03/10/2026, o log da API
+  registrou as 12:19:10 "eventos com mais de 30 dias sao apagados": o indice
+  foi criado no banco de verdade.
 
 ### NCNN na pose (P2) - igual ao PyTorch com a entrada retangular
 
@@ -562,19 +563,54 @@ de 03/10, por ultimo.
   73 ms com o `.pt`. O NCNN usa por padrao uma thread por nucleo fisico, 4 no
   Pi, sem o limite do PyTorch, e vai disputar a CPU com o rosto.
 
+### Embedding no frame inteiro no Pi - mesmo tempo, semelhanca um pouco maior
+
+Duas series com o video de carga no codigo `06a3040`, conferido por hash, que
+so diferem em `FACE_EMBED_FULL_FRAME` no `.env`. API reiniciada antes de cada
+rodada, 5 frames de aquecimento e 30 medidos, log de `vcgencmd` junto.
+Resultados em `resultados/pi3-06a3040-video-base/` e
+`resultados/pi3-06a3040-video-fullframe/`.
+
+| Rodada | Base, media | Frame inteiro, media | Diferenca |
+|---|---|---|---|
+| r1 | 3720,6 ms | 3730,3 ms | +0,3% |
+| r2 | 3734,0 ms | 3749,3 ms | +0,4% |
+| r3 | 3724,3 ms | 3731,6 ms | +0,2% |
+
+- **Sem custo de tempo**: o pior cruzamento da +0,8%, dentro da variacao entre
+  rodadas, e o embedding mediano ficou entre 2184 e 2258 ms nas duas series.
+- **Semelhanca um pouco maior**: nas mesmas 14 comparacoes com o cadastro, a
+  mediana subiu 0,008 e o valor subiu em 10 delas. O maior ganho foi no rosto
+  mais dificil do video, de 0,393 para 0,482, ainda abaixo do limite: nenhum
+  frame cruzou os 0,52, e o rosto foi reconhecido em 26/30 nas seis rodadas.
+  Os valores se repetem identicos de uma rodada para outra.
+- Deteccao igual: pessoa, rosto e gesto em 30/30 e os mesmos 11 alertas, agora
+  com nome: mao fechada 5, mao oculta 3, rendicao 2 e braco estendido 1.
+- **Thread de inferencia no Pi**: a base, primeira serie com ela, teve media de
+  3720,6 a 3734,0 ms, contra 3709,3 a 3739,0 ms da serie com reuso de 01/10 no
+  mesmo video. O frame nao mudou.
+- `throttled=0x0` em todo o log das duas series, sem leitura a 1,2 GHz, com
+  maxima de 60,7 C. `process_rss_mb` de 655 a 729 MB.
+- Decisao do responsavel: promover. `FACE_EMBED_FULL_FRAME` passa a ligado no
+  perfil rpi3; no default segue desligado, e `FACE_EMBED_FULL_FRAME=0` volta a
+  imagem reduzida.
+
 ### O que fica aberto
 
 1. Medir no Pi, com o video de carga, sem precisar de duas pessoas:
-   - o padrao contra `FACE_EMBED_FULL_FRAME=1` no `.env`;
-   - o frame com a thread de inferencia, contra as series de 01 e 02/10, e um
-     GET repetido durante o stream;
+   - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
    - a pose em NCNN contra o `.pt`: instalar o `ncnn`, copiar a pasta e ligar o
-     `POSE_MODEL_PATH`, conforme `docs/RASPBERRY_PI.md`; se ganhar, comparar
-     as threads do NCNN;
+     `POSE_MODEL_PATH`, conforme `docs/RASPBERRY_PI.md`, com a serie
+     `video-fullframe` de base, que ja tem o perfil promovido; se ganhar,
+     comparar as threads do NCNN;
    - depois de recadastrar com 3 a 5 fotos e tirar o cadastro antigo do banco,
      a semelhanca de novo.
-2. Conferir no log do deploy que a retencao de 30 dias foi aplicada.
-3. A ordem combinada em 03/10 terminou; o resto da lista de 02/10 continua.
+   Depois do deploy da promocao, a linha `FACE_EMBED_FULL_FRAME=1` do `.env` do
+   Pi fica redundante e pode sair.
+2. A ordem combinada em 03/10 terminou; o resto da lista de 02/10 continua.
+   No deploy de `06a3040` o stream respondeu com o codigo novo, num teste de
+   tres frames do video de carga, de 3,6 a 4,4 s, com pessoa, rosto e gesto em
+   todos; nao e medicao.
 
 ## Estado verificado em 02/10/2026
 
