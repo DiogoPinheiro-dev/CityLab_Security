@@ -414,6 +414,72 @@ um video fixo. A decomposicao do rosto entrou no codigo em `9334b9e`, mas, a
 pedido dele, o teste de threads foi medido antes do deploy dela. Resultados em
 "Estado verificado em 01/10/2026".
 
+## Estado verificado em 03/10/2026
+
+O responsavel nao pode fazer cenas com duas pessoas por enquanto e pediu para
+desenvolver o que falta, deixando um teste geral para depois. Ordem combinada:
+o reconhecimento perto do limite, depois a thread separada para a inferencia
+(P6) e a limpeza dos eventos antigos, por fim o NCNN na pose (P2).
+
+### Reconhecimento perto do limite - a foto do cadastro pesa mais que a resolucao
+
+`tools/benchmark_stream.py` passou a guardar `faces_width_px`, a largura de
+cada rosto em pixels do frame enviado, e `alerts`, o nome de cada alerta ativo,
+com resumo em `faces_width_px` e `alerts_by_name`; sem nome de pessoa nem
+imagem.
+
+Pelo codigo, o cadastro gera o embedding numa foto so, a da pagina de cadastro,
+que no celular abre a camera frontal. O stream gera na imagem reduzida pela
+`PROCESS_SCALE`: com 0,5, um rosto de 40 a 60 px no frame de 640x480 vira 20 a
+30 px antes de ser ampliado para os 112x112 do ArcFace. Para separar os dois
+efeitos, no PC, com os modelos reais: os 36 frames do video de carga contra uma
+referencia tirada de 10 frames do video `neutro` do celular (1080x1920, rosto
+de 121 a 185 px), da mesma pessoa. Rascunho em `.tmp/escala_embedding.py`, fora
+do Git; so numeros.
+
+| Referencia | Embedding | Mediana | Minimo | Acima de 0,52 |
+|---|---|---|---|---|
+| Media das 10 fotos | na imagem reduzida, como hoje | 0,677 | 0,477 | 35/36 |
+| Media das 10 fotos | no frame inteiro | 0,693 | 0,563 | 36/36 |
+| Uma foto so | na imagem reduzida, como hoje | 0,311 a 0,662 | 0,268 a 0,370 | 0 a 32/36 |
+
+- **A resolucao pesa pouco**: o embedding no frame inteiro sobe a mediana em
+  0,016 e ganha em 28 dos 36 frames, mas o ganho se concentra nos rostos
+  menores, de 0,05 a 0,10 nos quatro frames com rosto de 41 a 47 px.
+- **A referencia pesa muito**: com uma foto so, a mediana vai de 0,31 a 0,66
+  conforme a foto, e tres das dez reconheceriam em no maximo 4 dos 36 frames.
+  A media das dez fica acima do limite em 35 de 36. No Pi, com o cadastro real
+  de uma foto, o mesmo video teve mediana de 0,60, na faixa das fotos isoladas.
+- Os frames do video do celular nao sao fotos de cadastro: a pessoa se mexe e
+  vira o rosto, entao a variacao entre fotos isoladas exagera a de uma foto
+  tirada com cuidado. A comparacao mostra a direcao, nao o ganho exato no Pi.
+
+O responsavel escolheu fazer as duas correcoes, uma de cada vez:
+
+- **`FACE_EMBED_FULL_FRAME`**, desligado nos dois perfis: a deteccao continua
+  na imagem reduzida e o embedding usa o frame original, com os pontos do rosto
+  multiplicados pela escala. O ArcFace recebe 112x112 de qualquer jeito, entao
+  o custo quase nao muda. No PC, com o servico real e a mesma referencia, o
+  resultado da tabela se repete: mediana de 0,677 para 0,693 e pior frame de
+  0,477 para 0,563, com o embedding de 113 para 117 ms.
+- **Cadastro com ate 5 fotos** no mesmo campo `foto`. Guarda a media
+  normalizada dos embeddings no campo `embedding` de sempre e o numero de fotos
+  em `fotos`; com uma foto so, o resultado e o de antes. Uma foto com
+  semelhanca abaixo de 0,3 com a media das outras recusa o cadastro, para nao
+  misturar dois rostos: nas 10 fotos da mesma pessoa, a pior ficou em 0,50. A
+  pagina junta as fotos uma de cada vez, porque no celular cada toque abre a
+  camera e devolve uma foto, e sugere de 3 a 5. Conferido com o FastAPI e o
+  banco simulado: uma, tres e seis fotos, pessoas diferentes e foto sem rosto.
+
+O que fica aberto destas duas:
+
+1. Medir no Pi com o video de carga e o cadastro real: o padrao contra
+   `FACE_EMBED_FULL_FRAME=1` no `.env`. Depois, recadastrar com 3 a 5 fotos e
+   medir de novo; os cadastros atuais continuam valendo, mas so quem for
+   recadastrado ganha com a media.
+2. A seguir na ordem combinada: P6 e a limpeza dos eventos antigos; depois o
+   NCNN na pose.
+
 ## Estado verificado em 02/10/2026
 
 ### Teste de uma noite - 10,5 h sem degradar

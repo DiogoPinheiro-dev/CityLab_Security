@@ -9,9 +9,9 @@ import numpy as np
 from ultralytics import YOLO  # type: ignore
 
 from App.frame_context import FrameContext
-from App.settings import (DEBUG_PIPELINE, FACE_MIN_CONFIDENCE, FACE_MIN_HEIGHT,
-                          FACE_MIN_WIDTH, FACE_MINIMAL_MODULES, FACE_PREFILTER,
-                          FACE_REUSE_SECONDS, ONNX_ALLOW_SPINNING,
+from App.settings import (DEBUG_PIPELINE, FACE_EMBED_FULL_FRAME, FACE_MIN_CONFIDENCE,
+                          FACE_MIN_HEIGHT, FACE_MIN_WIDTH, FACE_MINIMAL_MODULES,
+                          FACE_PREFILTER, FACE_REUSE_SECONDS, ONNX_ALLOW_SPINNING,
                           ONNX_INTRA_OP_THREADS)
 from App.inference_runtime import configure_insight_threads
 
@@ -20,6 +20,10 @@ class FaceRecognitionService:
     # Sobreposicao minima entre caixas de rosto de frames seguidos para tratar
     # como o mesmo rosto.
     REUSE_MIN_IOU = 0.5
+    # Semelhanca minima de cada foto do cadastro com a media das outras. Em 10
+    # fotos da mesma pessoa a pior ficou em 0,50 (03/10/2026); abaixo disso a
+    # foto e tratada como de outra pessoa, para nao misturar dois rostos.
+    REGISTRATION_MIN_SIMILARITY = 0.3
 
     def __init__(
         self,
@@ -40,6 +44,7 @@ class FaceRecognitionService:
         onnx_threads: int = ONNX_INTRA_OP_THREADS,
         reuse_seconds: float = FACE_REUSE_SECONDS,
         onnx_allow_spinning: bool = ONNX_ALLOW_SPINNING,
+        embed_full_frame: bool = FACE_EMBED_FULL_FRAME,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -60,6 +65,8 @@ class FaceRecognitionService:
         self.face_min_confidence = face_min_confidence
         self.debug_pipeline = debug_pipeline
         self.prefilter = prefilter
+        # Embedding no frame original em vez da imagem reduzida; so com prefiltro.
+        self.embed_full_frame = embed_full_frame
         # Zero desliga: todo rosto aceito gera embedding em todo frame.
         self.reuse_seconds = reuse_seconds
         self._identities: list[dict[str, Any]] = []
@@ -176,15 +183,20 @@ class FaceRecognitionService:
                 name, best_score = entry["name"], entry["score"]
                 recognized_at = entry["recognized_at"]
             else:
+                target = face
                 if self.prefilter:
                     embed_started_at = time.perf_counter()
+                    image = frame_context.processing_frame
+                    if self.embed_full_frame:
+                        image = frame_context.original_frame
+                        target = self._face_on_original(face, frame_context)
                     for task, model in self.app_insight.models.items():
                         if task != "detection":
-                            model.get(frame_context.processing_frame, face)
+                            model.get(image, target)
                     embed_ms += (time.perf_counter() - embed_started_at) * 1000.0
                     embeddings += 1
                 match_started_at = time.perf_counter()
-                name, best_score = self._match_face(face.normed_embedding)
+                name, best_score = self._match_face(target.normed_embedding)
                 match_ms += (time.perf_counter() - match_started_at) * 1000.0
                 recognized_at = now
             identities.append({"bbox": bbox_processing, "name": name,
@@ -214,6 +226,28 @@ class FaceRecognitionService:
             "face_reused": float(len(reused)),
         })
         return results
+
+    @classmethod
+    def average_embedding(cls, embeddings: list[Any]) -> tuple[Optional[np.ndarray], Optional[int]]:
+        """Media normalizada das fotos do cadastro, ou o indice da primeira que destoa."""
+        vectors = np.asarray(embeddings, dtype=np.float32)
+        if len(vectors) > 1:
+            for index in range(len(vectors)):
+                others = np.delete(vectors, index, axis=0).mean(axis=0)
+                others /= np.linalg.norm(others)
+                if float(vectors[index] @ others) < cls.REGISTRATION_MIN_SIMILARITY:
+                    return None, index
+        mean = vectors.mean(axis=0)
+        return mean / np.linalg.norm(mean), None
+
+    @staticmethod
+    def _face_on_original(face: Any, frame_context: FrameContext) -> Any:
+        """O mesmo rosto nas coordenadas do frame original, para o embedding."""
+        sx, sy = frame_context.scale_x, frame_context.scale_y
+        x1, y1, x2, y2 = face.bbox[:4]
+        return Face(bbox=np.asarray([x1 * sx, y1 * sy, x2 * sx, y2 * sy], dtype=np.float32),
+                    kps=np.asarray([[x * sx, y * sy] for x, y in face.kps], dtype=np.float32),
+                    det_score=face.det_score)
 
     def reset_identities(self) -> None:
         """Esquece as identidades guardadas: conexao nova ou cadastro alterado."""

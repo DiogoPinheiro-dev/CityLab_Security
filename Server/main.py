@@ -21,6 +21,9 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 CLIENT_DIR = PROJECT_ROOT / "Client"
+# Fotos por cadastro: cada uma custa uma deteccao e um embedding no Pi, com o
+# stream parado enquanto isso. O mesmo limite esta em Client/cadastros.js.
+MAX_FOTOS_CADASTRO = 5
 
 from App.recognition_pipeline import UnifiedRecognitionService
 from App.settings import (
@@ -207,9 +210,14 @@ async def qrcode_cadastro(request: Request, url: Optional[str] = None):
 
 
 @app.post("/cadastro")
-async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
-    if not foto.filename or not foto.filename.lower().endswith((".jpg", ".jpeg", ".png")):
-        raise HTTPException(status_code=400, detail="Formato invalido. Use JPG ou PNG.")
+async def cadastrar_aluno(nome: str = Form(...), foto: List[UploadFile] = File(...)):
+    # Varias fotos, enviadas no mesmo campo, viram um embedding so: a media. Com
+    # uma foto so, o cadastro fica igual ao de antes.
+    if not 1 <= len(foto) <= MAX_FOTOS_CADASTRO:
+        raise HTTPException(status_code=400, detail=f"Envie de 1 a {MAX_FOTOS_CADASTRO} fotos.")
+    for arquivo in foto:
+        if not arquivo.filename or not arquivo.filename.lower().endswith((".jpg", ".jpeg", ".png")):
+            raise HTTPException(status_code=400, detail="Formato invalido. Use JPG ou PNG.")
 
     current_recognizer = recognizer
     if current_recognizer is None:
@@ -218,28 +226,43 @@ async def cadastrar_aluno(nome: str = Form(...), foto: UploadFile = File(...)):
         raise HTTPException(status_code=503, detail="Servico facial nao esta disponivel neste ambiente.")
 
     try:
-        conteudo_arquivo = await foto.read()
-        nparr = np.frombuffer(conteudo_arquivo, np.uint8)
-        img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+        embeddings = []
+        for numero, arquivo in enumerate(foto, start=1):
+            prefixo = f"Foto {numero}: " if len(foto) > 1 else ""
+            conteudo_arquivo = await arquivo.read()
+            nparr = np.frombuffer(conteudo_arquivo, np.uint8)
+            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-        if img is None:
-            raise HTTPException(status_code=400, detail="Erro ao processar a imagem. Arquivo corrompido.")
+            if img is None:
+                raise HTTPException(status_code=400,
+                                    detail=prefixo + "Erro ao processar a imagem. Arquivo corrompido.")
 
-        faces = current_recognizer.face_service.app_insight.get(img)
+            faces = current_recognizer.face_service.app_insight.get(img)
 
-        if not faces:
-            raise HTTPException(status_code=400, detail="Nenhum rosto encontrado na foto enviada.")
-        if len(faces) > 1:
+            if not faces:
+                raise HTTPException(status_code=400,
+                                    detail=prefixo + "Nenhum rosto encontrado na foto enviada.")
+            if len(faces) > 1:
+                raise HTTPException(
+                    status_code=400,
+                    detail=prefixo + "Multiplos rostos encontrados. Envie uma foto de apenas 1 pessoa.",
+                )
+            embeddings.append(faces[0].normed_embedding)
+
+        media, destoante = current_recognizer.face_service.average_embedding(embeddings)
+        if destoante is not None:
             raise HTTPException(
                 status_code=400,
-                detail="Multiplos rostos encontrados. Envie uma foto de apenas 1 pessoa.",
+                detail=("As duas fotos parecem ser de pessoas diferentes." if len(foto) == 2
+                        else f"A foto {destoante + 1} parece ser de outra pessoa."),
             )
 
-        embedding_lista = faces[0].normed_embedding.tolist()
+        embedding_lista = media.tolist()
 
         novo_aluno = {
             "nome": nome,
             "embedding": embedding_lista,
+            "fotos": len(foto),
             "cadastrado_em": datetime.now().strftime("%d/%m/%Y - %H:%M:%S"),
         }
         await colecao_alunos.insert_one(novo_aluno)

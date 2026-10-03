@@ -7,6 +7,7 @@ import math
 import platform
 import statistics
 import time
+from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -39,6 +40,24 @@ def known_faces(payload):
     """Rostos reconhecidos como cadastrados: so a contagem, nunca o nome."""
     return sum(1 for face in payload.get("rostos") or []
                if face.get("nome") not in (None, "NAO ALUNO"))
+
+
+def face_widths(payload):
+    """Largura de cada caixa de rosto, em pixels do frame enviado."""
+    widths = []
+    for face in payload.get("rostos") or []:
+        bbox = face.get("bbox")
+        if (isinstance(bbox, (list, tuple)) and len(bbox) == 4
+                and all(isinstance(value, (int, float)) and not isinstance(value, bool)
+                        and math.isfinite(value) for value in bbox)):
+            widths.append(bbox[2] - bbox[0])
+    return widths
+
+
+def alert_names(payload):
+    """Nomes dos alertas de gesto no frame, em ordem; dizem a regra, nao a pessoa."""
+    return sorted(str(alert) for item in payload.get("gestos") or []
+                  for alert in item.get("alerts") or [])
 
 
 def read_frame(capture, loop, cv2):
@@ -120,6 +139,8 @@ async def run(args):
                                  "known_faces_count": known_faces(payload),
                                  "gestures_count": len(gestures),
                                  "alerts_count": sum(len(item.get("alerts") or []) for item in gestures),
+                                 "alerts": alert_names(payload),
+                                 "faces_width_px": face_widths(payload),
                                  **detection_confidences(payload),
                                  "metrics": payload["metrics"]})
                     if samples_file is not None:
@@ -146,6 +167,9 @@ async def run(args):
         "detections": {key: summarize([row[key] for row in rows]) for key in
                        ("persons_count", "faces_count", "known_faces_count", "gestures_count",
                         "alerts_count")},
+        "faces_width_px": summarize([width for row in rows for width in row["faces_width_px"]]),
+        "alerts_by_name": dict(sorted(Counter(
+            alert for row in rows for alert in row["alerts"]).items())),
         "metrics": {key: summarize([row["metrics"][key] for row in rows
                                     if isinstance(row["metrics"].get(key), (float, int))]) for key in keys},
         "application_bytes_sent": sent_bytes, "application_bytes_received": received_bytes,

@@ -5,9 +5,17 @@ Na implementacao otimizada, cada amostra tambem inclui `persons_confidence` e
 nao existem nos JSON historicos. Use-os para investigar falsos positivos antes
 de alterar limiares. Desde 01/10/2026 entram tambem `faces_confidence`, a
 semelhanca de cada rosto com o cadastro, e `known_faces_count`, quantos rostos
-foram reconhecidos como cadastrados; o nome nunca e gravado. Registre a saida de `python tools/run_rpi.py --show-config`
-junto da rodada; ela informa a configuracao selecionada, nao comprova uso de
-CPU ou velocidade efetiva.
+foram reconhecidos como cadastrados; o nome nunca e gravado. Desde 03/10/2026,
+`faces_width_px` traz a largura de cada caixa de rosto em pixels do frame
+enviado, e `alerts`, o nome de cada alerta de gesto ativo, que diz a regra e
+nao a pessoa. O relatorio resume as larguras em `faces_width_px` e conta os
+alertas por nome em `alerts_by_name`. A API reduz o frame pela `PROCESS_SCALE`
+(0,5 por padrao) antes de achar o rosto e gerar o embedding: o rosto que o
+reconhecedor ve tem metade dessa largura.
+
+Registre a saida de `python tools/run_rpi.py --show-config` junto da rodada; ela
+informa a configuracao selecionada, nao comprova uso de CPU ou velocidade
+efetiva.
 
 O utilitario `tools/benchmark_stream.py` usa uma webcam local ou reproduz um
 video fixo contra a API real. Ele envia os frames em ordem, com uma pendencia
@@ -131,7 +139,7 @@ em vez de publicar uma execucao incompleta.
 ## Validacao disponivel
 
 ```bash
-node --test tests/client_stream.test.cjs
+node --test tests/client_stream.test.cjs tests/client_cadastro.test.cjs
 python -m unittest discover -s tests -p 'test_*.py'
 ```
 

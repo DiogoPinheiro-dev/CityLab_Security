@@ -135,9 +135,10 @@ class FaceOptimizationTests(unittest.TestCase):
                          FACE_MIN_CONFIDENCE=.45, FACE_MINIMAL_MODULES=True,
                          FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
                          ONNX_ALLOW_SPINNING=True, FACE_REUSE_SECONDS=0.0,
-                         Face=SimpleNamespace, np=numpy_stub)
+                         FACE_EMBED_FULL_FRAME=False, Face=SimpleNamespace, np=numpy_stub)
         service = cls.__new__(cls)
         service.prefilter = prefilter
+        service.embed_full_frame = False
         service.debug_pipeline = True
         service.face_min_width = service.face_min_height = 40
         service.face_min_confidence = .45
@@ -205,6 +206,68 @@ class FaceOptimizationTests(unittest.TestCase):
         self.assertEqual(old.latest_metrics["face_embeddings"], 3.0)
         self.assertEqual((old.latest_metrics["face_detect_ms"],
                           old.latest_metrics["face_embed_ms"]), (0.0, 0.0))
+
+    def test_full_frame_embedding_uses_the_original_frame_and_scaled_points(self):
+        box = Vector([10, 20, 40, 60, .9])
+        kps = [[15, 30], [35, 30], [25, 40], [18, 50], [32, 50]]
+        results = {}
+        for full in (False, True):
+            service, context, recognition, _ = self.make_service(True, [box])
+            service.embed_full_frame = full
+            service.app_insight.det_model.detect.return_value = ([box], [kps])
+            seen = []
+
+            def recognize(frame, face):
+                seen.append((frame, face))
+                face.normed_embedding = [.87]
+
+            recognition.get.side_effect = recognize
+            context = SimpleNamespace(**vars(context), original_frame=object(),
+                                      scale_x=2.0, scale_y=2.0)
+            results[full] = service.recognize_faces(context)
+            # A deteccao continua na imagem reduzida; so o embedding muda de imagem.
+            service.app_insight.det_model.detect.assert_called_once_with(
+                context.processing_frame, max_num=0, metric="default")
+            frame, face = seen[0]
+            if full:
+                self.assertIs(frame, context.original_frame)
+                self.assertEqual(face.kps, [[30, 60], [70, 60], [50, 80], [36, 100], [64, 100]])
+                self.assertEqual(face.bbox, [20, 40, 80, 120])
+                self.assertEqual(face.det_score, .9)
+            else:
+                self.assertIs(frame, context.processing_frame)
+                self.assertIs(face.kps, kps)
+        # Mesmo payload: caixa no frame original, nome e semelhanca do embedding.
+        self.assertEqual(results[False], results[True])
+        self.assertEqual(results[True][0]["bbox"], [20, 40, 80, 120])
+
+    def test_registration_averages_the_photos_and_flags_another_person(self):
+        import numpy
+        cls = load_class("App/FaceRecon/service.py", "FaceRecognitionService",
+                         DEBUG_PIPELINE=True, FACE_MIN_WIDTH=40, FACE_MIN_HEIGHT=40,
+                         FACE_MIN_CONFIDENCE=.45, FACE_MINIMAL_MODULES=True,
+                         FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
+                         ONNX_ALLOW_SPINNING=True, FACE_REUSE_SECONDS=0.0,
+                         FACE_EMBED_FULL_FRAME=False, Face=SimpleNamespace, np=numpy)
+
+        def unit(*values):
+            vector = numpy.array(values, dtype=numpy.float32)
+            return vector / numpy.linalg.norm(vector)
+
+        first, second, third = unit(1, .2, 0), unit(1, 0, .2), unit(1, .1, .1)
+        # Uma foto so: o mesmo embedding do cadastro de antes.
+        mean, outlier = cls.average_embedding([first])
+        self.assertIsNone(outlier)
+        numpy.testing.assert_allclose(mean, first, rtol=1e-6)
+        # Varias da mesma pessoa: a media, normalizada como os embeddings do stream.
+        mean, outlier = cls.average_embedding([first, second, third])
+        self.assertIsNone(outlier)
+        self.assertAlmostEqual(float(numpy.linalg.norm(mean)), 1.0, places=5)
+        self.assertGreater(float(mean @ first), float(second @ first))
+        # Uma foto de outra pessoa nao entra na media: o indice dela volta.
+        other = unit(0, 0, 1)
+        self.assertEqual(cls.average_embedding([first, other, second]), (None, 1))
+        self.assertEqual(cls.average_embedding([first, other])[1], 0)
 
     def reuse_frames(self, unknown=False):
         """Servico com reuso de 15 s e uma funcao que roda um frame no instante dado."""

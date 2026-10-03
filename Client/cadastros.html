@@ -23,15 +23,17 @@
                     </label>
 
                     <label class="upload-area" for="foto">
-                        <input id="foto" name="foto" type="file" accept="image/png,image/jpeg" capture="user" required>
-                        <span class="upload-title">Selecionar foto</span>
-                        <span class="upload-copy">Use uma imagem JPG ou PNG com apenas um rosto visivel.</span>
+                        <input id="foto" name="foto" type="file" accept="image/png,image/jpeg" capture="user" multiple>
+                        <span class="upload-title">Adicionar foto</span>
+                        <span class="upload-copy">Tire de 3 a 5 fotos, uma de cada vez, so com o rosto do aluno, de frente e com boa luz. JPG ou PNG.</span>
                     </label>
 
                     <div class="preview-frame">
-                        <img id="preview" alt="Preview da foto selecionada">
+                        <img id="preview" alt="Preview da ultima foto adicionada">
                         <p id="previewPlaceholder">Nenhuma foto selecionada.</p>
                     </div>
+
+                    <div id="thumbs" class="thumbs" aria-label="Fotos adicionadas; toque em uma para remover"></div>
 
                     <div class="controls">
                         <button id="submitBtn" type="submit">Cadastrar rosto</button>
@@ -57,7 +59,7 @@
 
                     <article class="info-block">
                         <h2>Como funciona</h2>
-                        <p>Nesta tela, voçe envia o nome e uma foto. O servidor extrai as características do rosto e guarda esse cadastro para que a tela de reconhecimento consiga identificar a pessoa depois.</p>
+                        <p>Nesta tela, você envia o nome e de uma a cinco fotos. O servidor extrai as características do rosto em cada foto e guarda a média delas, para que a tela de reconhecimento consiga identificar a pessoa depois. Com mais fotos, o reconhecimento fica mais firme.</p>
                     </article>
                 </section>
             </section>
@@ -68,10 +70,11 @@
                     <strong id="statusLabel">Pendente</strong>
                 </div>
                 <div class="metric">
-                    <span>Arquivo</span>
+                    <span>Fotos</span>
                     <strong id="fileLabel">-</strong>
                 </div>
                 <div class="legend">
+                    <p><span class="chip chip-face"></span> De 3 a 5 fotos</p>
                     <p><span class="chip chip-face"></span> Foto com 1 rosto</p>
                     <p><span class="chip chip-person"></span> JPG ou PNG</p>
                     <p><span class="chip chip-gesture"></span> Evite grupos</p>

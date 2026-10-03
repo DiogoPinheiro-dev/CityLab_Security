@@ -15,7 +15,8 @@ from unittest.mock import Mock, patch
 from App.inference_runtime import (configure_insight_threads, configure_opencv_threads,
                                    ensure_torch_threads, prepare_native_environment)
 from tools.run_rpi import main as run_rpi
-from tools.benchmark_stream import detection_confidences, known_faces, read_frame
+from tools.benchmark_stream import (alert_names, detection_confidences, face_widths,
+                                    known_faces, read_frame)
 
 
 class RpiProfileTests(unittest.TestCase):
@@ -44,6 +45,13 @@ class RpiProfileTests(unittest.TestCase):
         self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3",
                                        FACE_REUSE_SECONDS="0")["FACE_REUSE_SECONDS"], 0.0)
         self.assertEqual(self.settings(FACE_REUSE_SECONDS="-3")["FACE_REUSE_SECONDS"], 0.0)
+
+    def test_full_frame_embedding_is_off_until_measured(self):
+        # Desligado nos dois perfis; o .env liga para comparar no Pi.
+        self.assertIs(self.settings()["FACE_EMBED_FULL_FRAME"], False)
+        self.assertIs(self.settings(CITYLAB_PROFILE="rpi3")["FACE_EMBED_FULL_FRAME"], False)
+        self.assertIs(self.settings(CITYLAB_PROFILE="rpi3",
+                                    FACE_EMBED_FULL_FRAME="1")["FACE_EMBED_FULL_FRAME"], True)
 
     def test_pose_input_size_is_416_only_on_the_pi(self):
         # Medido so no rpi3; o perfil default fica no padrao do Ultralytics.
@@ -163,8 +171,9 @@ class RpiProfileTests(unittest.TestCase):
         # Mostra o tamanho da pose, para a rodada no Pi registrar qual valeu.
         self.assertEqual(configured["POSE_IMGSZ"], 416)
         self.assertEqual(configured["FACE_REUSE_SECONDS"], 15.0)
-        # Spinning so muda pelo .env, enquanto esta em avaliacao.
+        # Spinning e embedding no frame inteiro so mudam pelo .env.
         self.assertIs(configured["ONNX_ALLOW_SPINNING"], True)
+        self.assertIs(configured["FACE_EMBED_FULL_FRAME"], False)
         self.assertNotIn("segredo", output.getvalue())
 
     def test_launcher_validates_and_forwards_the_tls_pair(self):
@@ -210,6 +219,21 @@ class RpiProfileTests(unittest.TestCase):
         # Reconhecido conta, mas o nome nao sai do payload.
         self.assertEqual(known_faces(payload), 1)
         self.assertNotIn("privado", json.dumps(data))
+
+    def test_benchmark_records_face_width_and_alert_names_without_identity(self):
+        payload = {"rostos": [{"nome": "privado", "bbox": [100, 50, 160, 120]},
+                              {"nome": "NAO ALUNO", "bbox": [10, 10, 52.5, 60]},
+                              {"bbox": None}, {"bbox": [1, 2, 3]},
+                              {"bbox": [0, 0, float("nan"), 5]}, {"bbox": [True, 0, 4, 4]}],
+                   "gestos": [{"alerts": ["Mao Oculta", "Braco Estendido"]},
+                              {"alerts": []}, {"alerts": ["Mao Oculta"]}, {}]}
+        # Caixa invalida fica de fora; a largura sai em pixels do frame enviado.
+        self.assertEqual(face_widths(payload), [60, 42.5])
+        # Um nome por alerta ativo, repetido quando duas pessoas tem o mesmo.
+        self.assertEqual(alert_names(payload),
+                         ["Braco Estendido", "Mao Oculta", "Mao Oculta"])
+        self.assertNotIn("privado", json.dumps([face_widths(payload), alert_names(payload)]))
+        self.assertEqual((face_widths({}), alert_names({})), ([], []))
 
     def test_service_keeps_the_api_up_without_a_terminal(self):
         unit = Path("tools/citylab-api.service").read_text(encoding="utf-8")

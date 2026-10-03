@@ -66,7 +66,8 @@ medidos isoladamente. Para
 comparar uma mudanca por vez, use `CITYLAB_PROFILE=default` e ajuste
 individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
 `OPENCV_NUM_THREADS`, `MAX_IN_FLIGHT_FRAMES`, `PIPELINE_SHARED_PERSON_POSE`,
-`GESTURE_MOTION_GATE`, `POSE_IMGSZ` e `FACE_REUSE_SECONDS`. Reinicie o servidor
+`GESTURE_MOTION_GATE`, `POSE_IMGSZ`, `FACE_REUSE_SECONDS` e
+`FACE_EMBED_FULL_FRAME`. Reinicie o servidor
 e recarregue o cliente quando mudar o limite de frames. Para voltar ao automatico, use
 perfil default e remova os overrides, ou defina as tres opcoes de threads em 0.
 O carregamento ajustado de ONNX libera a referencia da sessao antiga antes de
@@ -254,6 +255,12 @@ usa exatamente os limites atuais de qualidade, evitando embeddings de rostos
 que seriam descartados. Cadastro, pesos, resolucao e similaridade permanecem
 iguais. Para voltar ao caminho facial anterior, defina ambas as flags FACE
 acima como `0` e reinicie. Para A/B, altere somente uma flag por rodada.
+
+`FACE_EMBED_FULL_FRAME=1`, desligado nos dois perfis, gera o embedding no frame
+original em vez da imagem reduzida pela `PROCESS_SCALE`; a deteccao continua na
+imagem reduzida. Vale so com `FACE_PREFILTER=1`. No PC, em 03/10/2026, subiu a
+semelhanca dos rostos de 41 a 47 px em 0,05 a 0,10, com praticamente o mesmo
+tempo de embedding; no Pi ainda nao foi medido.
 
 A equivalencia foi conferida em 27/09/2026 com os modelos reais, no PC: em 3
 fotos de webcam com duas pessoas, o rosto aceito de cada foto teve a mesma

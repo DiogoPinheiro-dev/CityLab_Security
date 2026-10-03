@@ -408,6 +408,41 @@ input[type="text"]:focus {
     font-weight: 600;
 }
 
+.thumbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.thumbs:empty {
+    display: none;
+}
+
+/* Miniatura que remove a foto ao toque, sem o visual do botao principal. */
+.thumb {
+    width: 64px;
+    height: 64px;
+    padding: 0;
+    border: 2px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    background: #08131a;
+    box-shadow: none;
+}
+
+.thumb:hover,
+.thumb:focus-visible {
+    border-color: var(--danger);
+    background: #08131a;
+}
+
+.thumb img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
 @media (max-width: 980px) {
     .layout {
         grid-template-columns: 1fr;

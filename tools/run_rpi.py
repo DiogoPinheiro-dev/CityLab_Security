@@ -56,6 +56,7 @@ def main(argv=None):
         "PIPELINE_MAX_WORKERS", "PIPELINE_SHARED_PERSON_POSE", "GESTURE_MOTION_GATE",
         "GESTURE_PUBLISH_MIN_CONFIDENCE", "FACE_MINIMAL_MODULES", "FACE_PREFILTER",
         "MAX_IN_FLIGHT_FRAMES", "PROCESS_SCALE", "POSE_IMGSZ", "FACE_REUSE_SECONDS",
+        "FACE_EMBED_FULL_FRAME",
     )}
     # Somente o estado do TLS: o par aponta para a chave privada do servidor.
     print(json.dumps({"configured": config, "native_environment": native,

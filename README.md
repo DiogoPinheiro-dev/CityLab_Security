@@ -234,20 +234,28 @@ Cadastra um aluno no MongoDB com embedding facial.
 Formato: `multipart/form-data`
 
 - `nome` obrigatorio
-- `foto` obrigatoria, em `.jpg`, `.jpeg` ou `.png`
+- `foto` obrigatoria, de 1 a 5 arquivos no mesmo campo, em `.jpg`, `.jpeg` ou
+  `.png`. Com mais de uma, o cadastro guarda a media dos embeddings, que
+  reconhece melhor que uma foto so; a pagina de cadastro sugere de 3 a 5.
 
 Regras importantes:
 
-- A imagem precisa conter exatamente 1 rosto.
+- Cada imagem precisa conter exatamente 1 rosto; o erro diz qual foto falhou.
+- Uma foto que nao parece ser da mesma pessoa das outras recusa o cadastro,
+  para nao misturar dois rostos no mesmo embedding.
 - Se a pipeline ainda nao estiver pronta, a rota retorna `503`.
 - Ao cadastrar com sucesso, o embedding tambem e sincronizado imediatamente com a pipeline em memoria.
+- Enquanto as fotos sao processadas, o stream fica parado: no Pi, cada foto
+  custa uma deteccao e um embedding, alguns segundos.
 
 Exemplo em PowerShell:
 
 ```powershell
 curl.exe -X POST "http://127.0.0.1:8000/cadastro" `
   -F "nome=Joao Silva" `
-  -F "foto=@C:\caminho\foto.jpg"
+  -F "foto=@C:\caminho\foto1.jpg" `
+  -F "foto=@C:\caminho\foto2.jpg" `
+  -F "foto=@C:\caminho\foto3.jpg"
 ```
 
 Resposta de sucesso:
@@ -333,7 +341,7 @@ Os testes nao exigem modelos, MongoDB nem o Raspberry:
 
 ```bash
 python -m unittest discover -s tests -p 'test_*.py'
-node --test tests/client_stream.test.cjs
+node --test tests/client_stream.test.cjs tests/client_cadastro.test.cjs
 ```
 
 ## Estado final e limitacoes conhecidas
@@ -356,8 +364,11 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
 - **Reconhecimento perto do limite.** Em 02/10/2026, com duas pessoas na
   frente da webcam, o rosto cadastrado de frente teve semelhanca de 0,42 a 0,59
   com o cadastro, em volta do limite de 0,52, e foi reconhecido em 9, 21 e 25
-  dos 30 frames das tres rodadas; nos outros, saiu como desconhecido. A causa
-  ainda nao foi identificada.
+  dos 30 frames das tres rodadas; nos outros, saiu como desconhecido. No PC, a
+  causa principal foi o cadastro de uma foto so; desde 03/10/2026 ele aceita
+  ate 5 fotos e guarda a media, mas so ajuda quem for recadastrado.
+  `FACE_EMBED_FULL_FRAME=1` gera o embedding no frame original, o que ajudou
+  os rostos pequenos no PC. Os dois ainda nao foram medidos no Pi.
 - **Pose em 416 px.** Na rodada com gesto em 416, a mao oculta de lado nao
   disparou e o punho levantado disparou um frame depois do que em 640. Com 6
   frames por situacao e a pessoa em outra posicao, nao deu para separar o
