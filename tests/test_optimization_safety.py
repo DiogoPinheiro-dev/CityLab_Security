@@ -4,7 +4,9 @@ import os
 import sys
 import unittest
 import threading
+import uuid
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -114,6 +116,16 @@ class GestureSafetyTests(unittest.TestCase):
         self.assertNotIn("Mao Fechada", self.observe(2))
 
 
+# O que App/FaceRecon/service.py importa no modulo, para carregar so a classe.
+FACE_SERVICE_DEPENDENCIES = dict(
+    DEBUG_PIPELINE=True, FACE_MIN_WIDTH=40, FACE_MIN_HEIGHT=40, FACE_MIN_CONFIDENCE=.45,
+    FACE_MINIMAL_MODULES=True, FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
+    ONNX_ALLOW_SPINNING=True, FACE_REUSE_SECONDS=0.0, FACE_EMBED_FULL_FRAME=False,
+    FACE_LEARN_FROM_STREAM=False, FACE_LEARNED_PER_PERSON=5, FACE_LEARN_INTERVAL_SECONDS=600.0,
+    FACE_LEARNED_RETENTION_DAYS=30, Face=SimpleNamespace, uuid=uuid, datetime=datetime,
+    timedelta=timedelta)
+
+
 class Vector(list):
     def __getitem__(self, key):
         result = super().__getitem__(key)
@@ -131,14 +143,13 @@ class FaceOptimizationTests(unittest.TestCase):
         numpy_stub = SimpleNamespace(empty=lambda shape, dtype=None: [], float32=float,
                                      asarray=lambda value, dtype=None: value)
         cls = load_class("App/FaceRecon/service.py", "FaceRecognitionService",
-                         DEBUG_PIPELINE=True, FACE_MIN_WIDTH=40, FACE_MIN_HEIGHT=40,
-                         FACE_MIN_CONFIDENCE=.45, FACE_MINIMAL_MODULES=True,
-                         FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
-                         ONNX_ALLOW_SPINNING=True, FACE_REUSE_SECONDS=0.0,
-                         FACE_EMBED_FULL_FRAME=False, Face=SimpleNamespace, np=numpy_stub)
+                         **FACE_SERVICE_DEPENDENCIES, np=numpy_stub)
         service = cls.__new__(cls)
         service.prefilter = prefilter
         service.embed_full_frame = False
+        service.learn_from_stream = False
+        service.learned, service._learned_names, service._learned_embeddings = {}, [], []
+        service.latest_learned, service.latest_forgotten = [], []
         service.debug_pipeline = True
         service.face_min_width = service.face_min_height = 40
         service.face_min_confidence = .45
@@ -244,11 +255,7 @@ class FaceOptimizationTests(unittest.TestCase):
     def test_registration_averages_the_photos_and_flags_another_person(self):
         import numpy
         cls = load_class("App/FaceRecon/service.py", "FaceRecognitionService",
-                         DEBUG_PIPELINE=True, FACE_MIN_WIDTH=40, FACE_MIN_HEIGHT=40,
-                         FACE_MIN_CONFIDENCE=.45, FACE_MINIMAL_MODULES=True,
-                         FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
-                         ONNX_ALLOW_SPINNING=True, FACE_REUSE_SECONDS=0.0,
-                         FACE_EMBED_FULL_FRAME=False, Face=SimpleNamespace, np=numpy)
+                         **FACE_SERVICE_DEPENDENCIES, np=numpy)
 
         def unit(*values):
             vector = numpy.array(values, dtype=numpy.float32)
@@ -268,6 +275,103 @@ class FaceOptimizationTests(unittest.TestCase):
         other = unit(0, 0, 1)
         self.assertEqual(cls.average_embedding([first, other, second]), (None, 1))
         self.assertEqual(cls.average_embedding([first, other])[1], 0)
+
+    def learning_service(self, per_person=5, interval=0):
+        """Servico com o aprendizado ligado e numpy de verdade, cadastro de um aluno."""
+        import numpy
+        cls = load_class("App/FaceRecon/service.py", "FaceRecognitionService",
+                         **FACE_SERVICE_DEPENDENCIES, np=numpy)
+        service = cls.__new__(cls)
+        service.similarity_threshold = .52
+        service.learn_from_stream = True
+        service.learned_per_person = per_person
+        service.learn_interval = timedelta(seconds=interval)
+        service.learned_retention = timedelta(days=30)
+        service.learned, service._learned_names = {}, []
+        service._learned_embeddings = numpy.empty((0, 512), dtype=numpy.float32)
+        service.latest_learned, service.latest_forgotten = [], []
+        service._identities, service._identity_generation = [], 0
+
+        def vector(*values):
+            result = numpy.zeros(512, dtype=numpy.float32)
+            result[:len(values)] = values
+            return result / numpy.linalg.norm(result)
+
+        service.replace_known_faces(["Aluno"], [vector(1, 0)])
+        return service, vector
+
+    def test_stream_face_near_the_registration_becomes_a_reference(self):
+        service, vector = self.learning_service()
+        live = vector(1, .5)  # 0,894 do cadastro
+        service._maybe_learn("Aluno", .894, live)
+        self.assertEqual([entry["nome"] for entry in service.latest_learned], ["Aluno"])
+        # Um rosto longe do cadastro (0,406) e perto do aprendido (0,772) e reconhecido.
+        name, score = service._match_face(vector(.4, .9))
+        self.assertEqual(name, "Aluno")
+        self.assertAlmostEqual(score, .772, places=3)
+
+    def test_learning_needs_margin_and_the_registration(self):
+        service, vector = self.learning_service()
+        service._maybe_learn("NAO ALUNO", .9, vector(1, .5))
+        service._maybe_learn("Aluno", .55, vector(1, .5))  # abaixo de 0,60
+        self.assertEqual(service.learned, {})
+        service._maybe_learn("Aluno", .894, vector(1, .5))
+        # Reconhecido so pelo aprendido, longe do cadastro: nao vira referencia,
+        # para as referencias nao derivarem para outra pessoa.
+        service._maybe_learn("Aluno", .772, vector(.4, .9))
+        self.assertEqual(len(service.learned["Aluno"]), 1)
+
+    def test_learning_respects_the_limit_and_the_interval(self):
+        service, vector = self.learning_service(per_person=2)
+        for _ in range(3):
+            service._maybe_learn("Aluno", .9, vector(1, .3))
+        self.assertEqual(len(service.learned["Aluno"]), 2)
+        service, vector = self.learning_service(interval=600)
+        service._maybe_learn("Aluno", .9, vector(1, .3))
+        service._maybe_learn("Aluno", .9, vector(1, .3))
+        self.assertEqual(len(service.learned["Aluno"]), 1)
+
+    def test_full_slots_swap_the_reference_farthest_from_the_registration(self):
+        service, vector = self.learning_service(per_person=2)
+        service._maybe_learn("Aluno", .9, vector(1, .6))  # 0,857 do cadastro
+        service._maybe_learn("Aluno", .9, vector(1, .5))  # 0,894
+        first = service.learned["Aluno"][0]["id"]
+        service.latest_learned, service.latest_forgotten = [], []
+        # Mais perto do cadastro (0,981): sai a mais longe, e o banco apaga.
+        service._maybe_learn("Aluno", .9, vector(1, .2))
+        self.assertEqual(service.latest_forgotten, [first])
+        self.assertEqual([round(ref["semelhanca_cadastro"], 3) for ref in service.learned["Aluno"]],
+                         [.894, .981])
+        # Mais longe que todas (0,819): nao troca nada.
+        service._maybe_learn("Aluno", .9, vector(1, .7))
+        self.assertEqual(len(service.latest_forgotten), 1)
+        self.assertEqual(len(service._learned_names), 2)
+
+    def test_references_follow_the_registration_and_the_retention(self):
+        service, vector = self.learning_service(per_person=2)
+        now = datetime.now()
+        entries = [{"id": key, "nome": name, "semelhanca": .7, "embedding": vector(*values),
+                    "aprendido_em": now - timedelta(days=day)}
+                   for key, name, values, day in (
+                       ("perto", "Aluno", (1, .2), 1), ("meio", "Aluno", (1, .5), 1),
+                       ("sobra", "Aluno", (1, .7), 1), ("vencida", "Aluno", (1, .1), 31),
+                       ("longe", "Aluno", (0, 1), 1), ("saiu", "Saiu", (1, .2), 1))]
+        # Fora: quem saiu do cadastro, a que hoje nao entraria e a que passa do
+        # limite. A vencida nem ocupa vaga; o banco a apaga pelo prazo.
+        self.assertEqual(sorted(service.replace_learned(entries)), ["longe", "saiu", "sobra"])
+        self.assertEqual([ref["id"] for ref in service.learned["Aluno"]], ["perto", "meio"])
+        service.replace_known_faces(["Outro"], [vector(0, 1)])
+        self.assertEqual((service.learned, service._learned_names), ({}, []))
+
+    def test_only_a_fresh_embedding_can_teach(self):
+        service, recognition, frame = self.reuse_frames()
+        service.learn_from_stream = True
+        service._maybe_learn = Mock()
+        face = Vector([0, 0, 30, 30, .9])
+        frame(100.0, face)
+        frame(104.0, face)
+        # O frame com o nome herdado pelo reuso nao passa pelo aprendizado.
+        service._maybe_learn.assert_called_once_with("Aluno", .87, [.87])
 
     def reuse_frames(self, unknown=False):
         """Servico com reuso de 15 s e uma funcao que roda um frame no instante dado."""

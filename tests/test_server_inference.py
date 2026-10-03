@@ -85,6 +85,20 @@ class InferenceThreadTests(unittest.TestCase):
                                       ("frame", "inferencia_0"),
                                       ("fim do frame", "inferencia_0")])
 
+    def test_learned_references_go_to_the_database_and_not_to_the_client(self):
+        item = {"id": "a1", "nome": "Aluno", "semelhanca": .7,
+                "embedding": np.ones(512, dtype=np.float32)}
+        mudancas = {"novos": [item], "removidos": ["velha"]}
+        main.recognizer.process_frame = lambda frame: {
+            "faces": [], "gestures": [], "persons": [], "metrics": {}, "aprendidos": mudancas}
+        with TestClient(main.app) as client, client.websocket_connect("/stream") as ws, \
+                patch.object(main, "_guardar_aprendidos", AsyncMock()) as guardar:
+            ws.send_bytes(self.jpeg)
+            resposta = ws.receive_json()
+        guardar.assert_awaited_once_with(mudancas)
+        self.assertNotIn("aprendidos", resposta)
+        self.assertNotIn("embedding", str(resposta))
+
     def test_enrollment_waits_for_the_frame_and_swaps_names_between_frames(self):
         with TestClient(main.app) as client, client.websocket_connect("/stream") as ws, \
                 patch.object(main.colecao_alunos, "insert_one", AsyncMock()):

@@ -201,6 +201,13 @@ class UnifiedRecognitionService:
             face_payload={"faces": faces, "persons": persons},
             gesture_payload={"gestures": gestures},
         )
+        learned = getattr(self.face_service, "latest_learned", None) if detect_faces else None
+        forgotten = getattr(self.face_service, "latest_forgotten", None) if detect_faces else None
+        if learned or forgotten:
+            # Referencias aprendidas e trocadas neste frame, para o servidor
+            # gravar no banco; tem embedding, entao nao vao para o cliente.
+            payload["aprendidos"] = {"novos": list(learned or []),
+                                     "removidos": list(forgotten or [])}
 
         if self.enable_performance_metrics:
             finished_at = time.perf_counter()

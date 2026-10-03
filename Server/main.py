@@ -32,6 +32,8 @@ from App.settings import (
     ENABLE_PERFORMANCE_METRICS,
     ENABLE_SYSTEM_MONITOR,
     EVENT_RETENTION_DAYS,
+    FACE_LEARN_FROM_STREAM,
+    FACE_LEARNED_RETENTION_DAYS,
     GESTURE_IDLE_RESET_SECONDS,
     JPEG_QUALITY,
     MAX_IN_FLIGHT_FRAMES,
@@ -42,8 +44,9 @@ from App.settings import (
     STREAM_HEIGHT,
     STREAM_WIDTH,
 )
-from Server.Db.database import (MONGO_DB_NAME, colecao_alunos, colecao_logs,
-                                configurar_retencao_logs, validar_conexao_mongo)
+from Server.Db.database import (MONGO_DB_NAME, colecao_alunos, colecao_aprendidos, colecao_logs,
+                                configurar_retencao_logs, configurar_validade_aprendidos,
+                                validar_conexao_mongo)
 from Server.event_logger import EventLogger
 from Server.system_monitor import SystemMonitor
 
@@ -95,6 +98,48 @@ def _rostos_da_foto(face_service, conteudo: bytes):
     """Decodifica a foto do cadastro e acha os rostos; None se ela nao abre."""
     img = cv2.imdecode(np.frombuffer(conteudo, np.uint8), cv2.IMREAD_COLOR)
     return None if img is None else face_service.app_insight.get(img)
+
+
+async def _guardar_aprendidos(mudancas: dict) -> None:
+    """Apaga as referencias trocadas no frame e grava as novas.
+
+    Falha no banco nao derruba o stream: a memoria segue certa ate a API
+    reiniciar.
+    """
+    try:
+        if mudancas.get("removidos"):
+            await colecao_aprendidos.delete_many({"_id": {"$in": list(mudancas["removidos"])}})
+        if mudancas.get("novos"):
+            await colecao_aprendidos.insert_many([
+                {"_id": item["id"], "nome": item["nome"], "semelhanca": item["semelhanca"],
+                 "semelhanca_cadastro": item.get("semelhanca_cadastro"),
+                 "aprendido_em": item["aprendido_em"],
+                 "embedding": [float(value) for value in item["embedding"]]}
+                for item in mudancas["novos"]])
+    except Exception as exc:
+        print(f"[AVISO] Referencias aprendidas nao gravadas: {exc}")
+
+
+async def _carregar_aprendidos(current_recognizer: UnifiedRecognitionService) -> None:
+    """Prazo no banco e referencias guardadas para a memoria; apaga as de quem saiu."""
+    try:
+        validade = await configurar_validade_aprendidos(FACE_LEARNED_RETENTION_DAYS)
+        print(f"[INFO] Referencias aprendidas: {validade}.")
+    except Exception as exc:
+        print(f"[AVISO] Prazo das referencias aprendidas nao configurado: {exc}")
+    try:
+        documentos = [documento async for documento in colecao_aprendidos.find({})]
+        # Ficam de fora as de quem saiu do cadastro e as que hoje nao entrariam.
+        descartadas = current_recognizer.face_service.replace_learned([
+            {"id": documento["_id"], "nome": documento.get("nome"),
+             "semelhanca": documento.get("semelhanca"),
+             "aprendido_em": documento["aprendido_em"], "embedding": documento["embedding"]}
+            for documento in documentos])
+        if descartadas:
+            await colecao_aprendidos.delete_many({"_id": {"$in": descartadas}})
+        print(f"[INFO] {len(documentos) - len(descartadas)} referencias aprendidas carregadas.")
+    except Exception as exc:
+        print(f"[AVISO] Referencias aprendidas nao carregadas: {exc}")
 
 
 def _sync_memoria_para_recognizer() -> None:
@@ -165,6 +210,8 @@ async def lifespan(_: FastAPI):
 
     _sync_memoria_para_recognizer()
     print(f"[INFO] {len(banco_rostos_memoria['nomes'])} alunos carregados.")
+    if FACE_LEARN_FROM_STREAM and recognizer.face_service is not None:
+        await _carregar_aprendidos(recognizer)
     inference_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="inferencia")
 
     yield
@@ -404,6 +451,8 @@ async def websocket_reconhecimento(websocket: WebSocket):
             log_started_at = time.perf_counter()
             await event_logger.log_face_events(frame, faces)
             await event_logger.log_gesture_events(frame, gestures)
+            if results.get("aprendidos"):
+                await _guardar_aprendidos(results["aprendidos"])
             logs_ms = (time.perf_counter() - log_started_at) * 1000.0
 
             resultados_faces = []

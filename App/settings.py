@@ -70,6 +70,16 @@ FACE_REUSE_SECONDS = max(0.0, _get_float("FACE_REUSE_SECONDS", 15.0 if _RPI3 els
 # 03/10/2026, a semelhanca com o cadastro subiu, mais nos rostos dificeis, sem
 # custo de tempo (docs/PLANO_OTIMIZACAO.md); no perfil default segue desligado.
 FACE_EMBED_FULL_FRAME = _get_bool("FACE_EMBED_FULL_FRAME", _RPI3)
+# Aprende com o stream: um rosto reconhecido com folga vira mais uma referencia
+# da pessoa, guardada no MongoDB (colecao rostos_aprendidos). Ate
+# FACE_LEARNED_PER_PERSON por pessoa, uma a cada FACE_LEARN_INTERVAL_SECONDS, e
+# o banco apaga as com mais de FACE_LEARNED_RETENTION_DAYS dias. Numa simulacao
+# no PC, em 03/10/2026, com uma foto de cadastro, reconheceu 277 de 360 frames
+# contra 233. Desligado ate medir no Pi.
+FACE_LEARN_FROM_STREAM = _get_bool("FACE_LEARN_FROM_STREAM", False)
+FACE_LEARNED_PER_PERSON = max(1, _get_int("FACE_LEARNED_PER_PERSON", 5))
+FACE_LEARN_INTERVAL_SECONDS = max(0.0, _get_float("FACE_LEARN_INTERVAL_SECONDS", 600.0))
+FACE_LEARNED_RETENTION_DAYS = max(0, _get_int("FACE_LEARNED_RETENTION_DAYS", 30))
 # Zero preserva a escolha automatica da biblioteca. 2 no rpi3: com a pose em
 # 416 o rosto virou o caminho critico, e 2 threads deixaram o frame com uma
 # pessoa 20% mais rapido, medido em 01/10/2026 (docs/PLANO_OTIMIZACAO.md).

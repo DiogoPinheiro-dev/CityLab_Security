@@ -53,6 +53,17 @@ class RpiProfileTests(unittest.TestCase):
         self.assertEqual(self.settings(EVENT_RETENTION_DAYS="0")["EVENT_RETENTION_DAYS"], 0)
         self.assertEqual(self.settings(EVENT_RETENTION_DAYS="-5")["EVENT_RETENTION_DAYS"], 0)
 
+    def test_learning_from_the_stream_is_off_until_measured(self):
+        names = ("FACE_LEARN_FROM_STREAM", "FACE_LEARNED_PER_PERSON",
+                 "FACE_LEARN_INTERVAL_SECONDS", "FACE_LEARNED_RETENTION_DAYS")
+        for profile in ("default", "rpi3"):
+            values = self.settings(CITYLAB_PROFILE=profile)
+            self.assertEqual([values[name] for name in names], [False, 5, 600.0, 30])
+        on = self.settings(FACE_LEARN_FROM_STREAM="1", FACE_LEARNED_PER_PERSON="0",
+                           FACE_LEARN_INTERVAL_SECONDS="-1", FACE_LEARNED_RETENTION_DAYS="-1")
+        # Ligado so pelo .env; no minimo uma referencia, sem intervalo ou prazo negativo.
+        self.assertEqual([on[name] for name in names], [True, 1, 0.0, 0])
+
     def test_full_frame_embedding_is_on_only_on_the_pi(self):
         # Medido so no rpi3, em 03/10/2026; o perfil default segue na imagem reduzida.
         self.assertIs(self.settings()["FACE_EMBED_FULL_FRAME"], False)
@@ -182,6 +193,7 @@ class RpiProfileTests(unittest.TestCase):
         # Spinning so muda pelo .env; o embedding no frame inteiro vem do perfil.
         self.assertIs(configured["ONNX_ALLOW_SPINNING"], True)
         self.assertIs(configured["FACE_EMBED_FULL_FRAME"], True)
+        self.assertIs(configured["FACE_LEARN_FROM_STREAM"], False)
         self.assertEqual(configured["EVENT_RETENTION_DAYS"], 30)
         self.assertNotIn("segredo", output.getvalue())
 

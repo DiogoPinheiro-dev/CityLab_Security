@@ -268,6 +268,26 @@ com o video de carga, a semelhanca com o cadastro subiu 0,008 na mediana e ate
 41 a 47 px subiram de 0,05 a 0,10. `FACE_EMBED_FULL_FRAME=0` volta a imagem
 reduzida.
 
+`FACE_LEARN_FROM_STREAM=1`, desligado nos dois perfis, faz o sistema aprender
+com o stream: um rosto reconhecido de um embedding novo, com semelhanca de
+0,60 ou mais e acima do limite contra o proprio cadastro, vira referencia da
+pessoa. As referencias ficam na colecao `rostos_aprendidos` e na memoria da
+API, ate `FACE_LEARNED_PER_PERSON` por pessoa (5), uma a cada
+`FACE_LEARN_INTERVAL_SECONDS` (600), e o MongoDB apaga as com mais de
+`FACE_LEARNED_RETENTION_DAYS` dias (30). Com as vagas cheias, uma nova troca a
+referencia menos parecida com o cadastro, se for mais parecida que ela. Na
+subida, a API carrega as referencias e apaga as de quem saiu do cadastro e as
+que hoje nao entrariam. Para ver ou apagar:
+
+```bash
+cd ~/CityLab_Security && .venv/bin/python tools/limpar_aprendidos.py
+cd ~/CityLab_Security && .venv/bin/python tools/limpar_aprendidos.py --tudo
+```
+
+Depois de apagar, reinicie a API, que guarda as referencias tambem na memoria.
+Com o aprendizado ligado, as rodadas de medicao deixam de ser independentes:
+apague as referencias antes de cada serie.
+
 A equivalencia foi conferida em 27/09/2026 com os modelos reais, no PC: em 3
 fotos de webcam com duas pessoas, o rosto aceito de cada foto teve a mesma
 caixa, identidade, embedding e similaridade com e sem as flags. Para repetir,

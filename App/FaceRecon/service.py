@@ -1,5 +1,7 @@
 import os
 import pickle
+import uuid
+from datetime import datetime, timedelta
 from typing import Any
 from typing import Optional
 
@@ -9,7 +11,9 @@ import numpy as np
 from ultralytics import YOLO  # type: ignore
 
 from App.frame_context import FrameContext
-from App.settings import (DEBUG_PIPELINE, FACE_EMBED_FULL_FRAME, FACE_MIN_CONFIDENCE,
+from App.settings import (DEBUG_PIPELINE, FACE_EMBED_FULL_FRAME, FACE_LEARN_FROM_STREAM,
+                          FACE_LEARN_INTERVAL_SECONDS, FACE_LEARNED_PER_PERSON,
+                          FACE_LEARNED_RETENTION_DAYS, FACE_MIN_CONFIDENCE,
                           FACE_MIN_HEIGHT, FACE_MIN_WIDTH, FACE_MINIMAL_MODULES,
                           FACE_PREFILTER, FACE_REUSE_SECONDS, ONNX_ALLOW_SPINNING,
                           ONNX_INTRA_OP_THREADS)
@@ -24,6 +28,10 @@ class FaceRecognitionService:
     # fotos da mesma pessoa a pior ficou em 0,50 (03/10/2026); abaixo disso a
     # foto e tratada como de outra pessoa, para nao misturar dois rostos.
     REGISTRATION_MIN_SIMILARITY = 0.3
+    # Semelhanca minima para um rosto do stream virar referencia da pessoa. Na
+    # simulacao de 03/10/2026 aprendeu com 9 de 10 fotos de cadastro, e 7 rostos
+    # de outras pessoas nao passaram de 0,16 com as referencias aprendidas.
+    LEARN_MIN_SIMILARITY = 0.60
 
     def __init__(
         self,
@@ -45,6 +53,10 @@ class FaceRecognitionService:
         reuse_seconds: float = FACE_REUSE_SECONDS,
         onnx_allow_spinning: bool = ONNX_ALLOW_SPINNING,
         embed_full_frame: bool = FACE_EMBED_FULL_FRAME,
+        learn_from_stream: bool = FACE_LEARN_FROM_STREAM,
+        learned_per_person: int = FACE_LEARNED_PER_PERSON,
+        learn_interval_seconds: float = FACE_LEARN_INTERVAL_SECONDS,
+        learned_retention_days: int = FACE_LEARNED_RETENTION_DAYS,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -74,6 +86,18 @@ class FaceRecognitionService:
 
         self.known_face_embeddings = np.empty((0, 512), dtype=np.float32)
         self.known_face_names: list[str] = []
+        # Referencias aprendidas no stream, por nome. Quem grava no banco e o
+        # servidor, pelas novas de cada frame em latest_learned.
+        self.learn_from_stream = learn_from_stream
+        self.learned_per_person = learned_per_person
+        self.learn_interval = timedelta(seconds=learn_interval_seconds)
+        self.learned_retention = (timedelta(days=learned_retention_days)
+                                  if learned_retention_days > 0 else None)
+        self.learned: dict[str, list[dict[str, Any]]] = {}
+        self._learned_embeddings = np.empty((0, 512), dtype=np.float32)
+        self._learned_names: list[str] = []
+        self.latest_learned: list[dict[str, Any]] = []
+        self.latest_forgotten: list[str] = []
         self._load_database()
 
         self.model_yolo = None if lazy_person_model else YOLO(self.yolo_model_path)
@@ -117,6 +141,10 @@ class FaceRecognitionService:
         # Nome guardado pode ser de quem saiu do cadastro.
         self.reset_identities()
         self.known_face_names = list(names)
+        # Referencias aprendidas so de quem continua no cadastro.
+        known = set(self.known_face_names)
+        self.learned = {name: refs for name, refs in self.learned.items() if name in known}
+        self._rebuild_learned()
         if len(embeddings) == 0:
             self.known_face_embeddings = np.empty((0, 512), dtype=np.float32)
             return
@@ -130,6 +158,7 @@ class FaceRecognitionService:
         import time
 
         started_at = time.perf_counter()
+        self.latest_learned, self.latest_forgotten = [], []
         # Partes do faces_ms. So o prefiltro separa deteccao e embedding: no
         # FaceAnalysis.get os dois saem juntos e ficam so no total.
         detect_ms = embed_ms = match_ms = 0.0
@@ -199,6 +228,9 @@ class FaceRecognitionService:
                 name, best_score = self._match_face(target.normed_embedding)
                 match_ms += (time.perf_counter() - match_started_at) * 1000.0
                 recognized_at = now
+                # So de embedding novo: nome herdado pelo reuso nao ensina nada.
+                if self.learn_from_stream:
+                    self._maybe_learn(name, best_score, target.normed_embedding)
             identities.append({"bbox": bbox_processing, "name": name,
                                "score": best_score, "recognized_at": recognized_at})
 
@@ -320,17 +352,108 @@ class FaceRecognitionService:
         return persons
 
     def _match_face(self, live_embedding: np.ndarray) -> tuple[str, float]:
-        if len(self.known_face_embeddings) == 0:
+        # Vale a mais parecida entre o cadastro e as referencias aprendidas.
+        best_name, best_score = None, 0.0
+        for embeddings, names in ((self.known_face_embeddings, self.known_face_names),
+                                  (self._learned_embeddings, self._learned_names)):
+            if len(embeddings) == 0:
+                continue
+            scores = np.dot(embeddings, live_embedding)
+            index = int(np.argmax(scores))
+            if best_name is None or float(scores[index]) > best_score:
+                best_name, best_score = names[index], float(scores[index])
+
+        if best_name is None:
             return "NAO ALUNO", 0.0
-
-        scores = np.dot(self.known_face_embeddings, live_embedding)
-        best_match_index = int(np.argmax(scores))
-        best_score = float(scores[best_match_index])
-
         if best_score > self.similarity_threshold:
-            return self.known_face_names[best_match_index], best_score
+            return best_name, best_score
 
         return "NAO ALUNO", best_score
+
+    def _cadastro_score(self, name: str, live_embedding: np.ndarray) -> float:
+        """Semelhanca com o cadastro da pessoa, sem as referencias aprendidas."""
+        return max((float(np.dot(embedding, live_embedding))
+                    for embedding, known in zip(self.known_face_embeddings, self.known_face_names)
+                    if known == name), default=0.0)
+
+    def _maybe_learn(self, name: str, score: float, embedding: np.ndarray) -> None:
+        """Guarda o rosto como referencia da pessoa, se a folga e o cadastro permitem.
+
+        Com as vagas cheias, a nova troca a referencia menos parecida com o
+        cadastro, se for mais parecida que ela: uma referencia errada e a
+        primeira a sair. Medir pela nota do aprendizado deixava as referencias
+        parecidas demais entre si (simulacao de 03/10/2026).
+        """
+        now = datetime.now()
+        self._prune_learned(now)
+        if name == "NAO ALUNO" or score < self.LEARN_MIN_SIMILARITY:
+            return
+        # Perto do cadastro tambem: as referencias nao derivam para outra pessoa.
+        anchor = self._cadastro_score(name, embedding)
+        if anchor <= self.similarity_threshold:
+            return
+        refs = self.learned.get(name, [])
+        if refs and now - max(ref["aprendido_em"] for ref in refs) < self.learn_interval:
+            return
+        if len(refs) >= self.learned_per_person:
+            weakest = min(refs, key=lambda ref: self._cadastro_score(name, ref["embedding"]))
+            if anchor <= self._cadastro_score(name, weakest["embedding"]):
+                return
+            refs = [ref for ref in refs if ref is not weakest]
+            self.latest_forgotten.append(weakest["id"])
+        entry = {"id": uuid.uuid4().hex, "nome": name, "semelhanca": float(score),
+                 "semelhanca_cadastro": anchor, "aprendido_em": now,
+                 "embedding": np.asarray(embedding, dtype=np.float32)}
+        self.learned[name] = [*refs, entry]
+        self.latest_learned.append(entry)
+        self._rebuild_learned()
+
+    def _prune_learned(self, now: datetime) -> None:
+        """Esquece na memoria o que o banco apaga pelo prazo."""
+        if self.learned_retention is None or not self.learned:
+            return
+        limit = now - self.learned_retention
+        kept = {name: [ref for ref in refs if ref["aprendido_em"] > limit]
+                for name, refs in self.learned.items()}
+        if any(len(kept[name]) != len(refs) for name, refs in self.learned.items()):
+            self.learned = {name: refs for name, refs in kept.items() if refs}
+            self._rebuild_learned()
+
+    def _rebuild_learned(self) -> None:
+        entries = [ref for refs in self.learned.values() for ref in refs]
+        self._learned_names = [ref["nome"] for ref in entries]
+        self._learned_embeddings = (
+            np.asarray([ref["embedding"] for ref in entries], dtype=np.float32)
+            if entries else np.empty((0, 512), dtype=np.float32))
+
+    def replace_learned(self, entries: list[dict[str, Any]]) -> list[str]:
+        """Carrega as referencias guardadas no banco; devolve os ids que ficaram de fora.
+
+        Fica de fora a de quem saiu do cadastro e a que hoje nao entraria, longe
+        do cadastro. Por pessoa ficam as mais parecidas com ele, ate o limite.
+        """
+        known = set(self.known_face_names)
+        expired = (datetime.now() - self.learned_retention
+                   if self.learned_retention is not None else None)
+        learned: dict[str, list[dict[str, Any]]] = {}
+        discarded: list[str] = []
+        for entry in entries:
+            # Vencida nao ocupa vaga: o proprio banco a apaga pelo prazo.
+            if expired is not None and entry["aprendido_em"] <= expired:
+                continue
+            embedding = np.asarray(entry["embedding"], dtype=np.float32)
+            if (entry["nome"] not in known
+                    or self._cadastro_score(entry["nome"], embedding) <= self.similarity_threshold):
+                discarded.append(entry["id"])
+                continue
+            learned.setdefault(entry["nome"], []).append({**entry, "embedding": embedding})
+        for name, refs in learned.items():
+            refs.sort(key=lambda ref: self._cadastro_score(name, ref["embedding"]), reverse=True)
+            discarded.extend(ref["id"] for ref in refs[self.learned_per_person:])
+            learned[name] = refs[:self.learned_per_person]
+        self.learned = learned
+        self._rebuild_learned()
+        return discarded
 
     def _validate_face(self, face: Any, bbox_original: list[int]) -> str | None:
         x1, y1, x2, y2 = bbox_original

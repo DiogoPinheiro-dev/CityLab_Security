@@ -595,9 +595,78 @@ Resultados em `resultados/pi3-06a3040-video-base/` e
   perfil rpi3; no default segue desligado, e `FACE_EMBED_FULL_FRAME=0` volta a
   imagem reduzida.
 
+### Uma foto de cadastro - gerar versoes nao ajuda, aprender com o stream ajuda
+
+O responsavel achou o cadastro com varias fotos trabalhoso para quem se
+cadastra e pediu para tirar mais de uma foto so. Dois testes no PC, com os
+modelos reais: cada um dos 10 frames do video `neutro` do celular faz o papel
+de uma foto de cadastro, contra os 36 frames do video de carga com o embedding
+como o stream gera hoje, no frame inteiro. Rascunhos em `.tmp/foto_unica.py` e
+`.tmp/aprende_stream.py`, fora do Git; so numeros.
+
+| Cadastro de uma foto | Semelhanca mediana | Frames reconhecidos |
+|---|---|---|
+| Direto, como hoje | 0,616 | 233/360 |
+| Media com a foto espelhada | 0,619 | 234/360 |
+| Media da foto reduzida a 40, 55 e 70 px, em JPEG 65 | 0,597 | 230/360 |
+| Tudo junto | 0,617 | 236/360 |
+| Foto e ate 5 referencias aprendidas no stream | | 277/360 |
+
+- **Gerar versoes da foto quase nao muda nada**: o espelho ajuda uns 0,01, e
+  reduzir a foto ao tamanho da camera piora. O que separa uma foto boa de uma
+  ruim e o rosto nela, pose, luz e expressao, e isso nao se conserta na foto.
+- **Aprender com o stream ajuda**: frame da webcam contra frame da webcam, a
+  mesma pessoa tem semelhanca mediana de 0,774, contra uns 0,6 da foto. Regra
+  simulada: um embedding novo com 0,60 ou mais e acima de 0,52 contra a foto
+  vira referencia, ate 5 por pessoa. 9 das 10 fotos aprenderam 5 referencias;
+  a pior, com mediana de 0,30, nao aprendeu nenhuma, porque nunca passou de
+  0,60, e assim a referencia nao deriva para outra pessoa.
+- Risco de confundir: os 7 rostos de outras pessoas das imagens de exemplo do
+  InsightFace, reduzidos ao tamanho da camera, nao passaram de 0,160 contra a
+  foto e as referencias aprendidas, com limite de 0,52. Sao poucos rostos: e
+  conferencia, nao prova de falso aceite.
+
+O responsavel escolheu guardar as referencias no banco, pesando a favor que
+sobrevivem a reinicios e podem ser vistas e apagadas, e contra que o banco
+passa a guardar biometria tirada do stream e que um erro persiste.
+
+- `FACE_LEARN_FROM_STREAM`, desligado nos dois perfis ate medir no Pi. O
+  servico de rosto compara cada embedding novo com o cadastro e com as
+  referencias; um nome herdado pelo reuso nao ensina nada. As novas de cada
+  frame vao para o servidor, que grava na colecao `rostos_aprendidos` sem
+  travar o stream se o banco falhar, e nunca vao para o cliente.
+- Ate `FACE_LEARNED_PER_PERSON` (5) por pessoa, uma a cada
+  `FACE_LEARN_INTERVAL_SECONDS` (600), para as referencias se espalharem pelo
+  dia, e um indice TTL em `aprendido_em` apaga as com mais de
+  `FACE_LEARNED_RETENTION_DAYS` dias (30); a memoria esquece no mesmo prazo.
+  Na subida a API carrega as referencias e apaga as de quem saiu do cadastro.
+  `tools/limpar_aprendidos.py` mostra quantas cada pessoa tem e apaga.
+
+Para o caso de aprender algo errado, o responsavel propos trocar a referencia
+de menor confiabilidade pela nova. Simulado com uma referencia errada plantada
+no inicio, o rosto de uma das outras pessoas (`.tmp/troca_referencia.py`):
+
+| Com as 5 vagas cheias | Na passada | Depois, com as referencias finais | Referencia errada plantada |
+|---|---|---|---|
+| Nao troca | 277/360 | 307/360 | fica com as 10 fotos |
+| Troca a de menor nota no aprendizado | 263/360 | 293/360 | fica com 1 de 10 |
+| Troca a menos parecida com o cadastro | 274/360 | 313/360 | fica com 1 de 10 |
+
+- Medir pela nota do aprendizado deixa as referencias parecidas demais entre
+  si e reconhece menos. Pela semelhanca com o cadastro, a errada sai primeiro
+  e o reconhecimento final e o melhor. Ela so ficou com a foto ruim, que nunca
+  enche as vagas; por isso a carga do banco tambem descarta a referencia que
+  hoje nao entraria, longe do cadastro. Os outros rostos seguiram em ate 0,160.
+- Implementado assim: com as vagas cheias, uma nova troca a referencia menos
+  parecida com o cadastro, se for mais parecida que ela, e a trocada sai do
+  banco. No PC, o servico real, sem intervalo, repetiu a simulacao: 274 de 360
+  frames na passada e 313 depois, contra 233 so com a foto.
+
 ### O que fica aberto
 
 1. Medir no Pi, com o video de carga, sem precisar de duas pessoas:
+   - o aprendizado pelo stream, apagando as referencias antes de cada serie,
+     porque as rodadas deixam de ser independentes;
    - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
    - a pose em NCNN contra o `.pt`: instalar o `ncnn`, copiar a pasta e ligar o
      `POSE_MODEL_PATH`, conforme `docs/RASPBERRY_PI.md`, com a serie

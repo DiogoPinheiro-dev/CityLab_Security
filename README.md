@@ -274,6 +274,15 @@ Resposta de sucesso:
 }
 ```
 
+Com `FACE_LEARN_FROM_STREAM=1`, desligado por padrao, o sistema tambem aprende
+com o stream. Um rosto reconhecido com folga, com semelhanca de 0,60 ou mais e
+perto do cadastro, vira mais uma referencia da pessoa, guardada na colecao
+`rostos_aprendidos`. Sao ate 5 por pessoa, uma a cada 10 min, e o MongoDB apaga
+as com mais de 30 dias. Com as vagas cheias, uma nova troca a referencia menos
+parecida com o cadastro, se for mais parecida que ela, e assim uma referencia
+errada e a primeira a sair. `tools/limpar_aprendidos.py` mostra e apaga as
+referencias.
+
 ### `GET /logs`
 
 Lista os eventos mais recentes, do mais novo para o mais antigo. O `tipo` e
@@ -378,7 +387,16 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   ate 5 fotos e guarda a media, mas so ajuda quem for recadastrado; no Pi
   ainda nao foi medido. O embedding no frame original, ligado no perfil do Pi
   desde 03/10/2026, subiu um pouco a semelhanca no Pi, mais nos rostos
-  dificeis, sem custo de tempo.
+  dificeis, sem custo de tempo. Aprender com o stream
+  (`FACE_LEARN_FROM_STREAM=1`) levou, no PC, de 233 a 277 os frames
+  reconhecidos em 360 com uma foto de cadastro; no Pi ainda nao foi medido.
+- **Rostos do stream no banco.** Com `FACE_LEARN_FROM_STREAM=1`, o banco guarda
+  ate 5 embeddings por pessoa tirados do stream, sem a pessoa fazer nada, por
+  ate 30 dias. Dado biometrico e dado pessoal sensivel na LGPD: confira a base
+  legal e o prazo antes de ligar. Uma referencia aprendida por engano sai
+  quando chega outra mais parecida com o cadastro, quando vence ou quando e
+  apagada com `tools/limpar_aprendidos.py`; enquanto as vagas da pessoa nao
+  enchem, so as duas ultimas.
 - **Pose em 416 px.** Na rodada com gesto em 416, a mao oculta de lado nao
   disparou e o punho levantado disparou um frame depois do que em 640. Com 6
   frames por situacao e a pessoa em outra posicao, nao deu para separar o
