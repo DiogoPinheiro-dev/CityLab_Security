@@ -32,6 +32,10 @@ class FaceRecognitionService:
     # simulacao de 03/10/2026 aprendeu com 9 de 10 fotos de cadastro, e 7 rostos
     # de outras pessoas nao passaram de 0,16 com as referencias aprendidas.
     LEARN_MIN_SIMILARITY = 0.60
+    # Daqui para cima, o rosto do stream e copia de uma referencia ja guardada
+    # da pessoa. Frames da mesma cena do video de carga ficam em 0,78 na
+    # mediana: so os quase iguais passam (simulacao de 03/10/2026).
+    LEARN_COPY_SIMILARITY = 0.90
 
     def __init__(
         self,
@@ -382,7 +386,9 @@ class FaceRecognitionService:
         Com as vagas cheias, a nova troca a referencia menos parecida com o
         cadastro, se for mais parecida que ela: uma referencia errada e a
         primeira a sair. Medir pela nota do aprendizado deixava as referencias
-        parecidas demais entre si (simulacao de 03/10/2026).
+        parecidas demais entre si (simulacao de 03/10/2026). A copia de uma
+        referencia guardada so disputa a vaga dela: no Pi, o mesmo video passado
+        de novo fazia a copia expulsar uma referencia diferente (03/10/2026).
         """
         now = datetime.now()
         self._prune_learned(now)
@@ -395,18 +401,29 @@ class FaceRecognitionService:
         refs = self.learned.get(name, [])
         if refs and now - max(ref["aprendido_em"] for ref in refs) < self.learn_interval:
             return
-        if len(refs) >= self.learned_per_person:
-            weakest = min(refs, key=lambda ref: self._cadastro_score(name, ref["embedding"]))
-            if anchor <= self._cadastro_score(name, weakest["embedding"]):
+        rival = self._copy_of(refs, embedding)
+        if rival is None and len(refs) >= self.learned_per_person:
+            rival = min(refs, key=lambda ref: self._cadastro_score(name, ref["embedding"]))
+        if rival is not None:
+            if anchor <= self._cadastro_score(name, rival["embedding"]):
                 return
-            refs = [ref for ref in refs if ref is not weakest]
-            self.latest_forgotten.append(weakest["id"])
+            refs = [ref for ref in refs if ref is not rival]
+            self.latest_forgotten.append(rival["id"])
         entry = {"id": uuid.uuid4().hex, "nome": name, "semelhanca": float(score),
                  "semelhanca_cadastro": anchor, "aprendido_em": now,
                  "embedding": np.asarray(embedding, dtype=np.float32)}
         self.learned[name] = [*refs, entry]
         self.latest_learned.append(entry)
         self._rebuild_learned()
+
+    def _copy_of(self, refs: list[dict[str, Any]],
+                 embedding: np.ndarray) -> Optional[dict[str, Any]]:
+        """A referencia mais parecida com o rosto, se ele for copia dela."""
+        if not refs:
+            return None
+        scores = [float(np.dot(ref["embedding"], embedding)) for ref in refs]
+        index = int(np.argmax(scores))
+        return refs[index] if scores[index] >= self.LEARN_COPY_SIMILARITY else None
 
     def _prune_learned(self, now: datetime) -> None:
         """Esquece na memoria o que o banco apaga pelo prazo."""
@@ -429,8 +446,9 @@ class FaceRecognitionService:
     def replace_learned(self, entries: list[dict[str, Any]]) -> list[str]:
         """Carrega as referencias guardadas no banco; devolve os ids que ficaram de fora.
 
-        Fica de fora a de quem saiu do cadastro e a que hoje nao entraria, longe
-        do cadastro. Por pessoa ficam as mais parecidas com ele, ate o limite.
+        Fica de fora a de quem saiu do cadastro, a que hoje nao entraria, longe
+        do cadastro, e a copia de outra mais parecida com ele. Por pessoa ficam
+        as mais parecidas com o cadastro, ate o limite.
         """
         known = set(self.known_face_names)
         expired = (datetime.now() - self.learned_retention
@@ -449,8 +467,14 @@ class FaceRecognitionService:
             learned.setdefault(entry["nome"], []).append({**entry, "embedding": embedding})
         for name, refs in learned.items():
             refs.sort(key=lambda ref: self._cadastro_score(name, ref["embedding"]), reverse=True)
-            discarded.extend(ref["id"] for ref in refs[self.learned_per_person:])
-            learned[name] = refs[:self.learned_per_person]
+            kept: list[dict[str, Any]] = []
+            for ref in refs:
+                if (len(kept) >= self.learned_per_person
+                        or self._copy_of(kept, ref["embedding"]) is not None):
+                    discarded.append(ref["id"])
+                else:
+                    kept.append(ref)
+            learned[name] = kept
         self.learned = learned
         self._rebuild_learned()
         return discarded

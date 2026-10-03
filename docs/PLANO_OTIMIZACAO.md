@@ -662,11 +662,77 @@ no inicio, o rosto de uma das outras pessoas (`.tmp/troca_referencia.py`):
   banco. No PC, o servico real, sem intervalo, repetiu a simulacao: 274 de 360
   frames na passada e 313 depois, contra 233 so com a foto.
 
+### Aprendizado no Pi - 28 de 30 frames, ate copias tomarem as vagas
+
+Video de carga no codigo `cb972f7`, conferido por hash, com o protocolo de
+sempre: API reiniciada antes de cada rodada, 5 frames de aquecimento e 30
+medidos. A base roda com o aprendizado desligado. A serie liga
+`FACE_LEARN_FROM_STREAM=1` e `FACE_LEARN_INTERVAL_SECONDS=0` no `.env`, para
+aprender em poucos frames, e comeca com o banco vazio. O banco nao foi limpo
+entre as rodadas, de proposito: a r2 e a r3 comecam com as 5 referencias da
+rodada anterior, como depois de um reinicio. Resultados em
+`resultados/pi3-cb972f7-video-aprende-base/` e
+`resultados/pi3-cb972f7-video-aprende/`.
+
+| Rodada | Reconhecido em | Semelhanca mediana | Media do frame |
+|---|---|---|---|
+| Base, sem aprender | 26/30 | 0,595 | 3732,3 ms |
+| r1, banco vazio | 28/30 | 0,846 | 3740,6 ms |
+| r2 | 28/30 | 0,831 | 3729,9 ms |
+| r3 | 26/30 | 0,802 | 3731,1 ms |
+
+- **Reconhece mais, sem custo de tempo**: as referencias da propria camera
+  entram ja no aquecimento, e a semelhanca nos 14 frames com embedding novo
+  sobe de uns 0,6 para 0,78 a 0,92 nos rostos de frente. Um frame da rendicao
+  passa de 0,482 para 0,541, e o seguinte herda o nome: 28 de 30. A media fica
+  a 0,3% da base nas tres rodadas, e a gravacao (`logs_ms`) chegou a 87 ms,
+  contra 81 ms na base. Alertas iguais, 11 em todas.
+- **Os dois rostos mais virados seguem fora**, a 0,48 e 0,43: so aprende quem
+  ja passa de 0,60, entao o aprendizado reforca o rosto de frente nas condicoes
+  da camera, mas nao ensina o perfil.
+- **O banco funciona**: nas duas subidas o log registrou "5 referencias
+  aprendidas carregadas", e a r2 ja comecou com a semelhanca da r1.
+- **Copias tomavam as vagas**: o video volta igual a cada rodada. Um frame ja
+  guardado volta com a mesma semelhanca com o cadastro, maior que a da
+  referencia mais fraca, e entra como copia no lugar de uma referencia
+  diferente. Na r2 um frame bateu 1,000 com a propria copia. Na r3 ja tinha
+  saido a referencia que reconhecia o frame da rendicao: ele caiu para 0,513,
+  abaixo do limite, e levou o seguinte junto, de volta a 26/30. Na camera ao
+  vivo nenhum frame se repete igual, mas alguem parado na mesma posicao por
+  mais de 10 min gera quase copias com o mesmo efeito.
+
+Filtro de copia, implementado com a concordancia do responsavel: um rosto
+novo com semelhanca de 0,90 ou mais com uma referencia guardada da mesma
+pessoa so disputa a vaga dela, e fica se for mais parecido com o cadastro. A
+regra dele continua: com as vagas cheias, sai a menos parecida com o cadastro,
+mas so para dar lugar a uma foto diferente. A carga do banco descarta as copias
+do mesmo jeito. Simulado no PC com as 10 fotos do celular no papel de cadastro
+e o video passado 3 vezes, com reinicio entre as passadas
+(`.tmp/copias_referencia.py`, fora do Git; so numeros):
+
+| Frames reconhecidos, de 300 | 1a passada | 2a | 3a |
+|---|---|---|---|
+| Regra de `cb972f7` | 195 | 210 | 209 |
+| Com o filtro de copia | 196 | 214 | 232 |
+
+- Na tabela, todo frame gera embedding. So com os frames que geram embedding
+  no Pi, por causa do reuso, a diferenca e menor: 194, 193 e 193 sem o filtro,
+  contra 194, 195 e 195 com ele.
+- Sem o filtro, as 9 fotos que aprendem ficam com copias exatas, a 1,000, a
+  partir da 2a passada; com ele, o par de referencias mais parecido fica em ate
+  0,89. Os rostos de outras pessoas seguiram em ate 0,160.
+- De 0,80 a 0,95 o resultado quase nao muda. Ficou 0,90 porque frames da mesma
+  cena do video ficam em 0,78 na mediana: so os quase iguais contam como copia.
+- Os metodos reais do servico, com os mesmos embeddings e o reinicio pela carga
+  do banco, deram os mesmos numeros da simulacao.
+
 ### O que fica aberto
 
 1. Medir no Pi, com o video de carga, sem precisar de duas pessoas:
-   - o aprendizado pelo stream, apagando as referencias antes de cada serie,
-     porque as rodadas deixam de ser independentes;
+   - o filtro de copia: apagar as referencias da serie de `cb972f7` e repetir as
+     3 rodadas, com o banco limpo so antes da r1; espera-se 28/30 nas tres.
+     Depois, decidir se o aprendizado passa a ligado no rpi3 e tirar
+     `FACE_LEARN_INTERVAL_SECONDS=0` do `.env` do Pi;
    - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
    - a pose em NCNN contra o `.pt`: instalar o `ncnn`, copiar a pasta e ligar o
      `POSE_MODEL_PATH`, conforme `docs/RASPBERRY_PI.md`, com a serie

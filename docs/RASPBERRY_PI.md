@@ -275,9 +275,10 @@ pessoa. As referencias ficam na colecao `rostos_aprendidos` e na memoria da
 API, ate `FACE_LEARNED_PER_PERSON` por pessoa (5), uma a cada
 `FACE_LEARN_INTERVAL_SECONDS` (600), e o MongoDB apaga as com mais de
 `FACE_LEARNED_RETENTION_DAYS` dias (30). Com as vagas cheias, uma nova troca a
-referencia menos parecida com o cadastro, se for mais parecida que ela. Na
-subida, a API carrega as referencias e apaga as de quem saiu do cadastro e as
-que hoje nao entrariam. Para ver ou apagar:
+referencia menos parecida com o cadastro, se for mais parecida que ela; a
+quase igual a uma guardada, com 0,90 ou mais, so disputa a vaga dessa. Na
+subida, a API carrega as referencias e apaga as de quem saiu do cadastro, as
+que hoje nao entrariam e as copias. Para ver ou apagar:
 
 ```bash
 cd ~/CityLab_Security && .venv/bin/python tools/limpar_aprendidos.py

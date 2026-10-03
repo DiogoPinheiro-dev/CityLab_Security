@@ -323,29 +323,58 @@ class FaceOptimizationTests(unittest.TestCase):
 
     def test_learning_respects_the_limit_and_the_interval(self):
         service, vector = self.learning_service(per_person=2)
-        for _ in range(3):
-            service._maybe_learn("Aluno", .9, vector(1, .3))
+        # Tres rostos a 0,8 do cadastro e a 0,64 entre si: nenhum e copia de outro.
+        for values in ((.8, .6), (.8, 0, .6), (.8, 0, 0, .6)):
+            service._maybe_learn("Aluno", .9, vector(*values))
         self.assertEqual(len(service.learned["Aluno"]), 2)
         service, vector = self.learning_service(interval=600)
-        service._maybe_learn("Aluno", .9, vector(1, .3))
-        service._maybe_learn("Aluno", .9, vector(1, .3))
+        service._maybe_learn("Aluno", .9, vector(.8, .6))
+        service._maybe_learn("Aluno", .9, vector(.8, 0, .6))
         self.assertEqual(len(service.learned["Aluno"]), 1)
 
     def test_full_slots_swap_the_reference_farthest_from_the_registration(self):
         service, vector = self.learning_service(per_person=2)
-        service._maybe_learn("Aluno", .9, vector(1, .6))  # 0,857 do cadastro
-        service._maybe_learn("Aluno", .9, vector(1, .5))  # 0,894
+        service._maybe_learn("Aluno", .9, vector(.6, .8))  # 0,6 do cadastro
+        service._maybe_learn("Aluno", .9, vector(.8, 0, .6))  # 0,8
         first = service.learned["Aluno"][0]["id"]
         service.latest_learned, service.latest_forgotten = [], []
-        # Mais perto do cadastro (0,981): sai a mais longe, e o banco apaga.
-        service._maybe_learn("Aluno", .9, vector(1, .2))
+        # Mais perto do cadastro (0,96): sai a mais longe, e o banco apaga.
+        service._maybe_learn("Aluno", .9, vector(.96, 0, 0, .28))
         self.assertEqual(service.latest_forgotten, [first])
         self.assertEqual([round(ref["semelhanca_cadastro"], 3) for ref in service.learned["Aluno"]],
-                         [.894, .981])
-        # Mais longe que todas (0,819): nao troca nada.
-        service._maybe_learn("Aluno", .9, vector(1, .7))
+                         [.8, .96])
+        # Mais longe que as duas (0,6): nao troca nada.
+        service._maybe_learn("Aluno", .9, vector(.6, 0, 0, 0, .8))
         self.assertEqual(len(service.latest_forgotten), 1)
         self.assertEqual(len(service._learned_names), 2)
+
+    def test_a_copy_only_competes_with_its_twin(self):
+        service, vector = self.learning_service(per_person=2)
+        service._maybe_learn("Aluno", .9, vector(.6, .8))  # 0,6 do cadastro
+        service._maybe_learn("Aluno", .9, vector(.8, 0, .6))  # 0,8
+        weakest, twin = (ref["id"] for ref in service.learned["Aluno"])
+        service.latest_learned, service.latest_forgotten = [], []
+        # Quase igual a de 0,8 e um pouco mais perto do cadastro: fica no lugar
+        # dela, e a de 0,6, a menos parecida com o cadastro, continua.
+        service._maybe_learn("Aluno", .9, vector(.82, 0, .57))
+        self.assertEqual(service.latest_forgotten, [twin])
+        self.assertEqual(service.learned["Aluno"][0]["id"], weakest)
+        # A mesma foto de novo, ou quase igual e mais longe do cadastro, nao entra
+        # nem com vaga sobrando: o video passado de novo nao enche as vagas.
+        service, vector = self.learning_service()
+        for values in ((.8, 0, .6), (.8, 0, .6), (.79, 0, .61)):
+            service._maybe_learn("Aluno", .9, vector(*values))
+        self.assertEqual(len(service.learned["Aluno"]), 1)
+
+    def test_loading_drops_a_copy_of_a_reference_closer_to_the_registration(self):
+        service, vector = self.learning_service(per_person=2)
+        now = datetime.now()
+        entries = [{"id": key, "nome": "Aluno", "semelhanca": .7, "embedding": vector(*values),
+                    "aprendido_em": now} for key, values in (
+                        ("perto", (.96, .28)), ("copia", (.95, .31)), ("meio", (.8, 0, .6)))]
+        # A copia e mais parecida com o cadastro que a "meio", mas nao tira a vaga dela.
+        self.assertEqual(service.replace_learned(entries), ["copia"])
+        self.assertEqual([ref["id"] for ref in service.learned["Aluno"]], ["perto", "meio"])
 
     def test_references_follow_the_registration_and_the_retention(self):
         service, vector = self.learning_service(per_person=2)
@@ -353,9 +382,10 @@ class FaceOptimizationTests(unittest.TestCase):
         entries = [{"id": key, "nome": name, "semelhanca": .7, "embedding": vector(*values),
                     "aprendido_em": now - timedelta(days=day)}
                    for key, name, values, day in (
-                       ("perto", "Aluno", (1, .2), 1), ("meio", "Aluno", (1, .5), 1),
-                       ("sobra", "Aluno", (1, .7), 1), ("vencida", "Aluno", (1, .1), 31),
-                       ("longe", "Aluno", (0, 1), 1), ("saiu", "Saiu", (1, .2), 1))]
+                       ("perto", "Aluno", (.96, .28), 1), ("meio", "Aluno", (.8, 0, .6), 1),
+                       ("sobra", "Aluno", (.6, 0, 0, .8), 1),
+                       ("vencida", "Aluno", (1, 0, 0, 0, .1), 31),
+                       ("longe", "Aluno", (0, 1), 1), ("saiu", "Saiu", (.96, .28), 1))]
         # Fora: quem saiu do cadastro, a que hoje nao entraria e a que passa do
         # limite. A vencida nem ocupa vaga; o banco a apaga pelo prazo.
         self.assertEqual(sorted(service.replace_learned(entries)), ["longe", "saiu", "sobra"])
