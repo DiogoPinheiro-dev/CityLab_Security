@@ -46,6 +46,13 @@ class RpiProfileTests(unittest.TestCase):
                                        FACE_REUSE_SECONDS="0")["FACE_REUSE_SECONDS"], 0.0)
         self.assertEqual(self.settings(FACE_REUSE_SECONDS="-3")["FACE_REUSE_SECONDS"], 0.0)
 
+    def test_events_stay_30_days_unless_configured(self):
+        # Prazo escolhido pelo responsavel em 03/10/2026, igual nos dois perfis.
+        self.assertEqual(self.settings()["EVENT_RETENTION_DAYS"], 30)
+        self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3")["EVENT_RETENTION_DAYS"], 30)
+        self.assertEqual(self.settings(EVENT_RETENTION_DAYS="0")["EVENT_RETENTION_DAYS"], 0)
+        self.assertEqual(self.settings(EVENT_RETENTION_DAYS="-5")["EVENT_RETENTION_DAYS"], 0)
+
     def test_full_frame_embedding_is_off_until_measured(self):
         # Desligado nos dois perfis; o .env liga para comparar no Pi.
         self.assertIs(self.settings()["FACE_EMBED_FULL_FRAME"], False)
@@ -174,6 +181,7 @@ class RpiProfileTests(unittest.TestCase):
         # Spinning e embedding no frame inteiro so mudam pelo .env.
         self.assertIs(configured["ONNX_ALLOW_SPINNING"], True)
         self.assertIs(configured["FACE_EMBED_FULL_FRAME"], False)
+        self.assertEqual(configured["EVENT_RETENTION_DAYS"], 30)
         self.assertNotIn("segredo", output.getvalue())
 
     def test_launcher_validates_and_forwards_the_tls_pair(self):

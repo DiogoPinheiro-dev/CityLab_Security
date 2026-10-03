@@ -33,6 +33,11 @@ def _get_int(name: str, default: int) -> int:
 MONGO_DETAILS = os.getenv("MONGO_DETAILS", "mongodb://localhost:27017")
 MONGO_DB_NAME = os.getenv("MONGO_DB_NAME", "recon-db")
 MONGO_SERVER_SELECTION_TIMEOUT_MS = _get_int("MONGO_SERVER_SELECTION_TIMEOUT_MS", 10000)
+# Dias que um evento fica no banco; depois o proprio MongoDB apaga, por um
+# indice TTL em data_hora_raw. Cada evento guarda um recorte em JPEG, e sem
+# prazo o banco cresce sem parar. Zero guarda tudo. 30 por decisao do
+# responsavel em 03/10/2026.
+EVENT_RETENTION_DAYS = max(0, _get_int("EVENT_RETENTION_DAYS", 30))
 # Endereco publico usado no QR code do cadastro; vazio deduz pelo request.
 PUBLIC_BASE_URL = os.getenv("PUBLIC_BASE_URL", "").strip().rstrip("/")
 

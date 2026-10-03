@@ -91,6 +91,9 @@ python -m pip install -r requirements-rpi-bookworm.txt
 
 Crie `.env` na raiz com `MONGO_DETAILS` e `MONGO_DB_NAME`, conforme o README.
 A inicializacao da API valida a conexao com MongoDB antes de carregar os modelos.
+Em seguida cria o indice que faz o MongoDB apagar os eventos com mais de
+`EVENT_RETENTION_DAYS` dias (30 por padrao; 0 guarda tudo). Se o usuario do
+banco nao puder criar indices, a API sobe assim mesmo e avisa no log.
 
 Suba a API com o inicializador do perfil, descrito acima:
 

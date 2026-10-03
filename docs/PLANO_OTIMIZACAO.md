@@ -498,6 +498,26 @@ andamento.
 - O trabalho do frame e o mesmo, na mesma CPU; o tempo nao deve mudar, mas
   ainda nao foi medido no Pi.
 
+### Prazo dos eventos - 30 dias no banco
+
+Fora do plano, mas pesa no uso sem parar: cada evento grava no MongoDB um
+recorte em JPEG de quem apareceu, o de gesto com a pessoa inteira, e nada
+apagava os antigos. O banco crescia sem limite. O responsavel escolheu 30 dias.
+
+- `EVENT_RETENTION_DAYS`, 30 nos dois perfis; zero guarda tudo. Na subida, a
+  API cria um indice TTL em `data_hora_raw`, e o proprio MongoDB apaga os
+  eventos vencidos, conferindo a cada minuto. O campo sempre foi data desde a
+  primeira versao, entao vale para todos os eventos, inclusive os antigos: ao
+  ligar, os que tem mais de 30 dias saem de uma vez, sem volta.
+- Trocar o prazo apaga e recria o indice: `collMod` pede permissao de
+  administrador, e o usuario do banco pode ter so leitura e escrita. Se nem o
+  indice puder ser criado, a API sobe assim mesmo e avisa no log.
+- O horario e gravado pelo relogio local, 3 h atras de UTC, e o MongoDB le
+  como UTC: o evento vence umas 3 h antes dos 30 dias exatos.
+- Coberto por testes com uma colecao simulada e pela subida da API com o
+  indice falhando. Sem MongoDB no PC, a criacao do indice de verdade fica para
+  o deploy: o log da API mostra a retencao aplicada ou o aviso.
+
 ### O que fica aberto
 
 1. Medir no Pi, com o video de carga, sem precisar de duas pessoas:
@@ -506,8 +526,8 @@ andamento.
      GET repetido durante o stream;
    - depois de recadastrar com 3 a 5 fotos e tirar o cadastro antigo do banco,
      a semelhanca de novo.
-2. A seguir na ordem combinada: a limpeza dos eventos antigos; depois o NCNN
-   na pose.
+2. Conferir no log do deploy que a retencao de 30 dias foi aplicada.
+3. A seguir na ordem combinada: o NCNN na pose.
 
 ## Estado verificado em 02/10/2026
 

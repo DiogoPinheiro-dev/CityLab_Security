@@ -274,7 +274,9 @@ Resposta de sucesso:
 ### `GET /logs`
 
 Lista os eventos mais recentes, do mais novo para o mais antigo. O `tipo` e
-`ALUNO`, `NAO_ALUNO` ou `ALERTA_GESTO`.
+`ALUNO`, `NAO_ALUNO` ou `ALERTA_GESTO`. Cada evento guarda um recorte em JPEG
+de quem apareceu, e o proprio MongoDB apaga os eventos com mais de
+`EVENT_RETENTION_DAYS` dias (30 por padrao; 0 guarda tudo).
 
 Query param:
 
@@ -390,7 +392,9 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   de lado a mao que a camera nao ve conta como oculta.
 - **Eventos por episodio.** Rostos e alertas gravam quando aparecem e nao se
   repetem enquanto continuam. Um frame em que o detector perde a pessoa encerra
-  o episodio, e a volta grava um evento novo.
+  o episodio, e a volta grava um evento novo. Desde 03/10/2026 os eventos com
+  mais de 30 dias sao apagados; quando o prazo e ligado, os mais antigos saem de
+  uma vez, sem volta.
 - **Memoria.** A API ocupa cerca de 710 MB numa placa de 906 MB. Em uso
   continuo o sistema manda uns 210 MB dela para o swap na primeira meia hora e
   depois fica parado: em 10,5 h seguidas, cerca de 500 MB em RAM, sem crescer e

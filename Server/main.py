@@ -31,6 +31,7 @@ from App.settings import (
     DEBUG_PIPELINE,
     ENABLE_PERFORMANCE_METRICS,
     ENABLE_SYSTEM_MONITOR,
+    EVENT_RETENTION_DAYS,
     GESTURE_IDLE_RESET_SECONDS,
     JPEG_QUALITY,
     MAX_IN_FLIGHT_FRAMES,
@@ -41,7 +42,8 @@ from App.settings import (
     STREAM_HEIGHT,
     STREAM_WIDTH,
 )
-from Server.Db.database import MONGO_DB_NAME, colecao_alunos, colecao_logs, validar_conexao_mongo
+from Server.Db.database import (MONGO_DB_NAME, colecao_alunos, colecao_logs,
+                                configurar_retencao_logs, validar_conexao_mongo)
 from Server.event_logger import EventLogger
 from Server.system_monitor import SystemMonitor
 
@@ -137,6 +139,12 @@ async def lifespan(_: FastAPI):
     print("[INFO] Validando conexao com MongoDB...")
     await validar_conexao_mongo()
     print("[INFO] Conexao com MongoDB OK.")
+    try:
+        retencao = await configurar_retencao_logs(EVENT_RETENTION_DAYS)
+        print(f"[INFO] Retencao dos eventos: {retencao}.")
+    except Exception as exc:
+        # Sem o indice a API segue gravando eventos, so nao apaga os antigos.
+        print(f"[AVISO] Retencao dos eventos nao configurada: {exc}")
 
     print("[INFO] API iniciada. Carregando pipeline unificado...")
     recognizer = UnifiedRecognitionService(
