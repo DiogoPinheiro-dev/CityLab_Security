@@ -14,6 +14,15 @@ class StreamMetricsTest(unittest.TestCase):
                        and node.name == 'websocket_reconhecimento')
         handler.decorator_list = []
         handler.args.args[0].annotation = None
+        # O frame roda pela funcao real; a thread de inferencia vira chamada direta.
+        helper = next(node for node in tree.body if isinstance(node, ast.FunctionDef)
+                      and node.name == '_processar_frame')
+        for arg in helper.args.args:
+            arg.annotation = None
+        helper.returns = None
+
+        async def em_inferencia(funcao, *args):
+            return funcao(*args)
         clock = [0.0]
         recorded = []
         responses = []
@@ -62,9 +71,10 @@ class StreamMetricsTest(unittest.TestCase):
                              record_frame_metrics=lambda metrics: recorded.append(dict(metrics)),
                              maybe_log_snapshot=lambda: None),
                          DEBUG_PIPELINE=False, ENABLE_PERFORMANCE_METRICS=True,
-                         GESTURE_IDLE_RESET_SECONDS=5,
+                         GESTURE_IDLE_RESET_SECONDS=5, em_inferencia=em_inferencia,
                          WebSocketDisconnect=Disconnect, asyncio=asyncio)
-        exec(compile(ast.Module(body=[handler], type_ignores=[]), '<handler>', 'exec'), namespace)
+        exec(compile(ast.Module(body=[helper, handler], type_ignores=[]), '<handler>', 'exec'),
+             namespace)
         asyncio.run(namespace['websocket_reconhecimento'](Socket()))
         return responses, recorded, resets
 

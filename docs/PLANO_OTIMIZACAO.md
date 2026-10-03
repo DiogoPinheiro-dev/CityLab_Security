@@ -470,15 +470,44 @@ O responsavel escolheu fazer as duas correcoes, uma de cada vez:
   pagina junta as fotos uma de cada vez, porque no celular cada toque abre a
   camera e devolve uma foto, e sugere de 3 a 5. Conferido com o FastAPI e o
   banco simulado: uma, tres e seis fotos, pessoas diferentes e foto sem rosto.
+- Recadastrar nao substitui o cadastro antigo: cria outro registro com o mesmo
+  nome, e o de uma foto continua no banco. Nao ha rota para apagar.
 
-O que fica aberto destas duas:
+### Inferencia numa thread so (P6) - as rotas respondem durante o frame
 
-1. Medir no Pi com o video de carga e o cadastro real: o padrao contra
-   `FACE_EMBED_FULL_FRAME=1` no `.env`. Depois, recadastrar com 3 a 5 fotos e
-   medir de novo; os cadastros atuais continuam valendo, mas so quem for
-   recadastrado ganha com a media.
-2. A seguir na ordem combinada: P6 e a limpeza dos eventos antigos; depois o
-   NCNN na pose.
+O `process_frame` rodava dentro do handler do WebSocket e travava o laco do
+servidor pelo frame inteiro, de 3,4 a 4,5 s no Pi: com o stream ligado,
+paginas, `/logs` e cadastro esperavam o frame acabar. Agora os modelos rodam
+numa thread so, criada no inicio da API e fechada no fim, depois do frame em
+andamento.
+
+- O stream manda para essa thread cada frame, junto com o reinicio de conexao
+  nova ou pausa, e espera a resposta sem travar o laco. Cada conexao segue com
+  um frame por vez e uma resposta por frame, na ordem: o protocolo com o
+  cliente nao muda e nenhum frame e descartado.
+- O cadastro decodifica as fotos e acha os rostos na mesma fila, e a troca de
+  nomes e embeddings na memoria tambem. Ela acontece em dois passos e, fora da
+  fila, poderia cair no meio do reconhecimento de um frame e casar um nome com
+  o embedding de outro.
+- Duas conexoes ao mesmo tempo dividem a fila, um frame de cada vez; o
+  rastreador continua global, entao segue valendo uma camera por processo.
+- No PC, com o FastAPI de verdade e um frame falso de 1 s, um GET em
+  `/config/client` durante o frame levou 1,05 s antes e 2 ms depois.
+  `tests/test_server_inference.py` cobre a rota respondendo durante o frame e o
+  cadastro esperando o frame acabar.
+- O trabalho do frame e o mesmo, na mesma CPU; o tempo nao deve mudar, mas
+  ainda nao foi medido no Pi.
+
+### O que fica aberto
+
+1. Medir no Pi, com o video de carga, sem precisar de duas pessoas:
+   - o padrao contra `FACE_EMBED_FULL_FRAME=1` no `.env`;
+   - o frame com a thread de inferencia, contra as series de 01 e 02/10, e um
+     GET repetido durante o stream;
+   - depois de recadastrar com 3 a 5 fotos e tirar o cadastro antigo do banco,
+     a semelhanca de novo.
+2. A seguir na ordem combinada: a limpeza dos eventos antigos; depois o NCNN
+   na pose.
 
 ## Estado verificado em 02/10/2026
 

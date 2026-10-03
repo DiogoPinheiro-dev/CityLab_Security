@@ -171,10 +171,14 @@ Durante o stream WebSocket:
 
 1. o cliente envia um frame JPEG
 2. o servidor decodifica o frame
-3. rosto e gesto rodam em paralelo; no perfil `rpi3` as pessoas saem da mesma
+3. o frame vai para a thread de inferencia, a unica que roda os modelos; ali
+   rosto e gesto rodam em paralelo, e no perfil `rpi3` as pessoas saem da mesma
    passada do modelo de pose
 4. os eventos vao para o MongoDB
 5. o servidor responde com o payload consolidado
+
+Enquanto um frame roda, as outras rotas continuam respondendo. O cadastro usa a
+mesma thread: as fotos esperam o frame em andamento e o stream espera as fotos.
 
 O historico de gestos recomeca no primeiro frame de cada conexao e depois de
 mais de 5 s sem frames (`GESTURE_IDLE_RESET_SECONDS`).
@@ -401,7 +405,8 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   unica reconexao em 24 h; a economia de energia do Wi-Fi esta ligada. Cabo de
   rede evita isso.
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
-  globais.
+  globais. Duas conexoes ao mesmo tempo dividem a thread de inferencia, um
+  frame de cada vez, e misturam os rastros.
 
 ## Medicao e planos
 

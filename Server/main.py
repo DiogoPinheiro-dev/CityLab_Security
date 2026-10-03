@@ -3,6 +3,7 @@ import io
 import socket
 import sys
 import time
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
@@ -64,8 +65,35 @@ banco_rostos_memoria = {
 }
 
 recognizer: Optional[UnifiedRecognitionService] = None
+# Uma thread so roda os modelos. Stream e cadastro entram na mesma fila e nunca
+# usam o rastreador ou as sessoes ao mesmo tempo, e o laco do servidor fica
+# livre para as outras rotas enquanto um frame e processado.
+inference_executor: Optional[ThreadPoolExecutor] = None
 event_logger = EventLogger(colecao_logs)
 system_monitor = SystemMonitor(enabled=ENABLE_SYSTEM_MONITOR)
+
+
+async def em_inferencia(funcao, *args):
+    """Roda funcao na thread de inferencia, sem travar o laco do servidor."""
+    return await asyncio.get_running_loop().run_in_executor(inference_executor, funcao, *args)
+
+
+def _processar_frame(current_recognizer: UnifiedRecognitionService, frame: np.ndarray,
+                     reiniciar: bool) -> dict:
+    # O reinicio vai na mesma fila do frame: uma conexao nova nao zera o
+    # rastreador enquanto o frame de outra ainda roda.
+    if reiniciar:
+        current_recognizer.reset_gesture_history()
+        # Conexao nova ou pausa: nenhum rosto herda nome da cena anterior.
+        current_recognizer.reset_face_identities()
+    return current_recognizer.process_frame(frame)
+
+
+def _rostos_da_foto(face_service, conteudo: bytes):
+    """Decodifica a foto do cadastro e acha os rostos; None se ela nao abre."""
+    img = cv2.imdecode(np.frombuffer(conteudo, np.uint8), cv2.IMREAD_COLOR)
+    return None if img is None else face_service.app_insight.get(img)
+
 
 def _sync_memoria_para_recognizer() -> None:
     current_recognizer = recognizer
@@ -104,7 +132,7 @@ def _build_public_base_url(request: Request) -> str:
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
-    global recognizer
+    global recognizer, inference_executor
 
     print("[INFO] Validando conexao com MongoDB...")
     await validar_conexao_mongo()
@@ -129,9 +157,12 @@ async def lifespan(_: FastAPI):
 
     _sync_memoria_para_recognizer()
     print(f"[INFO] {len(banco_rostos_memoria['nomes'])} alunos carregados.")
+    inference_executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="inferencia")
 
     yield
 
+    # Espera o frame em andamento antes de fechar a pipeline que ele usa.
+    inference_executor.shutdown(wait=True, cancel_futures=True)
     if recognizer is not None:
         recognizer.close()
     print("[INFO] API desligada.")
@@ -230,15 +261,14 @@ async def cadastrar_aluno(nome: str = Form(...), foto: List[UploadFile] = File(.
         for numero, arquivo in enumerate(foto, start=1):
             prefixo = f"Foto {numero}: " if len(foto) > 1 else ""
             conteudo_arquivo = await arquivo.read()
-            nparr = np.frombuffer(conteudo_arquivo, np.uint8)
-            img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+            # Na fila do stream: a foto grande decodifica e passa pelos modelos
+            # sem travar as outras rotas nem disputar as sessoes com um frame.
+            faces = await em_inferencia(_rostos_da_foto, current_recognizer.face_service,
+                                        conteudo_arquivo)
 
-            if img is None:
+            if faces is None:
                 raise HTTPException(status_code=400,
                                     detail=prefixo + "Erro ao processar a imagem. Arquivo corrompido.")
-
-            faces = current_recognizer.face_service.app_insight.get(img)
-
             if not faces:
                 raise HTTPException(status_code=400,
                                     detail=prefixo + "Nenhum rosto encontrado na foto enviada.")
@@ -269,7 +299,9 @@ async def cadastrar_aluno(nome: str = Form(...), foto: List[UploadFile] = File(.
 
         banco_rostos_memoria["nomes"].append(nome)
         banco_rostos_memoria["embeddings"].append(np.array(embedding_lista))
-        _sync_memoria_para_recognizer()
+        # Nomes e embeddings trocam em dois passos: entre frames, nunca no meio
+        # de um reconhecimento.
+        await em_inferencia(_sync_memoria_para_recognizer)
 
         return {
             "mensagem": f"Sucesso! Rosto de '{nome}' cadastrado.",
@@ -350,14 +382,13 @@ async def websocket_reconhecimento(websocket: WebSocket):
                 continue
 
             pipeline_started_at = time.perf_counter()
-            if first_valid_frame or receive_wait_ms > GESTURE_IDLE_RESET_SECONDS * 1000:
-                current_recognizer.reset_gesture_history()
-                # Conexao nova ou pausa: nenhum rosto herda nome da cena anterior.
-                current_recognizer.reset_face_identities()
-                event_logger.reset_episodes()
+            reiniciar = first_valid_frame or receive_wait_ms > GESTURE_IDLE_RESET_SECONDS * 1000
             first_valid_frame = False
-            results = current_recognizer.process_frame(frame)
+            results = await em_inferencia(_processar_frame, current_recognizer, frame, reiniciar)
             pipeline_ms = (time.perf_counter() - pipeline_started_at) * 1000.0
+            if reiniciar:
+                # Antes de gravar os eventos deste frame, como o historico.
+                event_logger.reset_episodes()
 
             faces = [face for face in results.get("faces", []) if not face.get("debug_only")]
             gestures = results.get("gestures", [])
