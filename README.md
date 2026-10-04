@@ -443,6 +443,10 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   ficou fora de alcance por uns 9 min, com a API rodando o tempo todo. Foi a
   unica reconexao em 24 h; a economia de energia do Wi-Fi esta ligada. Cabo de
   rede evita isso.
+- **Fonte do Pi no limite.** Com a pose no `.pt`, a fonte atual segura o
+  pipeline (`vcgencmd get_throttled` em `0x0` por 10,5 h). Com a pose em NCNN,
+  22% mais rapida em 04/10/2026, a tensao caiu durante o stream, e o NCNN ficou
+  desligado ate haver uma fonte que segure a carga.
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
   globais. Duas conexoes ao mesmo tempo dividem a thread de inferencia, um
   frame de cada vez, e misturam os rastros.

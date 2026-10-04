@@ -357,7 +357,7 @@ class PoseOutputTests(unittest.TestCase):
                          GESTURE_ANALYZER_FPS=12, GESTURE_PUBLISH_MIN_CONFIDENCE=.25,
                          GESTURE_MOTION_GATE=False, GESTURE_MOTION_MIN_RATIO=.002,
                          GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.,
-                         POSE_IMGSZ=0)
+                         POSE_IMGSZ=0, NCNN_NUM_THREADS=0)
         service = cls.__new__(cls)
         service.pose_model = SimpleNamespace(track=Mock(return_value=results))
         service.tracker = "bytetrack.yaml"
@@ -386,7 +386,8 @@ class PoseOutputTests(unittest.TestCase):
                          GESTURE_ANALYZER_FPS=12, GESTURE_PUBLISH_MIN_CONFIDENCE=.25,
                          GESTURE_MOTION_GATE=False, GESTURE_MOTION_MIN_RATIO=.002,
                          GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.,
-                         POSE_IMGSZ=0, importlib=SimpleNamespace(util=SimpleNamespace(
+                         POSE_IMGSZ=0, NCNN_NUM_THREADS=0,
+                         importlib=SimpleNamespace(util=SimpleNamespace(
                              find_spec=lambda name: found.get(name))))
         ncnn_model = Path("App/GestureRecon/yolov8n-pose_ncnn_model")
         # Sem o pacote, o servico para antes de o Ultralytics tentar instalar.
@@ -402,7 +403,7 @@ class PoseOutputTests(unittest.TestCase):
                          GESTURE_ANALYZER_FPS=12, GESTURE_PUBLISH_MIN_CONFIDENCE=.25,
                          GESTURE_MOTION_GATE=False, GESTURE_MOTION_MIN_RATIO=.002,
                          GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.,
-                         POSE_IMGSZ=0)
+                         POSE_IMGSZ=0, NCNN_NUM_THREADS=0)
         with tempfile.TemporaryDirectory() as folder:
             exported = Path(folder) / "yolov8n-pose_ncnn_model"
             exported.mkdir()
@@ -413,6 +414,64 @@ class PoseOutputTests(unittest.TestCase):
             (exported / "metadata.yaml").write_text("task: pose\nimgsz:\n- 320\n- 416\n",
                                                     encoding="utf-8")
             self.assertEqual(cls._export_imgsz(exported), [320, 416])
+
+    def test_service_limits_the_ncnn_threads_before_every_prediction(self):
+        callbacks = {}
+
+        class Model:
+            predictor = None
+
+            def __init__(self, path, task):
+                pass
+
+            def add_callback(self, event, func):
+                callbacks.setdefault(event, []).append(func)
+
+        cls = load_class("App/GestureRecon/service.py", "GestureRecognitionService",
+                         GESTURE_ANALYZER_FPS=12, GESTURE_PUBLISH_MIN_CONFIDENCE=.25,
+                         GESTURE_MOTION_GATE=False, GESTURE_MOTION_MIN_RATIO=.002,
+                         GESTURE_MOTION_PIXEL_DELTA=25, GESTURE_MOTION_MAX_SKIP_SECONDS=30.,
+                         POSE_IMGSZ=0, NCNN_NUM_THREADS=2, POSE_MODEL_PATH="",
+                         PROJECT_ROOT=Path("."), GESTURE_MAX_OBSERVATION_GAP_SECONDS=1.,
+                         YOLO=Model, GestureAnalyzer=Mock(), HandDetector=Mock(), Path=Path)
+        with tempfile.TemporaryDirectory() as folder:
+            weights = Path(folder) / "yolov8n-pose.pt"
+            weights.write_bytes(b"")
+            service = cls(base_dir=folder, pose_model_path=str(weights))
+        # O Ultralytics chama o callback em todo predict, depois de montar a rede.
+        self.assertEqual(callbacks, {"on_predict_start": [service._limit_ncnn_threads]})
+        self.assertEqual(service.latest_metrics["ncnn_threads"], 0.0)
+
+    def test_ncnn_net_is_reloaded_once_with_the_configured_threads(self):
+        service, context = self.make_service([])
+        calls = []
+        opt = SimpleNamespace(num_threads=4)
+        net = SimpleNamespace(
+            opt=opt, clear=lambda: calls.append(("clear", opt.num_threads)),
+            load_param=lambda path: calls.append(("param", opt.num_threads, Path(path).name)),
+            load_model=lambda path: calls.append(("model", opt.num_threads, Path(path).name)))
+        predictor = SimpleNamespace(model=SimpleNamespace(ncnn=True, net=net))
+        with tempfile.TemporaryDirectory() as folder:
+            service.pose_model_path = Path(folder)
+            (service.pose_model_path / "model.ncnn.param").write_text("", encoding="utf-8")
+            # Zero deixa o padrao do ncnn, uma thread por nucleo fisico.
+            service.ncnn_threads = 0
+            service._limit_ncnn_threads(predictor)
+            self.assertEqual((opt.num_threads, calls), (4, []))
+            # As threads entram antes de carregar, porque as convolucoes as
+            # fixam na carga; depois disso, nenhum predict recarrega de novo.
+            service.ncnn_threads = 2
+            service._limit_ncnn_threads(predictor)
+            service._limit_ncnn_threads(predictor)
+        self.assertEqual(calls, [("clear", 4), ("param", 2, "model.ncnn.param"),
+                                 ("model", 2, "model.ncnn.bin")])
+        # Com o peso .pt nao ha rede ncnn: nada muda, e a metrica fica em zero.
+        service._limit_ncnn_threads(SimpleNamespace(model=SimpleNamespace(ncnn=False)))
+        service.detect_gestures(context)
+        self.assertEqual(service.latest_metrics["ncnn_threads"], 0.0)
+        service.pose_model.predictor = predictor
+        service.detect_gestures(context)
+        self.assertEqual(service.latest_metrics["ncnn_threads"], 2.0)
 
     def test_boxes_preserved_even_without_keypoints(self):
         result = SimpleNamespace(boxes=SimpleNamespace(xyxy=[[1, 2, 3, 4]], conf=[.8]),

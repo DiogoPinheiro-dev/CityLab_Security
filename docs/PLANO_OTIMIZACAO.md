@@ -435,7 +435,83 @@ tem SSH no Pi apaga.
   eventos ficam, por decisao do responsavel: sao o registro do sistema de
   seguranca e saem pelo prazo de 30 dias.
 - A API guarda os cadastros na memoria: depois de apagar, reiniciar a API.
-- Coberto por testes com colecoes simuladas; ainda nao rodou no Pi.
+- Coberto por testes com colecoes simuladas. No Pi, no deploy de `d974a3f`,
+  conferido por hash, a listagem leu o banco de verdade: quatro pessoas, cada
+  uma com um cadastro de uma foto, de marco a junho de 2026, e nenhuma
+  referencia aprendida. Ainda nao apagou nada no banco de verdade.
+- No mesmo deploy, o `--show-config` mostrou o aprendizado ligado pelo perfil,
+  com 600 s, 5 referencias e 30 dias, sem nenhuma linha de teste no `.env`.
+
+### NCNN na pose no Pi - 22% mais rapido, mas a fonte nao aguenta
+
+Instalacao: o `pip install ncnn` sem `--no-deps` trocou o numpy 1.26.4 pelo
+2.4.6 e pos o `opencv-python` 5.0 por cima do OpenCV 4.11 do
+`opencv-contrib-python`. O pacote `ncnn` pede `opencv-python` sem versao, e o
+5.0 exige numpy 2, que o mediapipe 0.10.18 nao aceita. A API em pe nao caiu,
+porque ja tinha tudo carregado. O ambiente foi corrigido antes de reiniciar:
+numpy 1.26.4 de novo, sem o `opencv-python`, o `opencv-contrib-python`
+reinstalado na mesma versao, e todos os pacotes da API importando.
+`docs/RASPBERRY_PI.md` e `requirements-rpi-bookworm.txt` passam a instalar o
+`ncnn` com `--no-deps`.
+
+Video de carga no codigo `d974a3f`, conferido por hash, com o aprendizado
+desligado nas rodadas (`FACE_LEARN_FROM_STREAM=0`, para elas nao dependerem
+umas das outras). Base de uma rodada com o `.pt`; depois a mesma configuracao
+mais `POSE_MODEL_PATH` com a pasta exportada em 320x416, conferida por hash.
+Na r1, o log da API registrou "Loading ... yolov8n-pose_ncnn_model for NCNN
+inference". API reiniciada antes de cada rodada. Resultados em
+`resultados/pi3-d974a3f-video-pt/` e `resultados/pi3-d974a3f-video-ncnn/`.
+
+| Rodada | Media | Contra a base | p95 | Pose | Rosto |
+|---|---|---|---|---|---|
+| `.pt` (base) | 3737,6 ms | | 4381,8 ms | 2778 ms | 1294 ms |
+| NCNN r1 | 2876,4 ms | -23,0% | 4841,7 ms | 636 ms | 2375 ms |
+| NCNN r2 | 2923,1 ms | -21,8% | 4865,3 ms | 691 ms | 2416 ms |
+| NCNN r3 | 2872,1 ms | -23,2% | 4873,4 ms | 630 ms | 2368 ms |
+
+- **A base confirmou a correcao do ambiente**: 3737,6 ms, contra 3730,3 a
+  3749,3 ms em 03/10, os mesmos 11 alertas pelo nome e as mesmas semelhancas
+  do rosto.
+- **Deteccao identica**: nas tres rodadas, os mesmos alertas frame a frame, a
+  mesma confianca da caixa da pessoa e o rosto reconhecido nos mesmos 26
+  frames. Contra a base mais rapida de 03/10, o ganho ainda e de 21,6%.
+- **O rosto virou o caminho critico**, em 29 a 30 de 30 frames. Os frames com
+  o nome reaproveitado cairam de 3256 para uns 1950 ms; os que reconhecem o
+  rosto de novo, de 4288 para 3901 a 4040 ms. O p95 subiu de 10% a 11%.
+- **A tensao caiu durante as rodadas do NCNN.** No log de `vcgencmd`, a base
+  ficou em `throttled=0x0` e 1,4 GHz. Nas rodadas do NCNN, 14 de 23, 9 de 22 e
+  9 de 22 leituras deram `0x50005`: tensao baixa naquele instante, com o
+  processador em 600 MHz. Nunca tinha aparecido, nem nas 10,5 h da noite de
+  01/10. O NCNN usa os 4 nucleos com mais carga que o PyTorch e puxa mais
+  corrente que a fonte do Pi segura em 5 V. Os numeros do NCNN saem com essas
+  quedas; a lentidao do rosto vem, em boa parte, delas.
+- Teste com um carregador de celular de 90 W e cabo para micro-USB: a tensao
+  ja caia no boot, `0x50005` sem carga. Voltou a fonte original, com `0x0` no
+  boot e com a API subindo.
+- `process_rss_mb` de 676 a 736 MB, contra 637 a 638 MB na base de hoje e 654 a
+  729 MB nas series de 03/10; temperatura ate 52,6 C, contra 56,9 C na base,
+  mas com o processador parte do tempo em 600 MHz.
+- Decisao: o responsavel tinha escolhido manter o NCNN no `.env` do Pi, antes
+  de ver a queda de tensao. Com ela, voltou ao `.pt`, porque a tensao baixa
+  repetida arrisca o cartao SD e a estabilidade do 24/7. O pacote `ncnn` e a
+  pasta do modelo ficam no Pi, sem uso.
+
+### NCNN com menos threads - configuracao para puxar menos corrente
+
+O responsavel escolheu testar o NCNN com 2 threads na fonte atual, em vez de
+comprar a fonte oficial primeiro.
+
+- `NCNN_NUM_THREADS`, zero nos dois perfis: o padrao do ncnn, uma thread por
+  nucleo fisico. Aparece no `--show-config`, junto com o `POSE_MODEL_PATH`, e a
+  metrica `ncnn_threads` mostra as threads que a pose usou em cada frame.
+- O Ultralytics nao expoe a opcao. As convolucoes do ncnn fixam as threads ao
+  carregar a rede, e trocar o valor depois deixou a pose mais lenta: no PC, com
+  os 36 frames do video de carga, 131 ms por frame com 2 threads, contra 38 ms
+  com as 6 do padrao, e o ncnn avisou que usaria o valor da carga. Por isso o
+  servico recarrega a rede uma vez, no primeiro predict, ja com o valor: 43 ms
+  contra 36 ms, sem aviso, e os mesmos keypoints, ate a ultima casa.
+- Falta medir no Pi, com o log de `vcgencmd`: aceitar so com `throttled=0x0`
+  em todas as leituras das rodadas, alem do ganho e da deteccao igual.
 
 ### O que fica aberto
 
@@ -444,14 +520,11 @@ tem SSH no Pi apaga.
    outra coisa com `FACE_LEARN_FROM_STREAM=0`, ou apagando as referencias antes
    de cada serie.
    - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
-   - a pose em NCNN contra o `.pt`: instalar o `ncnn`, copiar a pasta e ligar o
-     `POSE_MODEL_PATH`, conforme `docs/RASPBERRY_PI.md`, com a serie
-     `video-fullframe` de base e o aprendizado desligado nas rodadas; se ganhar,
-     comparar as threads do NCNN;
+   - o NCNN de novo, so sem a queda de tensao: com `NCNN_NUM_THREADS=2`, ja
+     implementado, ou com a fonte oficial do Pi 3 B+ (5,1 V e 2,5 A). Medir
+     com o log de `vcgencmd` e aceitar so com `throttled=0x0` nas rodadas;
    - recadastrar com 3 a 5 fotos, rodar `tools/cadastros.py --manter-ultimo` e
      medir a semelhanca de novo, com o aprendizado desligado.
-   Falta conferir, depois do deploy de `e1ba75a`, que o `--show-config` do Pi
-   mostra o aprendizado ligado com 600 s, sem linha de teste em nenhum `.env`.
 2. Acompanhar o aprendizado no uso: quantas referencias cada pessoa junta, com
    `tools/cadastros.py`, e se aparece alguem reconhecido com o nome de outra
    pessoa.

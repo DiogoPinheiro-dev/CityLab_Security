@@ -122,6 +122,8 @@ Nao misture resultados do cliente local e remoto.
   com `FACE_PREFILTER`: deteccao, embedding dos rostos aceitos e comparacao com
   o cadastro. `face_embeddings` conta os embeddings gerados no frame, e
   `face_reused` os rostos que herdaram o nome com `FACE_REUSE_SECONDS`.
+- `ncnn_threads`: threads da rede da pose em NCNN, com `NCNN_NUM_THREADS`; zero
+  com o peso `.pt`.
 - `process_rss_mb`: RAM residente do processo servidor; `temperature_c`: leitura
   disponivel no host. Ausencia aparece como null e contagem zero no resumo.
 - `detections`: contagem de pessoas, rostos, gestos e alertas por frame. O

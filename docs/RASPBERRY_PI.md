@@ -356,17 +356,21 @@ le a forma do `metadata.yaml` da pasta e ignora o `POSE_IMGSZ` nesse caso.
 
 No Pi, instale o pacote no ambiente da API antes de ligar. Sem ele, o
 Ultralytics tentaria compilar o ncnn a partir do Git na subida da API; por isso
-o servico de gestos para antes, dizendo o que falta:
+o servico de gestos para antes, dizendo o que falta. Instale sem as
+dependencias: o pacote pede `numpy` e `opencv-python` sem versao, e o pip troca
+o numpy 1.26.4 pelo 2.x, que o mediapipe nao aceita, e poe o OpenCV 5 por cima
+do que o projeto usa (aconteceu em 04/10/2026). O `portalocker`, que ele tambem
+pede, e pequeno e entra a parte:
 
 ```bash
-cd ~/CityLab_Security && .venv/bin/pip install ncnn==1.0.20260526
+cd ~/CityLab_Security && .venv/bin/pip install --no-deps ncnn==1.0.20260526 portalocker==4.4.0
 ```
 
 A pasta exportada fica fora do Git (`*_ncnn_model/` no `.gitignore`). Copie
 para o Pi; o deploy nao a apaga, porque o `rsync` dele nao remove arquivos:
 
 ```bash
-scp -r App/GestureRecon/yolov8n-pose_ncnn_model citylab@<ip-do-pi>:~/CityLab_Security/App/GestureRecon/
+scp -r App/GestureRecon/yolov8n-pose_ncnn_model citylab@<ip-do-pi>:CityLab_Security/App/GestureRecon/
 ```
 
 E configure no `.env` do Pi:
@@ -380,3 +384,19 @@ vazia para voltar ao .pt. O export usa FP32 e nao altera o peso original. O
 NCNN usa por padrao uma thread por nucleo fisico, 4 no Pi, sem o limite do
 `TORCH_NUM_THREADS`, e disputa a CPU com o rosto. Medir no Pi antes de assumir
 ganho, sem outra mudanca na mesma rodada.
+
+Medido no Pi em 04/10/2026, com o video de carga: o frame ficou 22% mais
+rapido, com os mesmos alertas frame a frame. Mas, com a fonte do Pi, a tensao
+caiu durante as rodadas: `vcgencmd get_throttled` deu `0x50005`, e o
+processador desceu para 600 MHz, o que nunca aconteceu com o `.pt`. Tensao
+baixa repetida arrisca o cartao SD. Por isso o Pi voltou ao `.pt`. So ligue o
+NCNN com uma fonte que segure a carga, como a oficial do Pi 3 B+ (5,1 V e
+2,5 A), conferindo `get_throttled` durante o stream: o valor tem de ficar em
+`0x0`.
+
+`NCNN_NUM_THREADS` limita as threads do ncnn na pose, por exemplo a 2, para
+puxar menos corrente; zero deixa uma por nucleo fisico. As convolucoes do ncnn
+fixam as threads ao carregar a rede, entao o servico a recarrega uma vez, no
+primeiro frame, ja com o valor. A metrica `ncnn_threads` mostra o valor usado
+em cada frame. No PC, com 2 threads, os keypoints sairam identicos aos do
+padrao.

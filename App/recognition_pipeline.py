@@ -50,6 +50,8 @@ class UnifiedRecognitionService:
     # Total do rosto e suas partes, com as mesmas chaves em todo frame.
     FACE_METRICS = ("faces_ms", "face_detect_ms", "face_embed_ms", "face_match_ms",
                     "face_embeddings", "face_reused")
+    GESTURE_METRICS = ("gestures_ms", "hands_ms", "pose_ms", "motion_ratio", "pose_skipped",
+                       "ncnn_threads")
 
     def __init__(
         self,
@@ -172,17 +174,9 @@ class UnifiedRecognitionService:
                     frame_context,
                     person_bboxes=None if use_shared_pose else persons,
                 )
-                metrics["gestures_ms"] = self.gesture_service.latest_metrics.get("gestures_ms", 0.0)
-                metrics["hands_ms"] = self.gesture_service.latest_metrics.get("hands_ms", 0.0)
-                metrics["pose_ms"] = self.gesture_service.latest_metrics.get("pose_ms", 0.0)
-                metrics["motion_ratio"] = self.gesture_service.latest_metrics.get("motion_ratio", 0.0)
-                metrics["pose_skipped"] = self.gesture_service.latest_metrics.get("pose_skipped", 0.0)
+                self._copy_gesture_metrics(metrics, ran=True)
             else:
-                metrics["gestures_ms"] = 0.0
-                metrics["hands_ms"] = 0.0
-                metrics["pose_ms"] = 0.0
-                metrics["motion_ratio"] = 0.0
-                metrics["pose_skipped"] = 0.0
+                self._copy_gesture_metrics(metrics, ran=False)
 
         # Mesmas chaves em todo caminho, para o coletor contar todos os frames.
         metrics.setdefault("face_worker", -1)
@@ -285,17 +279,9 @@ class UnifiedRecognitionService:
             gestures, metrics["gesture_worker"], metrics["gesture_torch_threads"] = (
                 gesture_future.result()
             )
-            metrics["gestures_ms"] = self.gesture_service.latest_metrics.get("gestures_ms", 0.0)
-            metrics["hands_ms"] = self.gesture_service.latest_metrics.get("hands_ms", 0.0)
-            metrics["pose_ms"] = self.gesture_service.latest_metrics.get("pose_ms", 0.0)
-            metrics["motion_ratio"] = self.gesture_service.latest_metrics.get("motion_ratio", 0.0)
-            metrics["pose_skipped"] = self.gesture_service.latest_metrics.get("pose_skipped", 0.0)
+            self._copy_gesture_metrics(metrics, ran=True)
         else:
-            metrics["gestures_ms"] = 0.0
-            metrics["hands_ms"] = 0.0
-            metrics["pose_ms"] = 0.0
-            metrics["motion_ratio"] = 0.0
-            metrics["pose_skipped"] = 0.0
+            self._copy_gesture_metrics(metrics, ran=False)
 
         return faces, gestures
 
@@ -308,6 +294,10 @@ class UnifiedRecognitionService:
     def _copy_face_metrics(self, metrics: dict[str, float], ran: bool) -> None:
         for name in self.FACE_METRICS:
             metrics[name] = self.face_service.latest_metrics.get(name, 0.0) if ran else 0.0
+
+    def _copy_gesture_metrics(self, metrics: dict[str, float], ran: bool) -> None:
+        for name in self.GESTURE_METRICS:
+            metrics[name] = self.gesture_service.latest_metrics.get(name, 0.0) if ran else 0.0
 
     def _recognize_faces_on_worker(self, frame_context: Any) -> tuple[list[dict[str, Any]], int]:
         return self.face_service.recognize_faces(frame_context), self._worker_index()

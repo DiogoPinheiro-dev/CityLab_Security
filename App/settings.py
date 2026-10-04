@@ -97,6 +97,10 @@ OPENCV_NUM_THREADS = max(0, _get_int("OPENCV_NUM_THREADS", 1 if _RPI3 else 0))
 NATIVE_NUM_THREADS = max(0, _get_int("NATIVE_NUM_THREADS", 1 if _RPI3 else 0))
 # Aceita arquivo .pt ou diretorio NCNN exportado; vazio usa o peso versionado.
 POSE_MODEL_PATH = os.getenv("POSE_MODEL_PATH", "").strip()
+# Threads do ncnn na pose, so com um modelo NCNN. Zero deixa o padrao do ncnn,
+# uma por nucleo fisico, 4 no Pi: com elas, em 04/10/2026, a tensao da fonte do
+# Pi caiu durante o stream (docs/PLANO_OTIMIZACAO.md).
+NCNN_NUM_THREADS = max(0, _get_int("NCNN_NUM_THREADS", 0))
 # Lado da entrada da pose, multiplo de 32. Zero mantem o padrao do Ultralytics,
 # 640, que amplia o frame ja reduzido pela PROCESS_SCALE. 416 no rpi3: a pose
 # caiu de 5,0 para 2,2 s e o frame com uma pessoa ficou 6% mais rapido, medido

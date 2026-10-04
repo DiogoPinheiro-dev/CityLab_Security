@@ -11,7 +11,7 @@ from App.frame_context import FrameContext
 from App.settings import (GESTURE_ANALYZER_FPS, GESTURE_MAX_OBSERVATION_GAP_SECONDS,
                           GESTURE_MOTION_GATE, GESTURE_MOTION_MAX_SKIP_SECONDS,
                           GESTURE_MOTION_MIN_RATIO, GESTURE_MOTION_PIXEL_DELTA,
-                          GESTURE_PUBLISH_MIN_CONFIDENCE,
+                          GESTURE_PUBLISH_MIN_CONFIDENCE, NCNN_NUM_THREADS,
                           POSE_IMGSZ, POSE_MODEL_PATH, PROJECT_ROOT)
 
 from App.GestureRecon.detector import GestureAnalyzer
@@ -31,6 +31,7 @@ class GestureRecognitionService:
         motion_pixel_delta: int = GESTURE_MOTION_PIXEL_DELTA,
         motion_max_skip_seconds: float = GESTURE_MOTION_MAX_SKIP_SECONDS,
         pose_imgsz: int = POSE_IMGSZ,
+        ncnn_threads: int = NCNN_NUM_THREADS,
     ) -> None:
         self.base_dir = Path(base_dir) if base_dir else Path(__file__).resolve().parent
         configured_path = pose_model_path or POSE_MODEL_PATH
@@ -52,6 +53,9 @@ class GestureRecognitionService:
         self.pose_imgsz = self._export_imgsz(self.pose_model_path) or self.pose_imgsz
 
         self.pose_model = YOLO(str(self.pose_model_path), task="pose")
+        # Zero deixa o ncnn com uma thread por nucleo fisico.
+        self.ncnn_threads = ncnn_threads
+        self.pose_model.add_callback("on_predict_start", self._limit_ncnn_threads)
         self.analyzer = GestureAnalyzer(fps=fps, max_observation_gap=GESTURE_MAX_OBSERVATION_GAP_SECONDS)
         self.hand_detector = HandDetector()
         self.last_track_centers: dict[int, tuple[float, float]] = {}
@@ -93,6 +97,32 @@ class GestureRecognitionService:
         imgsz = (yaml.safe_load(metadata.read_text(encoding="utf-8")) or {}).get("imgsz")
         return [int(value) for value in imgsz] if imgsz else None
 
+    def _limit_ncnn_threads(self, predictor: Any) -> None:
+        """Threads do ncnn na rede da pose; o Ultralytics nao expoe a opcao.
+
+        As convolucoes do ncnn fixam as threads ao carregar a rede, e trocar
+        depois deixa a pose mais lenta: no PC, 2 threads trocadas depois levaram
+        131 ms por frame; recarregada, a rede levou 43 ms, contra 36 ms com 6.
+        Por isso a rede e recarregada uma vez, ja com o valor.
+        """
+        backend = getattr(predictor, "model", None)
+        if self.ncnn_threads <= 0 or not getattr(backend, "ncnn", False):
+            return
+        net = backend.net
+        if net.opt.num_threads == self.ncnn_threads:
+            return
+        param = next(self.pose_model_path.glob("*.param"))
+        net.clear()
+        net.opt.num_threads = self.ncnn_threads
+        net.load_param(str(param))
+        net.load_model(str(param.with_suffix(".bin")))
+
+    def _ncnn_threads_in_use(self) -> int:
+        """Threads da rede ncnn da pose; zero se a pose nao e NCNN ou nao rodou."""
+        predictor = getattr(getattr(self, "pose_model", None), "predictor", None)
+        backend = getattr(predictor, "model", None)
+        return int(backend.net.opt.num_threads) if getattr(backend, "ncnn", False) else 0
+
     def _store_metrics(self, pose_ms: float, hands_ms: float, gestures_ms: float,
                        motion_ratio: float, pose_skipped: bool) -> None:
         self.latest_metrics = {
@@ -101,6 +131,7 @@ class GestureRecognitionService:
             "gestures_ms": gestures_ms,
             "motion_ratio": motion_ratio,
             "pose_skipped": 1.0 if pose_skipped else 0.0,
+            "ncnn_threads": float(self._ncnn_threads_in_use()),
         }
 
     def note_external_presence(self, present: bool) -> None:
