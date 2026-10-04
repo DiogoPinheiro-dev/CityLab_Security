@@ -726,23 +726,61 @@ e o video passado 3 vezes, com reinicio entre as passadas
 - Os metodos reais do servico, com os mesmos embeddings e o reinicio pela carga
   do banco, deram os mesmos numeros da simulacao.
 
+### Filtro de copia no Pi - 28 de 30 nas tres rodadas, e promocao
+
+Mesmo video e protocolo da serie anterior, no codigo `cbc485c`, conferido por
+hash, com o banco limpo so antes da r1. No deploy, a carga do banco com o
+filtro ja tinha deixado 2 das 5 referencias da serie de `cb972f7` e apagado as
+outras 3 como copias. Resultados em `resultados/pi3-cbc485c-video-copia/`.
+
+| Rodada | Sem filtro (`cb972f7`) | Com filtro (`cbc485c`) |
+|---|---|---|
+| r1, banco vazio | 28/30, 3740,6 ms | 28/30, 3754,5 ms |
+| r2 | 28/30, 3729,9 ms | 28/30, 3739,0 ms |
+| r3 | 26/30, 3731,1 ms | 28/30, 3731,8 ms |
+
+- **As referencias param de mudar**: a r1 repetiu frame a frame as semelhancas
+  da r1 sem filtro, porque com o banco vazio nao ha copia a barrar. Na r2 e na
+  r3 nenhum frame gravou referencia: dois frames bateram 1,000 com a propria
+  referencia guardada e nao entraram de novo, e as semelhancas da r3 sao
+  identicas as da r2. O frame da rendicao ficou em 0,541 nas tres.
+- **Sem custo de tempo**: media de 3731,8 a 3754,5 ms, contra 3732,3 ms da base
+  sem aprender, e os mesmos 11 alertas em todas. A maior gravacao, de 152 ms,
+  foi num frame sem embedding, o mesmo que tem os picos das outras series: e
+  evento de alerta, nao aprendizado.
+- `throttled=0x0` em todo o log das duas series, sem leitura a 1,2 GHz, com
+  maxima de 60,7 C; na r2 e na r3 de `cb972f7`, sem log, o `get_throttled` com
+  o Pi ligado desde as 09:17 cobre o mesmo. `process_rss_mb` de 654 a 713 MB.
+- Decisao do responsavel: promover. `FACE_LEARN_FROM_STREAM` passa a ligado no
+  perfil rpi3, com o intervalo de 600 s; no default segue desligado, e
+  `FACE_LEARN_FROM_STREAM=0` desliga. O banco passa a guardar rostos tirados do
+  stream, dado biometrico na LGPD, e a base legal fica com o responsavel. Ele
+  escolheu apagar as referencias desta serie, para o aprendizado recomecar com
+  o uso real da camera.
+- O video tem uma pessoa so, a do cadastro. O ganho com a camera de verdade, em
+  outras condicoes, e o comportamento com outras pessoas na cena ficam para o
+  uso e para o teste geral.
+
 ### O que fica aberto
 
-1. Medir no Pi, com o video de carga, sem precisar de duas pessoas:
-   - o filtro de copia: apagar as referencias da serie de `cb972f7` e repetir as
-     3 rodadas, com o banco limpo so antes da r1; espera-se 28/30 nas tres.
-     Depois, decidir se o aprendizado passa a ligado no rpi3 e tirar
-     `FACE_LEARN_INTERVAL_SECONDS=0` do `.env` do Pi;
+1. Medir no Pi, com o video de carga, sem precisar de duas pessoas. Com o
+   aprendizado ligado no perfil, as rodadas deixam de ser independentes: medir
+   outra coisa com `FACE_LEARN_FROM_STREAM=0`, ou apagando as referencias antes
+   de cada serie.
    - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
    - a pose em NCNN contra o `.pt`: instalar o `ncnn`, copiar a pasta e ligar o
      `POSE_MODEL_PATH`, conforme `docs/RASPBERRY_PI.md`, com a serie
-     `video-fullframe` de base, que ja tem o perfil promovido; se ganhar,
+     `video-fullframe` de base e o aprendizado desligado nas rodadas; se ganhar,
      comparar as threads do NCNN;
    - depois de recadastrar com 3 a 5 fotos e tirar o cadastro antigo do banco,
      a semelhanca de novo.
-   Depois do deploy da promocao, a linha `FACE_EMBED_FULL_FRAME=1` do `.env` do
-   Pi fica redundante e pode sair.
-2. A ordem combinada em 03/10 terminou; o resto da lista de 02/10 continua.
+   Depois do deploy da promocao, as linhas `FACE_EMBED_FULL_FRAME=1`,
+   `FACE_LEARN_FROM_STREAM=1` e `FACE_LEARN_INTERVAL_SECONDS=0` do `.env` do Pi
+   ficam redundantes ou erradas e devem sair.
+2. Acompanhar o aprendizado no uso: quantas referencias cada pessoa junta, com
+   `tools/limpar_aprendidos.py`, e se aparece alguem reconhecido com o nome de
+   outra pessoa.
+3. A ordem combinada em 03/10 terminou; o resto da lista de 02/10 continua.
    No deploy de `06a3040` o stream respondeu com o codigo novo, num teste de
    tres frames do video de carga, de 3,6 a 4,4 s, com pessoa, rosto e gesto em
    todos; nao e medicao.

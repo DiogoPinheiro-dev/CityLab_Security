@@ -53,15 +53,19 @@ class RpiProfileTests(unittest.TestCase):
         self.assertEqual(self.settings(EVENT_RETENTION_DAYS="0")["EVENT_RETENTION_DAYS"], 0)
         self.assertEqual(self.settings(EVENT_RETENTION_DAYS="-5")["EVENT_RETENTION_DAYS"], 0)
 
-    def test_learning_from_the_stream_is_off_until_measured(self):
+    def test_learning_from_the_stream_is_on_only_on_the_pi(self):
+        # Medido so no rpi3, em 03/10/2026; o perfil default segue sem aprender.
         names = ("FACE_LEARN_FROM_STREAM", "FACE_LEARNED_PER_PERSON",
                  "FACE_LEARN_INTERVAL_SECONDS", "FACE_LEARNED_RETENTION_DAYS")
-        for profile in ("default", "rpi3"):
+        for profile, learn in (("default", False), ("rpi3", True)):
             values = self.settings(CITYLAB_PROFILE=profile)
-            self.assertEqual([values[name] for name in names], [False, 5, 600.0, 30])
+            self.assertEqual([values[name] for name in names], [learn, 5, 600.0, 30])
+        self.assertIs(self.settings(CITYLAB_PROFILE="rpi3",
+                                    FACE_LEARN_FROM_STREAM="0")["FACE_LEARN_FROM_STREAM"], False)
         on = self.settings(FACE_LEARN_FROM_STREAM="1", FACE_LEARNED_PER_PERSON="0",
                            FACE_LEARN_INTERVAL_SECONDS="-1", FACE_LEARNED_RETENTION_DAYS="-1")
-        # Ligado so pelo .env; no minimo uma referencia, sem intervalo ou prazo negativo.
+        # No default, ligado pelo .env; no minimo uma referencia, sem intervalo ou
+        # prazo negativo.
         self.assertEqual([on[name] for name in names], [True, 1, 0.0, 0])
 
     def test_full_frame_embedding_is_on_only_on_the_pi(self):
@@ -190,10 +194,11 @@ class RpiProfileTests(unittest.TestCase):
         # Mostra o tamanho da pose, para a rodada no Pi registrar qual valeu.
         self.assertEqual(configured["POSE_IMGSZ"], 416)
         self.assertEqual(configured["FACE_REUSE_SECONDS"], 15.0)
-        # Spinning so muda pelo .env; o embedding no frame inteiro vem do perfil.
+        # Spinning so muda pelo .env; o embedding no frame inteiro e o
+        # aprendizado pelo stream vem do perfil.
         self.assertIs(configured["ONNX_ALLOW_SPINNING"], True)
         self.assertIs(configured["FACE_EMBED_FULL_FRAME"], True)
-        self.assertIs(configured["FACE_LEARN_FROM_STREAM"], False)
+        self.assertIs(configured["FACE_LEARN_FROM_STREAM"], True)
         self.assertEqual(configured["EVENT_RETENTION_DAYS"], 30)
         self.assertNotIn("segredo", output.getvalue())
 

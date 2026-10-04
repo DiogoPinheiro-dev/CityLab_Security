@@ -73,10 +73,12 @@ FACE_EMBED_FULL_FRAME = _get_bool("FACE_EMBED_FULL_FRAME", _RPI3)
 # Aprende com o stream: um rosto reconhecido com folga vira mais uma referencia
 # da pessoa, guardada no MongoDB (colecao rostos_aprendidos). Ate
 # FACE_LEARNED_PER_PERSON por pessoa, uma a cada FACE_LEARN_INTERVAL_SECONDS, e
-# o banco apaga as com mais de FACE_LEARNED_RETENTION_DAYS dias. Numa simulacao
-# no PC, em 03/10/2026, com uma foto de cadastro, reconheceu 277 de 360 frames
-# contra 233. Desligado ate medir no Pi.
-FACE_LEARN_FROM_STREAM = _get_bool("FACE_LEARN_FROM_STREAM", False)
+# o banco apaga as com mais de FACE_LEARNED_RETENTION_DAYS dias. Ligado no rpi3:
+# no Pi, em 03/10/2026, com o video de carga, reconheceu 28 de 30 frames contra
+# 26 nas tres rodadas, sem custo de tempo (docs/PLANO_OTIMIZACAO.md). Guarda
+# rostos tirados do stream, dado biometrico na LGPD; no perfil default segue
+# desligado.
+FACE_LEARN_FROM_STREAM = _get_bool("FACE_LEARN_FROM_STREAM", _RPI3)
 FACE_LEARNED_PER_PERSON = max(1, _get_int("FACE_LEARNED_PER_PERSON", 5))
 FACE_LEARN_INTERVAL_SECONDS = max(0.0, _get_float("FACE_LEARN_INTERVAL_SECONDS", 600.0))
 FACE_LEARNED_RETENTION_DAYS = max(0, _get_int("FACE_LEARNED_RETENTION_DAYS", 30))

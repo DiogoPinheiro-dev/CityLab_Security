@@ -121,7 +121,7 @@ async def _guardar_aprendidos(mudancas: dict) -> None:
 
 
 async def _carregar_aprendidos(current_recognizer: UnifiedRecognitionService) -> None:
-    """Prazo no banco e referencias guardadas para a memoria; apaga as de quem saiu."""
+    """Prazo no banco e referencias guardadas para a memoria; apaga as que ficam de fora."""
     try:
         validade = await configurar_validade_aprendidos(FACE_LEARNED_RETENTION_DAYS)
         print(f"[INFO] Referencias aprendidas: {validade}.")
@@ -129,7 +129,8 @@ async def _carregar_aprendidos(current_recognizer: UnifiedRecognitionService) ->
         print(f"[AVISO] Prazo das referencias aprendidas nao configurado: {exc}")
     try:
         documentos = [documento async for documento in colecao_aprendidos.find({})]
-        # Ficam de fora as de quem saiu do cadastro e as que hoje nao entrariam.
+        # Ficam de fora as de quem saiu do cadastro, as que hoje nao entrariam e
+        # as copias de outra mais parecida com o cadastro.
         descartadas = current_recognizer.face_service.replace_learned([
             {"id": documento["_id"], "nome": documento.get("nome"),
              "semelhanca": documento.get("semelhanca"),

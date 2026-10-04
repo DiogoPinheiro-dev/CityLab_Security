@@ -26,8 +26,10 @@ Nao sobrescreva seu arquivo de ambiente inteiro. O perfil escolhe ONNX=2,
 PyTorch=3 e OpenCV=1 thread, um frame pendente no cliente, a passada unica de
 pessoas e pose (`PIPELINE_SHARED_PERSON_POSE`), o gate de movimento antes da
 pose (`GESTURE_MOTION_GATE`), a pose em 416 px (`POSE_IMGSZ`), em vez dos 640
-do Ultralytics, e o reuso por 15 s do nome de um rosto que continua no mesmo
-lugar (`FACE_REUSE_SECONDS`). Nao desativa reconhecimento nem reduz a
+do Ultralytics, o reuso por 15 s do nome de um rosto que continua no mesmo
+lugar (`FACE_REUSE_SECONDS`), o embedding do rosto no frame original
+(`FACE_EMBED_FULL_FRAME`) e o aprendizado de referencias pelo stream
+(`FACE_LEARN_FROM_STREAM`). Nao desativa reconhecimento nem reduz a
 qualidade da imagem. Qualquer valor explicito dessas variaveis no ambiente tem
 precedencia; confira tambem `Server/.env`.
 
@@ -61,14 +63,15 @@ depois de deixar o frame com uma pessoa 6% mais rapido, e no mesmo dia as 2
 threads do ONNX Runtime, com mais 20% num video fixo de uma pessoa, e o reuso
 do nome do rosto, com mais 13% na media. Com tudo isso, em 02/10/2026, a cena
 vazia ficou em 0,93 s e duas pessoas em 3,41 s, -83% e -80% contra 19/09; uma
-pessoa nao foi medida com eles na webcam. Em 03/10/2026 entrou o embedding do
-rosto no frame original, sem custo de tempo. Os ajustes individuais nao foram
-medidos isoladamente. Para
+pessoa nao foi medida com eles na webcam. Em 03/10/2026 entraram o embedding
+do rosto no frame original e o aprendizado pelo stream, que levou o video de
+carga de 26 a 28 de 30 frames reconhecidos; os dois sem custo de tempo. Os
+ajustes individuais nao foram medidos isoladamente. Para
 comparar uma mudanca por vez, use `CITYLAB_PROFILE=default` e ajuste
 individualmente `ONNX_INTRA_OP_THREADS`, `TORCH_NUM_THREADS`,
 `OPENCV_NUM_THREADS`, `MAX_IN_FLIGHT_FRAMES`, `PIPELINE_SHARED_PERSON_POSE`,
-`GESTURE_MOTION_GATE`, `POSE_IMGSZ`, `FACE_REUSE_SECONDS` e
-`FACE_EMBED_FULL_FRAME`. Reinicie o servidor
+`GESTURE_MOTION_GATE`, `POSE_IMGSZ`, `FACE_REUSE_SECONDS`,
+`FACE_EMBED_FULL_FRAME` e `FACE_LEARN_FROM_STREAM`. Reinicie o servidor
 e recarregue o cliente quando mudar o limite de frames. Para voltar ao automatico, use
 perfil default e remova os overrides, ou defina as tres opcoes de threads em 0.
 O carregamento ajustado de ONNX libera a referencia da sessao antiga antes de
@@ -268,8 +271,8 @@ com o video de carga, a semelhanca com o cadastro subiu 0,008 na mediana e ate
 41 a 47 px subiram de 0,05 a 0,10. `FACE_EMBED_FULL_FRAME=0` volta a imagem
 reduzida.
 
-`FACE_LEARN_FROM_STREAM=1`, desligado nos dois perfis, faz o sistema aprender
-com o stream: um rosto reconhecido de um embedding novo, com semelhanca de
+`FACE_LEARN_FROM_STREAM`, ligado no perfil rpi3 desde 03/10/2026 e desligado no
+default, faz o sistema aprender com o stream: um rosto reconhecido de um embedding novo, com semelhanca de
 0,60 ou mais e acima do limite contra o proprio cadastro, vira referencia da
 pessoa. As referencias ficam na colecao `rostos_aprendidos` e na memoria da
 API, ate `FACE_LEARNED_PER_PERSON` por pessoa (5), uma a cada
@@ -286,8 +289,11 @@ cd ~/CityLab_Security && .venv/bin/python tools/limpar_aprendidos.py --tudo
 ```
 
 Depois de apagar, reinicie a API, que guarda as referencias tambem na memoria.
-Com o aprendizado ligado, as rodadas de medicao deixam de ser independentes:
-apague as referencias antes de cada serie.
+O banco passa a guardar rostos tirados do stream sem a pessoa fazer nada, dado
+biometrico na LGPD; `FACE_LEARN_FROM_STREAM=0` desliga. Com o aprendizado
+ligado, as rodadas de medicao deixam de ser independentes: apague as
+referencias antes de cada serie, ou desligue o aprendizado para medir outra
+coisa.
 
 A equivalencia foi conferida em 27/09/2026 com os modelos reais, no PC: em 3
 fotos de webcam com duas pessoas, o rosto aceito de cada foto teve a mesma

@@ -18,4 +18,9 @@ conferido com `--show-config`. Resultados e leitura em
 Log de `vcgencmd`, o mesmo da base: a r1 foi o trecho a 1,4 GHz de 18:20:42 a
 18:22:53 pelo relogio do Pi, ate 59,1 C, com `throttled=0x0`. O log parou as
 18:27:45, antes da r2 e da r3; nelas, a temperatura que o proprio benchmark
-registra ficou entre 51,5 e 59,1 C.
+registra ficou entre 51,5 e 59,1 C. Depois da serie, `vcgencmd get_throttled`
+deu `0x0` com o Pi ligado desde as 09:17:25: nenhum throttling no dia, r2 e r3
+inclusive.
+
+No deploy de `cbc485c`, a carga do banco com o filtro de copia deixou 2 das 5
+referencias desta serie e apagou as outras 3 como copias.

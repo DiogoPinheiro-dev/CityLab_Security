@@ -88,9 +88,10 @@ credenciais.
 1 para o OpenCV, e um frame pendente por vez no cliente. Tambem liga a passada
 unica de pessoas e pose e o gate de movimento, que pula a pose quando a cena
 esta parada e desocupada, roda a pose em 416 px em vez de 640, deixa um rosto
-no mesmo lugar herdar por ate 15 s o nome ja reconhecido e gera o embedding do
-rosto no frame original, e nao na imagem reduzida. Um valor explicito no
-ambiente sempre prevalece sobre o perfil.
+no mesmo lugar herdar por ate 15 s o nome ja reconhecido, gera o embedding do
+rosto no frame original, e nao na imagem reduzida, e aprende referencias da
+pessoa com o stream, guardadas no banco. Um valor explicito no ambiente sempre
+prevalece sobre o perfil.
 
 Resultado medido no Pi com webcam, tres rodadas por cenario, mediana do tempo
 por frame:
@@ -274,8 +275,8 @@ Resposta de sucesso:
 }
 ```
 
-Com `FACE_LEARN_FROM_STREAM=1`, desligado por padrao, o sistema tambem aprende
-com o stream. Um rosto reconhecido com folga, com semelhanca de 0,60 ou mais e
+Com `FACE_LEARN_FROM_STREAM`, ligado no perfil do Pi e desligado no padrao, o
+sistema tambem aprende com o stream. Um rosto reconhecido com folga, com semelhanca de 0,60 ou mais e
 perto do cadastro, vira mais uma referencia da pessoa, guardada na colecao
 `rostos_aprendidos`. Sao ate 5 por pessoa, uma a cada 10 min, e o MongoDB apaga
 as com mais de 30 dias. Com as vagas cheias, uma nova troca a referencia menos
@@ -390,14 +391,16 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   desde 03/10/2026, subiu um pouco a semelhanca no Pi, mais nos rostos
   dificeis, sem custo de tempo. Aprender com o stream
   (`FACE_LEARN_FROM_STREAM=1`) levou, no PC, de 233 a 277 os frames
-  reconhecidos em 360 com uma foto de cadastro. No Pi, com o video de carga,
-  levou de 26 a 28 de 30 sem custo de tempo, ate copias do video repetido
-  tomarem as vagas; o filtro de copia que corrige isso ainda nao foi medido
-  no Pi.
-- **Rostos do stream no banco.** Com `FACE_LEARN_FROM_STREAM=1`, o banco guarda
-  ate 5 embeddings por pessoa tirados do stream, sem a pessoa fazer nada, por
-  ate 30 dias. Dado biometrico e dado pessoal sensivel na LGPD: confira a base
-  legal e o prazo antes de ligar. Uma referencia aprendida por engano sai
+  reconhecidos em 360 com uma foto de cadastro. No Pi, com o video de carga e
+  o filtro de copia, levou de 26 a 28 de 30 nas tres rodadas, sem custo de
+  tempo, e passou a ligado no perfil do Pi em 03/10/2026. O video tem uma
+  pessoa so, a do cadastro: o ganho com a camera de verdade, em outras
+  condicoes, e com outras pessoas na cena nao foi medido.
+- **Rostos do stream no banco.** Com o aprendizado ligado, padrao no perfil do
+  Pi desde 03/10/2026, o banco guarda ate 5 embeddings por pessoa tirados do
+  stream, sem a pessoa fazer nada, por ate 30 dias. Dado biometrico e dado
+  pessoal sensivel na LGPD: confira a base legal e o prazo;
+  `FACE_LEARN_FROM_STREAM=0` desliga. Uma referencia aprendida por engano sai
   quando chega outra mais parecida com o cadastro, quando vence ou quando e
   apagada com `tools/limpar_aprendidos.py`; enquanto as vagas da pessoa nao
   enchem, so as duas ultimas.
