@@ -28,10 +28,13 @@ pessoas e pose (`PIPELINE_SHARED_PERSON_POSE`), o gate de movimento antes da
 pose (`GESTURE_MOTION_GATE`), a pose em 416 px (`POSE_IMGSZ`), em vez dos 640
 do Ultralytics, o reuso por 15 s do nome de um rosto que continua no mesmo
 lugar (`FACE_REUSE_SECONDS`), o embedding do rosto no frame original
-(`FACE_EMBED_FULL_FRAME`) e o aprendizado de referencias pelo stream
-(`FACE_LEARN_FROM_STREAM`). Nao desativa reconhecimento nem reduz a
-qualidade da imagem. Qualquer valor explicito dessas variaveis no ambiente tem
-precedencia; confira tambem `Server/.env`.
+(`FACE_EMBED_FULL_FRAME`), o aprendizado de referencias pelo stream
+(`FACE_LEARN_FROM_STREAM`) e 2 threads do ncnn quando a pose e NCNN
+(`NCNN_NUM_THREADS`). A pose em NCNN em si depende da pasta exportada, fora do
+Git, e liga pelo `POSE_MODEL_PATH` no `.env`; ver "Backend NCNN opcional".
+Nao desativa reconhecimento nem reduz a qualidade da imagem. Qualquer valor
+explicito dessas variaveis no ambiente tem precedencia; confira tambem
+`Server/.env`.
 
 Use um unico processo para nao duplicar modelos no 1 GB de RAM:
 
@@ -385,18 +388,20 @@ NCNN usa por padrao uma thread por nucleo fisico, 4 no Pi, sem o limite do
 `TORCH_NUM_THREADS`, e disputa a CPU com o rosto. Medir no Pi antes de assumir
 ganho, sem outra mudanca na mesma rodada.
 
-Medido no Pi em 04/10/2026, com o video de carga: o frame ficou 22% mais
-rapido, com os mesmos alertas frame a frame. Mas, com a fonte do Pi, a tensao
-caiu durante as rodadas: `vcgencmd get_throttled` deu `0x50005`, e o
-processador desceu para 600 MHz, o que nunca aconteceu com o `.pt`. Tensao
-baixa repetida arrisca o cartao SD. Por isso o Pi voltou ao `.pt`. So ligue o
-NCNN com uma fonte que segure a carga, como a oficial do Pi 3 B+ (5,1 V e
-2,5 A), conferindo `get_throttled` durante o stream: o valor tem de ficar em
-`0x0`.
+Medido no Pi em 04/10/2026, com o video de carga e a fonte do Pi:
 
-`NCNN_NUM_THREADS` limita as threads do ncnn na pose, por exemplo a 2, para
-puxar menos corrente; zero deixa uma por nucleo fisico. As convolucoes do ncnn
-fixam as threads ao carregar a rede, entao o servico a recarrega uma vez, no
-primeiro frame, ja com o valor. A metrica `ncnn_threads` mostra o valor usado
-em cada frame. No PC, com 2 threads, os keypoints sairam identicos aos do
-padrao.
+- Com as 4 threads do padrao do ncnn, o frame ficou 22% mais rapido, com os
+  mesmos alertas frame a frame, mas a tensao caiu durante as rodadas:
+  `vcgencmd get_throttled` deu `0x50005`, e o processador desceu para 600 MHz,
+  o que nunca aconteceu com o `.pt`. Tensao baixa repetida arrisca o cartao SD.
+- Com 2 threads, o frame ficou 40% mais rapido que com o `.pt`, com a mesma
+  deteccao frame a frame e `throttled=0x0` em todas as leituras. O NCNN e o
+  rosto somam 4 threads, uma por nucleo.
+
+`NCNN_NUM_THREADS` e 2 no perfil rpi3 desde entao; zero volta ao padrao do
+ncnn, uma thread por nucleo fisico. As convolucoes do ncnn fixam as threads ao
+carregar a rede, entao o servico a recarrega uma vez, no primeiro frame, ja
+com o valor. A metrica `ncnn_threads` mostra o valor usado em cada frame. Com o
+NCNN ligado, confira `vcgencmd get_throttled` de vez em quando: qualquer valor
+diferente de `0x0` e tensao baixa desde o ultimo boot, e o caminho e voltar ao
+`.pt`, tirando o `POSE_MODEL_PATH` do `.env`.

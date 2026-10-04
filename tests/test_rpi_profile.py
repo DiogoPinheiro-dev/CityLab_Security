@@ -68,12 +68,14 @@ class RpiProfileTests(unittest.TestCase):
         # prazo negativo.
         self.assertEqual([on[name] for name in names], [True, 1, 0.0, 0])
 
-    def test_ncnn_threads_keep_the_ncnn_default_unless_configured(self):
+    def test_ncnn_runs_on_two_threads_only_on_the_pi(self):
         # Em 04/10/2026 o NCNN com o padrao, 4 threads no Pi, derrubou a tensao
-        # da fonte; o valor menor so vem pelo .env, ate ser medido.
-        for profile in ("default", "rpi3"):
-            self.assertEqual(self.settings(CITYLAB_PROFILE=profile)["NCNN_NUM_THREADS"], 0)
-        self.assertEqual(self.settings(NCNN_NUM_THREADS="2")["NCNN_NUM_THREADS"], 2)
+        # da fonte, e com 2 deixou o frame 40% mais rapido, sem queda.
+        self.assertEqual(self.settings()["NCNN_NUM_THREADS"], 0)
+        self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3")["NCNN_NUM_THREADS"], 2)
+        # Zero explicito volta ao padrao do ncnn, para comparar com o mesmo codigo.
+        self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3",
+                                       NCNN_NUM_THREADS="0")["NCNN_NUM_THREADS"], 0)
         self.assertEqual(self.settings(NCNN_NUM_THREADS="-1")["NCNN_NUM_THREADS"], 0)
 
     def test_full_frame_embedding_is_on_only_on_the_pi(self):
@@ -202,7 +204,7 @@ class RpiProfileTests(unittest.TestCase):
         # Mostra o modelo, o tamanho e as threads da pose, para a rodada no Pi
         # registrar qual valeu.
         self.assertEqual(configured["POSE_IMGSZ"], 416)
-        self.assertEqual((configured["POSE_MODEL_PATH"], configured["NCNN_NUM_THREADS"]), ("", 0))
+        self.assertEqual((configured["POSE_MODEL_PATH"], configured["NCNN_NUM_THREADS"]), ("", 2))
         self.assertEqual(configured["FACE_REUSE_SECONDS"], 15.0)
         # Spinning so muda pelo .env; o embedding no frame inteiro e o
         # aprendizado pelo stream vem do perfil.

@@ -93,6 +93,12 @@ rosto no frame original, e nao na imagem reduzida, e aprende referencias da
 pessoa com o stream, guardadas no banco. Um valor explicito no ambiente sempre
 prevalece sobre o perfil.
 
+No Pi, a pose roda em NCNN desde 04/10/2026, pelo `POSE_MODEL_PATH` no `.env`,
+com a pasta exportada copiada a mao (ver
+[docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md)). Com o ncnn em 2 threads, padrao
+do perfil, o frame com uma pessoa no video de carga ficou 40% mais rapido que
+com o `.pt`, com a mesma deteccao.
+
 Resultado medido no Pi com webcam, tres rodadas por cenario, mediana do tempo
 por frame:
 
@@ -444,9 +450,11 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   unica reconexao em 24 h; a economia de energia do Wi-Fi esta ligada. Cabo de
   rede evita isso.
 - **Fonte do Pi no limite.** Com a pose no `.pt`, a fonte atual segura o
-  pipeline (`vcgencmd get_throttled` em `0x0` por 10,5 h). Com a pose em NCNN,
-  22% mais rapida em 04/10/2026, a tensao caiu durante o stream, e o NCNN ficou
-  desligado ate haver uma fonte que segure a carga.
+  pipeline (`vcgencmd get_throttled` em `0x0` por 10,5 h). Com a pose em NCNN
+  nas 4 threads do padrao, a tensao caiu durante o stream; com 2, padrao do
+  perfil, ficou em `0x0` nas tres rodadas de 04/10/2026. O NCNN foi para uso
+  sem teste longo, por decisao do responsavel: confira o `get_throttled` de
+  vez em quando, e qualquer valor diferente de `0x0` pede a volta ao `.pt`.
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
   globais. Duas conexoes ao mesmo tempo dividem a thread de inferencia, um
   frame de cada vez, e misturam os rastros.

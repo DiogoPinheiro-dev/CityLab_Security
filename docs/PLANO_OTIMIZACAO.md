@@ -510,8 +510,42 @@ comprar a fonte oficial primeiro.
   com as 6 do padrao, e o ncnn avisou que usaria o valor da carga. Por isso o
   servico recarrega a rede uma vez, no primeiro predict, ja com o valor: 43 ms
   contra 36 ms, sem aviso, e os mesmos keypoints, ate a ultima casa.
-- Falta medir no Pi, com o log de `vcgencmd`: aceitar so com `throttled=0x0`
-  em todas as leituras das rodadas, alem do ganho e da deteccao igual.
+- Criterio para o Pi, alem do ganho e da deteccao igual: `throttled=0x0` em
+  todas as leituras das rodadas. Medido na secao seguinte.
+
+### NCNN com 2 threads no Pi - 40% mais rapido, sem queda de tensao
+
+Video de carga no codigo `50c0ddc`, conferido por hash (`App/GestureRecon/service.py`
+e `App/settings.py`), com `FACE_LEARN_FROM_STREAM=0`, `POSE_MODEL_PATH` e
+`NCNN_NUM_THREADS=2` no `.env`, conferidos com `--show-config`. Fonte original,
+com o Pi reiniciado as 17:18 e `throttled=0x0` antes da serie. API reiniciada
+antes de cada rodada. Resultados em `resultados/pi3-50c0ddc-video-ncnn2/`.
+
+| Rodada | Media | Contra o `.pt` | p95 | Pose | Rosto |
+|---|---|---|---|---|---|
+| `.pt` (base de 04/10) | 3737,6 ms | | 4381,8 ms | 2778 ms | 1294 ms |
+| NCNN 2 threads r1 | 2238,9 ms | -40,1% | 3234,1 ms | 470 ms | 1426 ms |
+| NCNN 2 threads r2 | 2237,0 ms | -40,1% | 3255,7 ms | 485 ms | 1475 ms |
+| NCNN 2 threads r3 | 2258,0 ms | -39,6% | 3274,0 ms | 476 ms | 1448 ms |
+
+- **Sem queda de tensao**: `throttled=0x0` nas 257 leituras do log de
+  `vcgencmd`, das 17:46 as 18:07 pelo relogio do Pi, e no `get_throttled`
+  depois de cada rodada. Nenhuma leitura em 1,2 GHz; maxima de 55,3 C.
+- **Deteccao identica**: nas tres rodadas, os mesmos alertas frame a frame que
+  o `.pt`, a mesma confianca da caixa da pessoa, a mesma semelhanca do rosto e
+  o reconhecimento nos mesmos 26 frames. A metrica `ncnn_threads` deu 2 em
+  todos os frames.
+- **Mais rapido que com 4 threads**: o NCNN e o rosto somam 4 threads, uma por
+  nucleo, e, sem as quedas para 600 MHz, o rosto voltou perto do tempo do
+  `.pt`. Os frames com o nome reaproveitado cairam de 3256 para uns 1400 ms, e
+  os que reconhecem o rosto de novo, de 4288 para uns 3200 ms: de 0,27 para
+  0,44 a 0,45 frames por segundo.
+- `process_rss_mb` de 676 a 695 MB, dentro da faixa das series de 03/10.
+- Decisao do responsavel: promover. `NCNN_NUM_THREADS` passa a 2 no perfil
+  rpi3; zero no default, e zero explicito volta ao padrao do ncnn. A pose em
+  NCNN segue ligada pelo `POSE_MODEL_PATH` no `.env` do Pi, porque a pasta
+  exportada fica fora do Git. Sem teste longo antes do uso, tambem por decisao
+  dele: fica conferir o `get_throttled` de vez em quando.
 
 ### O que fica aberto
 
@@ -520,14 +554,15 @@ comprar a fonte oficial primeiro.
    outra coisa com `FACE_LEARN_FROM_STREAM=0`, ou apagando as referencias antes
    de cada serie.
    - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
-   - o NCNN de novo, so sem a queda de tensao: com `NCNN_NUM_THREADS=2`, ja
-     implementado, ou com a fonte oficial do Pi 3 B+ (5,1 V e 2,5 A). Medir
-     com o log de `vcgencmd` e aceitar so com `throttled=0x0` nas rodadas;
    - recadastrar com 3 a 5 fotos, rodar `tools/cadastros.py --manter-ultimo` e
      medir a semelhanca de novo, com o aprendizado desligado.
-2. Acompanhar o aprendizado no uso: quantas referencias cada pessoa junta, com
-   `tools/cadastros.py`, e se aparece alguem reconhecido com o nome de outra
-   pessoa.
+   Depois do deploy da promocao, tirar do `.env` do Pi o `NCNN_NUM_THREADS=2`,
+   que o perfil cobre, e o `FACE_LEARN_FROM_STREAM=0`, que so valia para as
+   rodadas; o `POSE_MODEL_PATH` fica.
+2. Acompanhar no uso o aprendizado, com `tools/cadastros.py`: quantas
+   referencias cada pessoa junta e se aparece alguem reconhecido com o nome de
+   outra. E, com o NCNN ligado sem teste longo, o `vcgencmd get_throttled`:
+   qualquer valor diferente de `0x0` pede a volta ao `.pt`.
 3. O resto da lista de 02/10 continua: as cenas com duas pessoas, os testes de
    dias, o P4 e o que sobrou do "Encerramento em 27/09/2026".
 
