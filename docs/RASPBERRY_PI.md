@@ -272,9 +272,9 @@ com o video de carga, a semelhanca com o cadastro subiu 0,008 na mediana e ate
 reduzida.
 
 `FACE_LEARN_FROM_STREAM`, ligado no perfil rpi3 desde 03/10/2026 e desligado no
-default, faz o sistema aprender com o stream: um rosto reconhecido de um embedding novo, com semelhanca de
-0,60 ou mais e acima do limite contra o proprio cadastro, vira referencia da
-pessoa. As referencias ficam na colecao `rostos_aprendidos` e na memoria da
+default, faz o sistema aprender com o stream: um rosto reconhecido de um
+embedding novo, com semelhanca de 0,60 ou mais e acima do limite contra o
+proprio cadastro, vira referencia da pessoa. As referencias ficam na colecao `rostos_aprendidos` e na memoria da
 API, ate `FACE_LEARNED_PER_PERSON` por pessoa (5), uma a cada
 `FACE_LEARN_INTERVAL_SECONDS` (600), e o MongoDB apaga as com mais de
 `FACE_LEARNED_RETENTION_DAYS` dias (30). Com as vagas cheias, uma nova troca a
@@ -294,6 +294,23 @@ biometrico na LGPD; `FACE_LEARN_FROM_STREAM=0` desliga. Com o aprendizado
 ligado, as rodadas de medicao deixam de ser independentes: apague as
 referencias antes de cada serie, ou desligue o aprendizado para medir outra
 coisa.
+
+Os cadastros ficam na colecao `alunos`, um documento por envio da pagina:
+recadastrar um nome cria outro, e o antigo continua valendo. Para listar os
+cadastros de cada pessoa, com fotos, data e referencias aprendidas, sem tirar o
+embedding do banco; para apagar os antigos depois de um recadastro; e para
+tirar uma pessoa, com as referencias aprendidas dela:
+
+```bash
+cd ~/CityLab_Security && .venv/bin/python tools/cadastros.py
+cd ~/CityLab_Security && .venv/bin/python tools/cadastros.py --manter-ultimo "Nome"
+cd ~/CityLab_Security && .venv/bin/python tools/cadastros.py --apagar "Nome"
+```
+
+O nome tem de ser igual ao da listagem, com maiusculas e acentos. Os eventos da
+pessoa ficam e saem pelo prazo de `EVENT_RETENTION_DAYS`. Depois de apagar,
+reinicie a API, que guarda os cadastros tambem na memoria. A pagina de cadastro
+nao apaga nada: ela e aberta na rede, sem senha.
 
 A equivalencia foi conferida em 27/09/2026 com os modelos reais, no PC: em 3
 fotos de webcam com duas pessoas, o rosto aceito de cada foto teve a mesma

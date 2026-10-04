@@ -255,6 +255,11 @@ Regras importantes:
 - Ao cadastrar com sucesso, o embedding tambem e sincronizado imediatamente com a pipeline em memoria.
 - Enquanto as fotos sao processadas, o stream fica parado: no Pi, cada foto
   custa uma deteccao e um embedding, alguns segundos.
+- Recadastrar um nome cria outro cadastro, e o antigo continua valendo. A rota
+  nao apaga nada: no Pi, `tools/cadastros.py` lista os cadastros, apaga os
+  antigos de uma pessoa depois do recadastro (`--manter-ultimo`) ou tira a
+  pessoa (`--apagar`), junto com as referencias aprendidas dela. Os eventos
+  ficam e saem pelo prazo. Depois de apagar, reinicie a API.
 
 Exemplo em PowerShell:
 
@@ -276,8 +281,9 @@ Resposta de sucesso:
 ```
 
 Com `FACE_LEARN_FROM_STREAM`, ligado no perfil do Pi e desligado no padrao, o
-sistema tambem aprende com o stream. Um rosto reconhecido com folga, com semelhanca de 0,60 ou mais e
-perto do cadastro, vira mais uma referencia da pessoa, guardada na colecao
+sistema tambem aprende com o stream. Um rosto reconhecido com folga, com
+semelhanca de 0,60 ou mais e perto do cadastro, vira mais uma referencia da
+pessoa, guardada na colecao
 `rostos_aprendidos`. Sao ate 5 por pessoa, uma a cada 10 min, e o MongoDB apaga
 as com mais de 30 dias. Com as vagas cheias, uma nova troca a referencia menos
 parecida com o cadastro, se for mais parecida que ela, e assim uma referencia

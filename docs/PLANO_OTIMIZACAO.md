@@ -414,6 +414,50 @@ um video fixo. A decomposicao do rosto entrou no codigo em `9334b9e`, mas, a
 pedido dele, o teste de threads foi medido antes do deploy dela. Resultados em
 "Estado verificado em 01/10/2026".
 
+## Estado verificado em 04/10/2026
+
+### Cadastros - ferramenta no Pi para substituir e apagar
+
+Recadastrar cria outro documento com o mesmo nome na colecao `alunos`, e o
+antigo continua valendo; nao havia como apagar um cadastro. O responsavel
+escolheu uma ferramenta no Pi, como a das referencias aprendidas, em vez de uma
+rota na API: a pagina de cadastro e aberta na rede, sem senha, e assim so quem
+tem SSH no Pi apaga.
+
+- `tools/cadastros.py` lista os cadastros de cada pessoa, com o numero de fotos
+  e a data de cada um e quantas referencias aprendidas ela tem, sem tirar o
+  embedding do banco.
+- `--manter-ultimo NOME` apaga os cadastros antigos da pessoa e deixa o mais
+  recente, pela ordem em que entraram no banco: e o caminho para trocar o
+  cadastro de uma foto por um de 3 a 5. As referencias aprendidas ficam; na
+  subida, a API descarta as que ficarem longe do cadastro novo.
+- `--apagar NOME` tira a pessoa: os cadastros e as referencias aprendidas. Os
+  eventos ficam, por decisao do responsavel: sao o registro do sistema de
+  seguranca e saem pelo prazo de 30 dias.
+- A API guarda os cadastros na memoria: depois de apagar, reiniciar a API.
+- Coberto por testes com colecoes simuladas; ainda nao rodou no Pi.
+
+### O que fica aberto
+
+1. Medir no Pi, com o video de carga, sem precisar de duas pessoas. Com o
+   aprendizado ligado no perfil, as rodadas deixam de ser independentes: medir
+   outra coisa com `FACE_LEARN_FROM_STREAM=0`, ou apagando as referencias antes
+   de cada serie.
+   - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
+   - a pose em NCNN contra o `.pt`: instalar o `ncnn`, copiar a pasta e ligar o
+     `POSE_MODEL_PATH`, conforme `docs/RASPBERRY_PI.md`, com a serie
+     `video-fullframe` de base e o aprendizado desligado nas rodadas; se ganhar,
+     comparar as threads do NCNN;
+   - recadastrar com 3 a 5 fotos, rodar `tools/cadastros.py --manter-ultimo` e
+     medir a semelhanca de novo, com o aprendizado desligado.
+   Falta conferir, depois do deploy de `e1ba75a`, que o `--show-config` do Pi
+   mostra o aprendizado ligado com 600 s, sem linha de teste em nenhum `.env`.
+2. Acompanhar o aprendizado no uso: quantas referencias cada pessoa junta, com
+   `tools/cadastros.py`, e se aparece alguem reconhecido com o nome de outra
+   pessoa.
+3. O resto da lista de 02/10 continua: as cenas com duas pessoas, os testes de
+   dias, o P4 e o que sobrou do "Encerramento em 27/09/2026".
+
 ## Estado verificado em 03/10/2026
 
 O responsavel nao pode fazer cenas com duas pessoas por enquanto e pediu para
