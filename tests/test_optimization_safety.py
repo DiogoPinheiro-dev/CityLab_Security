@@ -438,11 +438,11 @@ class FaceOptimizationTests(unittest.TestCase):
         # O frame com o nome herdado pelo reuso nao passa pelo aprendizado.
         service._maybe_learn.assert_called_once_with("Aluno", .87, [.87])
 
-    def reuse_frames(self, unknown=False):
+    def reuse_frames(self, unknown_score=None):
         """Servico com reuso de 15 s e uma funcao que roda um frame no instante dado."""
         service, context, recognition, _ = self.make_service(True, [], reuse_seconds=15.0)
-        if unknown:
-            service._match_face = lambda embedding: ("NAO ALUNO", .3)
+        if unknown_score is not None:
+            service._match_face = lambda embedding: ("NAO ALUNO", unknown_score)
         keys = []
 
         def recognize(frame, face):
@@ -486,11 +486,21 @@ class FaceOptimizationTests(unittest.TestCase):
         self.assertEqual(service.latest_metrics["face_reused"], 1.0)
 
     def test_unknown_face_is_reused_too(self):
-        _, recognition, frame = self.reuse_frames(unknown=True)
+        # Longe do cadastro, como um estranho: herda, sem embedding por frame.
+        _, recognition, frame = self.reuse_frames(unknown_score=.1)
         face = Vector([0, 0, 30, 30, .9])
         self.assertEqual(frame(100.0, face)[0]["name"], "NAO ALUNO")
         self.assertEqual(frame(104.0, face)[0]["name"], "NAO ALUNO")
         self.assertEqual(recognition.get.call_count, 1)
+
+    def test_near_miss_unknown_is_recognized_again_next_frame(self):
+        # De 0,30 ate o limite costuma ser aluno de lado: reconhece de novo, e
+        # o nome nao fica preso por 15 s quando ele volta a olhar para a camera.
+        _, recognition, frame = self.reuse_frames(unknown_score=.45)
+        face = Vector([0, 0, 30, 30, .9])
+        frame(100.0, face)
+        frame(104.0, face)
+        self.assertEqual(recognition.get.call_count, 2)
 
     def test_registration_or_new_connection_forget_the_names(self):
         service, recognition, frame = self.reuse_frames()

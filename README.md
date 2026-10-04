@@ -393,7 +393,9 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   rodada com gesto.
 - **Nome herdado pelo rosto.** No perfil rpi3, um rosto no mesmo lugar herda
   por ate 15 s o nome ja reconhecido, sem reconhecer de novo, inclusive o de
-  desconhecido. Nesse intervalo o nome aparece mesmo num frame em que o
+  desconhecido. A excecao e o desconhecido quase reconhecido, com semelhanca de
+  0,30 ate o limite, que costuma ser aluno de lado: ele e reconhecido de novo no
+  frame seguinte. Nesse intervalo o nome aparece mesmo num frame em que o
   reconhecimento falharia, e a troca de nome entre duas pessoas que trocam de
   lugar nao foi testada. `FACE_REUSE_SECONDS=0` volta a reconhecer todo frame.
 - **Reconhecimento perto do limite.** Em 02/10/2026, com duas pessoas na

@@ -25,6 +25,11 @@ class FaceRecognitionService:
     # Sobreposicao minima entre caixas de rosto de frames seguidos para tratar
     # como o mesmo rosto.
     REUSE_MIN_IOU = 0.5
+    # "NAO ALUNO" com semelhanca daqui ate o limite costuma ser aluno de lado, e
+    # nao estranho: nao herda o nome, e o rosto e reconhecido de novo no frame
+    # seguinte. Rostos de outras pessoas nao passaram de 0,16, e o de um aluno
+    # virado ficou de 0,37 a 0,48 (03 e 04/10/2026).
+    UNKNOWN_RECHECK_MIN_SIMILARITY = 0.30
     # Semelhanca minima de cada foto do cadastro com a media das outras. Em 10
     # fotos da mesma pessoa a pior ficou em 0,50 (03/10/2026); abaixo disso a
     # foto e tratada como de outra pessoa, para nao misturar dois rostos.
@@ -316,7 +321,9 @@ class FaceRecognitionService:
     ) -> dict[int, dict[str, Any]]:
         """Liga cada rosto a no maximo uma identidade valida, pela maior sobreposicao."""
         valid = [entry for entry in self._identities
-                 if now - entry["recognized_at"] < self.reuse_seconds]
+                 if now - entry["recognized_at"] < self.reuse_seconds
+                 and not (entry["name"] == "NAO ALUNO"
+                          and entry["score"] >= self.UNKNOWN_RECHECK_MIN_SIMILARITY)]
         pairs = sorted(
             ((self._iou(box, entry["bbox"]), index, slot)
              for index, box in enumerate(boxes)

@@ -615,9 +615,44 @@ sozinha e a media delas (`.tmp/detector_leve.py`, fora do Git; so numeros):
   antes das threads do ONNX e do `prepare`; arquivo que falta ou que nao e
   detector para a subida. No servico real, no PC, com 2 threads: o rosto nos
   36 frames, e a deteccao de 48,2 para 6,6 ms.
-- Falta medir no Pi: 3 rodadas contra a serie do NCNN com 2 threads, com o
-  aprendizado desligado, e aceitar so com mais de 5% de ganho nas tres, a
-  mesma deteccao e `throttled=0x0`.
+- Criterio no Pi: 3 rodadas contra a serie do NCNN com 2 threads, com o
+  aprendizado desligado; mais de 5% de ganho nas tres, a mesma deteccao e
+  `throttled=0x0`.
+
+### Detector leve no Pi - 27% mais rapido, e o "NAO ALUNO" herdado
+
+Video de carga no codigo `d0cb616`, conferido por hash, com o `det_500m`
+copiado do PC (sha256 `5e4447f5...`) e `FACE_DETECTOR_PATH` no `.env`, alem do
+NCNN com 2 threads e do aprendizado desligado, conferidos com `--show-config`.
+O primeiro deploy com o script novo instalou o psutil 7.0.0, a unica diferenca
+para o `requirements-rpi-bookworm.txt`, e gravou a marca. Resultados em
+`resultados/pi3-d0cb616-video-det500m/`.
+
+| Rodada | Media | Contra o NCNN com 2 threads | p95 | Deteccao do rosto | Reconhecido em |
+|---|---|---|---|---|---|
+| NCNN 2 threads (base) | 2238,9 a 2258,0 ms | | 3234 a 3274 ms | 1356 ms | 26/30 |
+| r1 | 1625,0 ms | -27,6% | 2418,2 ms | 387 ms | 24/30 |
+| r2 | 1627,3 ms | -27,5% | 2425,8 ms | 381 ms | 24/30 |
+| r3 | 1636,5 ms | -27,1% | 2442,3 ms | 383 ms | 24/30 |
+
+- **Ganho**: mais de 27% nas tres rodadas, 0,61 frames por segundo; contra o
+  `.pt` de 03/10, de 3,74 para 1,63 s por frame (-56%). Os mesmos alertas e a
+  mesma caixa da pessoa frame a frame.
+- **Semelhanca**: nos 13 frames com embedding novo nos dois detectores, -0,005
+  na mediana e -0,026 no pior.
+- **Energia**: `throttled=0x0` em todas as leituras do log de `vcgencmd`, das
+  19:28 as 19:56 pelo relogio do Pi, sem leitura em 1,2 GHz; maxima de 52,6 C.
+- **Os 2 frames a menos** (30 e 31, nas tres rodadas) nao vem do detector: o
+  rosto virado do frame 28 saiu "NAO ALUNO" com 0,47, e a caixa do frame 30,
+  1 ou 2 px diferente da do detector antigo, ficou sobreposta o bastante para
+  herdar esse nome pelo reuso, em vez de reconhecer de novo (com o
+  `det_10g`, deu 0,61). Pelo criterio, reprova.
+- Decisao do responsavel: promover o `det_500m` e mudar o reuso. Um "NAO ALUNO"
+  com semelhanca de 0,30 ate o limite, quase reconhecido, nao herda mais o
+  nome: o rosto e reconhecido de novo no frame seguinte. Abaixo de 0,30, como
+  um estranho, continua herdando, para nao gastar um embedding por frame.
+  Rostos de outras pessoas nao passaram de 0,16 nos testes, e o do aluno virado
+  ficou de 0,37 a 0,48. Falta repetir as 3 rodadas com a regra nova.
 
 ### O que fica aberto
 
