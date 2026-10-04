@@ -70,6 +70,11 @@ FACE_REUSE_SECONDS = max(0.0, _get_float("FACE_REUSE_SECONDS", 15.0 if _RPI3 els
 # 03/10/2026, a semelhanca com o cadastro subiu, mais nos rostos dificeis, sem
 # custo de tempo (docs/PLANO_OTIMIZACAO.md); no perfil default segue desligado.
 FACE_EMBED_FULL_FRAME = _get_bool("FACE_EMBED_FULL_FRAME", _RPI3)
+# Detector de rosto no lugar do det_10g do buffalo_l, em .onnx do InsightFace;
+# o reconhecedor, e com ele o cadastro, ficam. Vazio usa o do pacote. O det_500m
+# do buffalo_sc, no PC em 04/10/2026, detectou 6,7 vezes mais rapido, com os
+# mesmos rostos no video de carga (docs/PLANO_OTIMIZACAO.md).
+FACE_DETECTOR_PATH = os.getenv("FACE_DETECTOR_PATH", "").strip()
 # Aprende com o stream: um rosto reconhecido com folga vira mais uma referencia
 # da pessoa, guardada no MongoDB (colecao rostos_aprendidos). Ate
 # FACE_LEARNED_PER_PERSON por pessoa, uma a cada FACE_LEARN_INTERVAL_SECONDS, e

@@ -78,6 +78,12 @@ class RpiProfileTests(unittest.TestCase):
                                        NCNN_NUM_THREADS="0")["NCNN_NUM_THREADS"], 0)
         self.assertEqual(self.settings(NCNN_NUM_THREADS="-1")["NCNN_NUM_THREADS"], 0)
 
+    def test_face_detector_comes_from_the_pack_unless_configured(self):
+        for profile in ("default", "rpi3"):
+            self.assertEqual(self.settings(CITYLAB_PROFILE=profile)["FACE_DETECTOR_PATH"], "")
+        path = "~/.insightface/models/buffalo_sc/det_500m.onnx"
+        self.assertEqual(self.settings(FACE_DETECTOR_PATH=f" {path} ")["FACE_DETECTOR_PATH"], path)
+
     def test_full_frame_embedding_is_on_only_on_the_pi(self):
         # Medido so no rpi3, em 03/10/2026; o perfil default segue na imagem reduzida.
         self.assertIs(self.settings()["FACE_EMBED_FULL_FRAME"], False)
@@ -205,6 +211,7 @@ class RpiProfileTests(unittest.TestCase):
         # registrar qual valeu.
         self.assertEqual(configured["POSE_IMGSZ"], 416)
         self.assertEqual((configured["POSE_MODEL_PATH"], configured["NCNN_NUM_THREADS"]), ("", 2))
+        self.assertEqual(configured["FACE_DETECTOR_PATH"], "")
         self.assertEqual(configured["FACE_REUSE_SECONDS"], 15.0)
         # Spinning so muda pelo .env; o embedding no frame inteiro e o
         # aprendizado pelo stream vem do perfil.
@@ -291,11 +298,15 @@ class RpiProfileTests(unittest.TestCase):
         workflow = Path(".github/workflows/deploy.yml").read_text(encoding="utf-8")
         stop = workflow.index("systemctl --user stop citylab-api.service")
         start = workflow.index("systemctl --user start citylab-api.service")
+        install = workflow.index("bash tools/atualizar_dependencias_rpi.sh")
         # Para antes da sincronizacao e da instalacao, que nao cabem com a API.
         self.assertLess(stop, workflow.index("rsync"))
-        self.assertLess(workflow.index("pip install"), start)
+        self.assertLess(workflow.index("rsync"), install)
+        self.assertLess(install, start)
         # O passo de subir roda mesmo se a instalacao falhar.
         self.assertIn("if: always()", workflow[workflow.index("Start API service"):start])
+        # As dependencias vao para o ambiente da API, nao para um venv a parte.
+        self.assertNotIn("citylab_venv", workflow)
 
     def test_ncnn_export_takes_one_side_or_height_and_width(self):
         from tools.export_pose_ncnn import main as export_ncnn

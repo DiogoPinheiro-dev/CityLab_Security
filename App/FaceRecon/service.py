@@ -2,6 +2,7 @@ import os
 import pickle
 import uuid
 from datetime import datetime, timedelta
+from pathlib import Path
 from typing import Any
 from typing import Optional
 
@@ -11,12 +12,12 @@ import numpy as np
 from ultralytics import YOLO  # type: ignore
 
 from App.frame_context import FrameContext
-from App.settings import (DEBUG_PIPELINE, FACE_EMBED_FULL_FRAME, FACE_LEARN_FROM_STREAM,
-                          FACE_LEARN_INTERVAL_SECONDS, FACE_LEARNED_PER_PERSON,
-                          FACE_LEARNED_RETENTION_DAYS, FACE_MIN_CONFIDENCE,
-                          FACE_MIN_HEIGHT, FACE_MIN_WIDTH, FACE_MINIMAL_MODULES,
-                          FACE_PREFILTER, FACE_REUSE_SECONDS, ONNX_ALLOW_SPINNING,
-                          ONNX_INTRA_OP_THREADS)
+from App.settings import (DEBUG_PIPELINE, FACE_DETECTOR_PATH, FACE_EMBED_FULL_FRAME,
+                          FACE_LEARN_FROM_STREAM, FACE_LEARN_INTERVAL_SECONDS,
+                          FACE_LEARNED_PER_PERSON, FACE_LEARNED_RETENTION_DAYS,
+                          FACE_MIN_CONFIDENCE, FACE_MIN_HEIGHT, FACE_MIN_WIDTH,
+                          FACE_MINIMAL_MODULES, FACE_PREFILTER, FACE_REUSE_SECONDS,
+                          ONNX_ALLOW_SPINNING, ONNX_INTRA_OP_THREADS, PROJECT_ROOT)
 from App.inference_runtime import configure_insight_threads
 
 
@@ -61,6 +62,7 @@ class FaceRecognitionService:
         learned_per_person: int = FACE_LEARNED_PER_PERSON,
         learn_interval_seconds: float = FACE_LEARN_INTERVAL_SECONDS,
         learned_retention_days: int = FACE_LEARNED_RETENTION_DAYS,
+        face_detector_path: str = FACE_DETECTOR_PATH,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -110,6 +112,8 @@ class FaceRecognitionService:
             providers=insight_providers or ["CPUExecutionProvider"],
             allowed_modules=["detection", "recognition"] if minimal_modules else None,
         )
+        if face_detector_path:
+            self._replace_detector(face_detector_path, insight_providers)
         configure_insight_threads(self.app_insight, onnx_threads,
                                   allow_spinning=onnx_allow_spinning)
         self.app_insight.prepare(ctx_id=0, det_size=insight_det_size)
@@ -123,6 +127,23 @@ class FaceRecognitionService:
             "persons_ms": 0.0,
         }
         self.latest_ignored_faces: list[dict[str, Any]] = []
+
+    def _replace_detector(self, path: str, providers: Optional[list[str]]) -> None:
+        """Troca so o detector do pacote; o reconhecedor, e o cadastro, ficam.
+
+        Antes das threads do ONNX e do prepare, que entao valem para ele tambem.
+        """
+        detector_path = Path(path).expanduser()
+        if not detector_path.is_absolute():
+            detector_path = PROJECT_ROOT / detector_path
+        if not detector_path.is_file():
+            raise FileNotFoundError(f"Detector de rosto nao encontrado: {detector_path}")
+        detector = insightface.model_zoo.get_model(
+            str(detector_path), providers=providers or ["CPUExecutionProvider"])
+        if getattr(detector, "taskname", None) != "detection":
+            raise ValueError(f"{detector_path.name} nao e um detector de rosto do InsightFace.")
+        self.app_insight.models["detection"] = detector
+        self.app_insight.det_model = detector
 
     def _load_database(self) -> None:
         if not os.path.exists(self.database_path):

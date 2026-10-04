@@ -135,6 +135,14 @@ mesmo se a instalacao falhar; funciona sem `sudo` porque o runner roda com o
 mesmo usuario `citylab`. O `.env` continua valendo; so e preciso reinstalar se
 o certificado mudar de lugar.
 
+As dependencias entram no `.venv` da API por
+`tools/atualizar_dependencias_rpi.sh`, so quando o
+`requirements-rpi-bookworm.txt` muda, e com `--no-deps`, para nenhum pacote
+trocar outro de carona. Antes de instalar, o script guarda as versoes do
+ambiente; se a API deixar de importar, ele volta a elas, e o passo do deploy
+falha. A pasta `citylab_venv`, que o deploy criava ate 04/10/2026, nao e mais
+usada.
+
 Medido em 02/10/2026: depois de um `kill -9` a API voltou a responder em 1 min
 51 s, e depois de `sudo reboot` ficou pronta em cerca de 2,5 min, sem ninguem
 logar. Quase todo esse tempo e a carga dos modelos.
@@ -274,6 +282,27 @@ com o video de carga, a semelhanca com o cadastro subiu 0,008 na mediana e ate
 41 a 47 px subiram de 0,05 a 0,10. `FACE_EMBED_FULL_FRAME=0` volta a imagem
 reduzida.
 
+`FACE_DETECTOR_PATH` troca so o detector de rosto do `buffalo_l` (`det_10g`)
+por outro `.onnx` do InsightFace, mantendo o reconhecedor `w600k_r50`: os
+embeddings continuam compativeis com o cadastro, e ninguem precisa se
+recadastrar. Vazio usa o detector do pacote. O candidato e o `det_500m`, do
+pacote `buffalo_sc` dos releases v0.7 do InsightFace: no PC, em 04/10/2026,
+detectou 6,7 vezes mais rapido, com os mesmos rostos no video de carga. Copie o
+arquivo do PC, onde ele fica em `.insightface\models\buffalo_sc\` na pasta do
+usuario:
+
+```bash
+scp $HOME/.insightface/models/buffalo_sc/det_500m.onnx citylab@<ip-do-pi>:.insightface/models/
+```
+
+E configure no `.env` do Pi:
+
+```env
+FACE_DETECTOR_PATH=~/.insightface/models/det_500m.onnx
+```
+
+A API para na subida se o arquivo faltar ou se nao for um detector.
+
 `FACE_LEARN_FROM_STREAM`, ligado no perfil rpi3 desde 03/10/2026 e desligado no
 default, faz o sistema aprender com o stream: um rosto reconhecido de um
 embedding novo, com semelhanca de 0,60 ou mais e acima do limite contra o
@@ -368,6 +397,10 @@ pede, e pequeno e entra a parte:
 ```bash
 cd ~/CityLab_Security && .venv/bin/pip install --no-deps ncnn==1.0.20260526 portalocker==4.4.0
 ```
+
+Os dois ficam comentados no `requirements-rpi-bookworm.txt`: quem monta o
+ambiente do zero instala esse arquivo com dependencias, e o `ncnn` traria o
+`opencv-python` junto. Por isso entram a mao, com o comando acima.
 
 A pasta exportada fica fora do Git (`*_ncnn_model/` no `.gitignore`). Copie
 para o Pi; o deploy nao a apaga, porque o `rsync` dele nao remove arquivos:

@@ -3,6 +3,10 @@
 # Instale OpenCV pelo apt e crie o venv com --system-site-packages:
 # sudo apt install -y python3-venv python3-pip python3-opencv libatlas-base-dev
 # python3 -m venv --system-site-packages .venv
+#
+# O deploy instala este arquivo no .venv da API com --no-deps, so quando ele
+# muda (tools/atualizar_dependencias_rpi.sh): um pacote novo entra aqui junto
+# com as dependencias que ainda faltarem, todas com versao.
 
 fastapi==0.121.0
 uvicorn==0.38.0
@@ -31,8 +35,11 @@ mediapipe==0.10.18
 # ultralytics==8.3.226
 # insightface==0.7.3
 # onnxruntime==1.23.2
-# So com POSE_MODEL_PATH apontando para o modelo NCNN; instale antes de ligar,
-# senao o Ultralytics tenta compilar o ncnn do Git. Wheel Linux aarch64, 4,3 MB.
-# Instale com --no-deps (docs/RASPBERRY_PI.md): as dependencias dele trocam o
-# numpy por 2.x e poem o opencv-python 5.
+# Pose em NCNN, ligada no Pi pelo POSE_MODEL_PATH desde 04/10/2026. Sem o
+# pacote, o Ultralytics tenta compilar o ncnn do Git. Wheel Linux aarch64,
+# 4,3 MB. Fica comentado porque so entra com --no-deps, a mao
+# (docs/RASPBERRY_PI.md): as dependencias dele trocam o numpy por 2.x e poem o
+# opencv-python 5, que o mediapipe nao aceita, e quem monta o ambiente do zero
+# instala este arquivo com dependencias.
 # ncnn==1.0.20260526
+# portalocker==4.4.0

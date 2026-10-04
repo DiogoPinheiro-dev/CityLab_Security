@@ -2,11 +2,13 @@
 import asyncio
 import os
 import sys
+import tempfile
 import unittest
 import threading
 import uuid
 from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from datetime import datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
@@ -122,8 +124,8 @@ FACE_SERVICE_DEPENDENCIES = dict(
     FACE_MINIMAL_MODULES=True, FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
     ONNX_ALLOW_SPINNING=True, FACE_REUSE_SECONDS=0.0, FACE_EMBED_FULL_FRAME=False,
     FACE_LEARN_FROM_STREAM=False, FACE_LEARNED_PER_PERSON=5, FACE_LEARN_INTERVAL_SECONDS=600.0,
-    FACE_LEARNED_RETENTION_DAYS=30, Face=SimpleNamespace, uuid=uuid, datetime=datetime,
-    timedelta=timedelta)
+    FACE_LEARNED_RETENTION_DAYS=30, FACE_DETECTOR_PATH="", Face=SimpleNamespace, uuid=uuid,
+    datetime=datetime, timedelta=timedelta)
 
 
 class Vector(list):
@@ -375,6 +377,39 @@ class FaceOptimizationTests(unittest.TestCase):
         # A copia e mais parecida com o cadastro que a "meio", mas nao tira a vaga dela.
         self.assertEqual(service.replace_learned(entries), ["copia"])
         self.assertEqual([ref["id"] for ref in service.learned["Aluno"]], ["perto", "meio"])
+
+    def test_detector_swap_keeps_the_recognizer(self):
+        import numpy
+        loaded = []
+
+        def get_model(path, providers):
+            loaded.append((Path(path).name, providers))
+            return SimpleNamespace(taskname="recognition" if "w600k" in path else "detection")
+
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            (root / "det_500m.onnx").write_bytes(b"")
+            (root / "w600k_mbf.onnx").write_bytes(b"")
+            cls = load_class("App/FaceRecon/service.py", "FaceRecognitionService",
+                             **FACE_SERVICE_DEPENDENCIES, np=numpy, Path=Path, PROJECT_ROOT=root,
+                             insightface=SimpleNamespace(
+                                 model_zoo=SimpleNamespace(get_model=get_model)))
+            service = cls.__new__(cls)
+            recognizer = object()
+            service.app_insight = SimpleNamespace(
+                models={"detection": "det_10g", "recognition": recognizer}, det_model="det_10g")
+            # Caminho relativo vem da raiz do projeto; o reconhecedor fica.
+            service._replace_detector("det_500m.onnx", None)
+            self.assertEqual(loaded, [("det_500m.onnx", ["CPUExecutionProvider"])])
+            self.assertIs(service.app_insight.det_model, service.app_insight.models["detection"])
+            self.assertEqual(service.app_insight.det_model.taskname, "detection")
+            self.assertIs(service.app_insight.models["recognition"], recognizer)
+            # Outro reconhecedor no lugar do detector, ou arquivo que falta, param a subida.
+            with self.assertRaisesRegex(ValueError, "nao e um detector"):
+                service._replace_detector(str(root / "w600k_mbf.onnx"), None)
+            with self.assertRaises(FileNotFoundError):
+                service._replace_detector("falta.onnx", None)
+        self.assertEqual(service.app_insight.det_model.taskname, "detection")
 
     def test_references_follow_the_registration_and_the_retention(self):
         service, vector = self.learning_service(per_person=2)

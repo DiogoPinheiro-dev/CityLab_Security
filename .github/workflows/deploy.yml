@@ -31,25 +31,18 @@ jobs:
       run: |
         test -d "$DEPLOY_DIR"
         rsync -av \
-              --exclude='citylab_venv' \
               --exclude='.git' \
               --exclude='.github' \
               "$GITHUB_WORKSPACE/" \
               "$DEPLOY_DIR/"
 
+    # No .venv da propria API, so quando o requirements muda e com --no-deps.
+    # Se a API deixar de importar, o script volta as versoes de antes e o passo
+    # falha; o servico sobe no passo seguinte de qualquer jeito.
     - name: Install Dependencies
       run: |
         cd "$DEPLOY_DIR"
-
-        set -euo pipefail
-        python3.11 -m venv --system-site-packages citylab_venv
-
-        source citylab_venv/bin/activate
-
-        python -c "import sys; assert sys.version_info[:2] == (3, 11), 'Recrie citylab_venv com Python 3.11'"
-        python -m pip install -r requirements-rpi-bookworm.txt
-        python -c "import cv2; import mediapipe"
-        python -m pip check
+        bash tools/atualizar_dependencias_rpi.sh
 
     # Sobe mesmo se um passo anterior falhar: o sistema nao pode ficar sem API.
     - name: Start API service

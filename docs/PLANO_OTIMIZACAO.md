@@ -547,6 +547,78 @@ antes de cada rodada. Resultados em `resultados/pi3-50c0ddc-video-ncnn2/`.
   exportada fica fora do Git. Sem teste longo antes do uso, tambem por decisao
   dele: fica conferir o `get_throttled` de vez em quando.
 
+### Pedido do responsavel no fim de 04/10
+
+Da lista do que faltava, o responsavel escolheu, nesta ordem combinada: o
+deploy instalar as dependencias no ambiente da API; um detector de rosto mais
+leve (P3); gestos sem esperar o rosto (P5, segunda parte); e reabrir as regras
+de gesto de `docs/PLANO_GESTOS.md`. A pagina de cadastro aberta, com QR code,
+e so para teste: a versao final nao tera o QR code.
+
+### Deploy - dependencias no ambiente da API
+
+O deploy instalava o `requirements-rpi-bookworm.txt` num `citylab_venv` que a
+API nao usa; um pacote novo tinha de ir ao `.venv` a mao.
+
+- `tools/atualizar_dependencias_rpi.sh`, chamado pelo workflow, instala no
+  `.venv` da API so quando o arquivo muda (guarda o hash em
+  `.venv/.requirements-rpi.sha256`) e com `--no-deps`, para nenhum pacote trocar
+  outro de carona, como o `ncnn` fez com o numpy.
+- Antes de instalar, guarda o `pip freeze` do ambiente. Se depois a API nao
+  importar (`Server.main`, mediapipe, insightface, onnxruntime, Ultralytics e
+  o `ncnn`, se instalado), tira os pacotes novos, volta as versoes de antes e
+  falha o passo; o servico sobe de qualquer jeito no passo seguinte.
+- O `pip check` saiu do deploy: o ambiente da API ja tem pendencias antigas
+  de pacotes que ela nao usa, como as do albumentations, que o insightface
+  traz, e falharia em todo deploy.
+- O `ncnn` continua fora do arquivo: quem monta o ambiente do zero instala o
+  arquivo com dependencias, e ele traria o `opencv-python`.
+- Testado no PC com um python falso: instala uma vez, nao repete enquanto o
+  arquivo nao muda, e volta as versoes de antes quando a API deixa de
+  importar ou o pip falha.
+
+### Detector de rosto mais leve (P3) - no PC, mesmos rostos no video de carga
+
+Com o NCNN, o rosto voltou a ser o caminho critico, e a deteccao custa de 1,2
+a 1,4 s no Pi em todo frame; o embedding so entra nos frames com rosto novo.
+Trocar so o detector mantem o reconhecedor `w600k_r50` e, com ele, o cadastro.
+O responsavel autorizou baixar dos releases v0.7 do InsightFace o
+`buffalo_sc` (15 MB, `det_500m`) e o `buffalo_m` (276 MB, `det_2.5g`); o
+`w600k_r50` do `buffalo_m` tem o mesmo sha256 do `buffalo_l` (`4c06341c...`).
+Criterio combinado antes: achar o rosto nos mesmos frames, semelhanca mediana
+caindo no maximo 0,02 e nenhum frame passando de reconhecido a nao
+reconhecido, no video de carga e nos 18 videos de validacao.
+
+No PC, no caminho do stream do Pi (JPEG 65, deteccao em 320x240, filtro de
+qualidade do servico e embedding no frame inteiro), contra cadastros feitos
+com o `det_10g` a partir de 10 fotos do video `neutro` do celular, cada uma
+sozinha e a media delas (`.tmp/detector_leve.py`, fora do Git; so numeros):
+
+| | `det_10g` (atual) | `det_2.5g` | `det_500m` |
+|---|---|---|---|
+| Deteccao no PC | 28,0 ms | 10,1 ms | 4,2 ms |
+| Carga: rosto em | 36/36 | 35/36 | 36/36 |
+| Carga: deixou de reconhecer (frame x foto) | | 2 de 350 | 0 de 360 |
+| Validacao, 1 frame/s: rosto em | 433/540 | 423/540 | 429/540 |
+| Validacao: diferenca mediana de semelhanca | | +0,0006 | +0,0011 |
+| Validacao: deixou / passou a reconhecer | | 15 / 18 | 16 / 19 |
+
+- No video de carga, o `det_500m` passa no criterio. Na validacao, nenhum
+  detector leve passa ao pe da letra, mas as diferencas ficam nas bordas, nos
+  dois sentidos. Dos 15 frames que so o `det_10g` achou, 13 tem rosto de 40 a
+  43 px, no limite de 40 px do filtro, em que a caixa de um detector sai 1 ou
+  2 px menor; os outros 2 nem eram o rosto da pessoa (semelhanca negativa). O
+  `det_500m` achou outros 11 que o `det_10g` nao achou, tambem na borda. As
+  trocas de reconhecimento ficam a menos de 0,01 do limite de 0,52 na mediana.
+- Decisao do responsavel: seguir com o `det_500m` para o Pi.
+- `FACE_DETECTOR_PATH`, vazio nos dois perfis, troca so o detector do pacote,
+  antes das threads do ONNX e do `prepare`; arquivo que falta ou que nao e
+  detector para a subida. No servico real, no PC, com 2 threads: o rosto nos
+  36 frames, e a deteccao de 48,2 para 6,6 ms.
+- Falta medir no Pi: 3 rodadas contra a serie do NCNN com 2 threads, com o
+  aprendizado desligado, e aceitar so com mais de 5% de ganho nas tres, a
+  mesma deteccao e `throttled=0x0`.
+
 ### O que fica aberto
 
 1. Medir no Pi, com o video de carga, sem precisar de duas pessoas. Com o
@@ -556,9 +628,9 @@ antes de cada rodada. Resultados em `resultados/pi3-50c0ddc-video-ncnn2/`.
    - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
    - recadastrar com 3 a 5 fotos, rodar `tools/cadastros.py --manter-ultimo` e
      medir a semelhanca de novo, com o aprendizado desligado.
-   Depois do deploy da promocao, tirar do `.env` do Pi o `NCNN_NUM_THREADS=2`,
-   que o perfil cobre, e o `FACE_LEARN_FROM_STREAM=0`, que so valia para as
-   rodadas; o `POSE_MODEL_PATH` fica.
+   No deploy de `a4d6af4`, conferido por hash, o `.env` do Pi ficou so com o
+   `POSE_MODEL_PATH`, e o `--show-config` mostrou o ncnn em 2 threads pelo
+   perfil e o aprendizado ligado, com `throttled=0x0`: a configuracao de uso.
 2. Acompanhar no uso o aprendizado, com `tools/cadastros.py`: quantas
    referencias cada pessoa junta e se aparece alguem reconhecido com o nome de
    outra. E, com o NCNN ligado sem teste longo, o `vcgencmd get_throttled`:

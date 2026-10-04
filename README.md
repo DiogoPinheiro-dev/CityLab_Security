@@ -36,15 +36,18 @@ gesto em paralelo sobre o mesmo frame.
 - `main`: branch estavel. Um push nela dispara
   [.github/workflows/deploy.yml](.github/workflows/deploy.yml), que roda no
   runner self-hosted do proprio Pi: para o servico da API, sincroniza os
-  arquivos em `/home/citylab/CityLab_Security`, instala as dependencias em
-  `citylab_venv` e sobe o servico de novo, mesmo se a instalacao falhar.
+  arquivos em `/home/citylab/CityLab_Security`, atualiza as dependencias no
+  `.venv` da API e sobe o servico de novo, mesmo se a instalacao falhar.
 - outras branches: features, correcoes e experimentos.
 
 No Pi 3 B+ a API nao pode rodar durante o deploy: com 1 GB de RAM ele disputa
 memoria com ela, e o runner ja caiu num deploy feito com a API rodando. Com a
 API como servico, o workflow cuida disso; com ela iniciada a mao, pare antes do
-push. As dependencias vao para `citylab_venv`, nao para o `.venv` que a API
-usa: uma dependencia nova precisa ser instalada no `.venv` a mao.
+push. As dependencias vem de `requirements-rpi-bookworm.txt`, por
+[tools/atualizar_dependencias_rpi.sh](tools/atualizar_dependencias_rpi.sh): o
+pip so roda quando o arquivo muda, com `--no-deps`, e, se a API deixar de
+importar, o script volta as versoes de antes e o deploy marca falha. Um pacote
+novo entra no arquivo junto com as dependencias que faltarem, todas com versao.
 
 ## Requisitos e instalacao
 
