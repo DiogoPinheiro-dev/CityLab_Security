@@ -1,0 +1,1721 @@
+{
+  "scenario": "one-person",
+  "source_type": "video",
+  "video_sha256": "b0ef593552469c93881cfa6bb1b0a6f7715f3f4452b0f34e90bd787a887b0431",
+  "started_at_utc": "2026-10-05T14:43:39.796427+00:00",
+  "client_python": "3.13.15",
+  "client_platform": "Windows-11-10.0.26300-SP0",
+  "server_run_label": "pi3-ef3c0b5-video-controle-sync-outlet2-video-one-person-r1",
+  "config": {
+    "width": 640,
+    "height": 480,
+    "jpeg_quality": 65,
+    "warmup_frames": 5,
+    "frames": 30,
+    "max_in_flight": 1
+  },
+  "elapsed_seconds": 52.228287899999486,
+  "completed_fps": 0.5744013676542572,
+  "rtt_ms": {
+    "count": 30,
+    "median": 2324.1970500002935,
+    "p95": 2511.7778000003455
+  },
+  "detections": {
+    "persons_count": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 1
+    },
+    "faces_count": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 1
+    },
+    "known_faces_count": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 1
+    },
+    "pending_faces_count": {
+      "count": 30,
+      "median": 0.0,
+      "p95": 0
+    },
+    "gestures_count": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 1
+    },
+    "alerts_count": {
+      "count": 30,
+      "median": 0.0,
+      "p95": 1
+    }
+  },
+  "faces_width_px": {
+    "count": 30,
+    "median": 53.0,
+    "p95": 60
+  },
+  "alerts_by_name": {
+    "Braco Estendido": 1,
+    "Mao Fechada": 5,
+    "Mao Oculta": 3,
+    "Rendicao": 2
+  },
+  "metrics": {
+    "decode_ms": {
+      "count": 30,
+      "median": 5.506843999967259,
+      "p95": 5.8471600000302715
+    },
+    "face_detect_ms": {
+      "count": 30,
+      "median": 381.182310000014,
+      "p95": 399.84520500001963
+    },
+    "face_embed_ms": {
+      "count": 30,
+      "median": 1916.077088999998,
+      "p95": 2013.2621189999895
+    },
+    "face_embeddings": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 1.0
+    },
+    "face_match_ms": {
+      "count": 30,
+      "median": 0.23520950000488483,
+      "p95": 0.32067799998003466
+    },
+    "face_pending": {
+      "count": 30,
+      "median": 0.0,
+      "p95": 0.0
+    },
+    "face_reused": {
+      "count": 30,
+      "median": 0.0,
+      "p95": 1.0
+    },
+    "face_worker": {
+      "count": 30,
+      "median": 0.0,
+      "p95": 1
+    },
+    "faces_ms": {
+      "count": 30,
+      "median": 2298.4285919999934,
+      "p95": 2411.4669119999803
+    },
+    "frame_interval_ms": {
+      "count": 30,
+      "median": 2326.1769759999706,
+      "p95": 2492.8621930000077
+    },
+    "gesture_torch_threads": {
+      "count": 30,
+      "median": 3.0,
+      "p95": 3
+    },
+    "gesture_worker": {
+      "count": 30,
+      "median": 1.0,
+      "p95": 1
+    },
+    "gestures_ms": {
+      "count": 30,
+      "median": 1006.1850545000084,
+      "p95": 1158.7926979999565
+    },
+    "hands_ms": {
+      "count": 30,
+      "median": 622.7496655000095,
+      "p95": 764.0520130000255
+    },
+    "logs_ms": {
+      "count": 30,
+      "median": 0.05963550000842588,
+      "p95": 80.20978700000114
+    },
+    "motion_ratio": {
+      "count": 30,
+      "median": 0.07065104166666666,
+      "p95": 0.20682291666666666
+    },
+    "ncnn_threads": {
+      "count": 30,
+      "median": 2.0,
+      "p95": 2.0
+    },
+    "persons_ms": {
+      "count": 30,
+      "median": 0.0,
+      "p95": 0.0
+    },
+    "pipeline_ms": {
+      "count": 30,
+      "median": 2303.84230949997,
+      "p95": 2415.4081770000175
+    },
+    "pose_ms": {
+      "count": 30,
+      "median": 390.874485500035,
+      "p95": 412.5606289999837
+    },
+    "pose_skipped": {
+      "count": 30,
+      "median": 0.0,
+      "p95": 0.0
+    },
+    "process_rss_mb": {
+      "count": 30,
+      "median": 655.6875,
+      "p95": 655.71875
+    },
+    "receive_wait_ms": {
+      "count": 30,
+      "median": 13.257630499992956,
+      "p95": 39.19028299998217
+    },
+    "response_ready_ms": {
+      "count": 30,
+      "median": 2309.640637999962,
+      "p95": 2501.328923000017
+    },
+    "temperature_c": {
+      "count": 30,
+      "median": 48.312,
+      "p95": 50.464
+    }
+  },
+  "application_bytes_sent": 515780,
+  "application_bytes_received": 29089,
+  "application_bytes_per_second": 10432.449959746917,
+  "samples": [
+    {
+      "frame": 5,
+      "rtt_ms": 2384.894599999825,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        56
+      ],
+      "persons_confidence": [
+        0.8918229341506958
+      ],
+      "gestures_confidence": [
+        0.8918229341506958
+      ],
+      "faces_confidence": [
+        0.594772458076477
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 2358.4295020000354,
+        "face_detect_ms": 379.7265400000356,
+        "face_embed_ms": 1978.2098349999728,
+        "face_match_ms": 0.2568229999724281,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1138.3957170000372,
+        "hands_ms": 737.3653579999768,
+        "pose_ms": 397.02472099997976,
+        "motion_ratio": 0.12307291666666667,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2411.54149700003,
+        "receive_wait_ms": 39.19028299998217,
+        "decode_ms": 5.78064399996947,
+        "pipeline_ms": 2362.736756000004,
+        "logs_ms": 0.050259999966328905,
+        "response_ready_ms": 2368.661981999992,
+        "process_rss_mb": 652.73828125,
+        "temperature_c": 45.084
+      }
+    },
+    {
+      "frame": 6,
+      "rtt_ms": 2516.8522999993,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        58
+      ],
+      "persons_confidence": [
+        0.9377593398094177
+      ],
+      "gestures_confidence": [
+        0.9377593398094177
+      ],
+      "faces_confidence": [
+        0.5879983901977539
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 2492.71334499997,
+        "face_detect_ms": 391.67899799997485,
+        "face_embed_ms": 2100.5416879999643,
+        "face_match_ms": 0.2588030000083563,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1263.4794939999665,
+        "hands_ms": 841.2084159999722,
+        "pose_ms": 412.5606289999837,
+        "motion_ratio": 0.20375,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2521.04374999999,
+        "receive_wait_ms": 16.54974199999515,
+        "decode_ms": 5.530486999987261,
+        "pipeline_ms": 2496.9672650000234,
+        "logs_ms": 0.052186999994319194,
+        "response_ready_ms": 2502.6435330000254,
+        "process_rss_mb": 653.16796875,
+        "temperature_c": 46.16
+      }
+    },
+    {
+      "frame": 7,
+      "rtt_ms": 1058.2085999994888,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        54
+      ],
+      "persons_confidence": [
+        0.9383020401000977
+      ],
+      "gestures_confidence": [
+        0.9383020401000977
+      ],
+      "faces_confidence": [
+        0.5879983901977539
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 398.3005640000101,
+        "face_detect_ms": 398.0793140000287,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1034.3628179999769,
+        "hands_ms": 626.2232629999858,
+        "pose_ms": 405.4625150000106,
+        "motion_ratio": 0.011041666666666667,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 1060.2654049999956,
+        "receive_wait_ms": 13.763118999975177,
+        "decode_ms": 5.540747999987161,
+        "pipeline_ms": 1038.9035099999546,
+        "logs_ms": 0.05296900002349503,
+        "response_ready_ms": 1044.593998000039,
+        "process_rss_mb": 653.17578125,
+        "temperature_c": 46.16
+      }
+    },
+    {
+      "frame": 8,
+      "rtt_ms": 2392.054599999028,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        58
+      ],
+      "persons_confidence": [
+        0.8394839763641357
+      ],
+      "gestures_confidence": [
+        0.8394839763641357
+      ],
+      "faces_confidence": [
+        0.5954774618148804
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 2369.208799999967,
+        "face_detect_ms": 370.6604819999484,
+        "face_embed_ms": 1997.8575869999986,
+        "face_match_ms": 0.32067799998003466,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1121.0735649999606,
+        "hands_ms": 733.2865129999959,
+        "pose_ms": 384.48203900003364,
+        "motion_ratio": 0.14286458333333332,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2393.936072000031,
+        "receive_wait_ms": 11.490508000008504,
+        "decode_ms": 5.549967000035849,
+        "pipeline_ms": 2373.011625999993,
+        "logs_ms": 0.051457999973081314,
+        "response_ready_ms": 2378.7051350000183,
+        "process_rss_mb": 653.17578125,
+        "temperature_c": 47.236
+      }
+    },
+    {
+      "frame": 9,
+      "rtt_ms": 1053.9578999996593,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        58
+      ],
+      "persons_confidence": [
+        0.8533449172973633
+      ],
+      "gestures_confidence": [
+        0.8533449172973633
+      ],
+      "faces_confidence": [
+        0.5954774618148804
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 392.85198499999296,
+        "face_detect_ms": 392.6620369999796,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1030.0604540000222,
+        "hands_ms": 627.711249000015,
+        "pose_ms": 399.5762270000114,
+        "motion_ratio": 0.05119791666666667,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 1055.6810119999795,
+        "receive_wait_ms": 14.117809000026682,
+        "decode_ms": 5.5059039999605375,
+        "pipeline_ms": 1034.2081249999637,
+        "logs_ms": 0.05140599995456796,
+        "response_ready_ms": 1039.8585089999983,
+        "process_rss_mb": 653.31640625,
+        "temperature_c": 45.622
+      }
+    },
+    {
+      "frame": 10,
+      "rtt_ms": 2404.0542999991885,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        60
+      ],
+      "persons_confidence": [
+        0.9192174077033997
+      ],
+      "gestures_confidence": [
+        0.9192174077033997
+      ],
+      "faces_confidence": [
+        0.6312015056610107
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 2381.5114029999904,
+        "face_detect_ms": 373.35708400001977,
+        "face_embed_ms": 2007.7006719999986,
+        "face_match_ms": 0.24109499997848616,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1137.3110160000124,
+        "hands_ms": 742.4454200000241,
+        "pose_ms": 390.03130899999405,
+        "motion_ratio": 0.18578125,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2406.7970639999885,
+        "receive_wait_ms": 14.183747000004132,
+        "decode_ms": 5.470539999976154,
+        "pipeline_ms": 2385.3157920000285,
+        "logs_ms": 0.05057299995314679,
+        "response_ready_ms": 2390.9415400000285,
+        "process_rss_mb": 653.734375,
+        "temperature_c": 47.236
+      }
+    },
+    {
+      "frame": 11,
+      "rtt_ms": 1037.4577000002319,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        62
+      ],
+      "persons_confidence": [
+        0.9064319133758545
+      ],
+      "gestures_confidence": [
+        0.9064319133758545
+      ],
+      "faces_confidence": [
+        0.6312015056610107
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 380.96182499998577,
+        "face_detect_ms": 380.7691160000104,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1013.4435090000125,
+        "hands_ms": 622.9389409999726,
+        "pose_ms": 387.737474000005,
+        "motion_ratio": 0.05552083333333333,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 1039.1662559999872,
+        "receive_wait_ms": 11.46894699996892,
+        "decode_ms": 6.210855000006177,
+        "pipeline_ms": 1017.8428469999972,
+        "logs_ms": 0.05031300003111028,
+        "response_ready_ms": 1024.1967760000534,
+        "process_rss_mb": 653.734375,
+        "temperature_c": 46.698
+      }
+    },
+    {
+      "frame": 12,
+      "rtt_ms": 2418.9077999999427,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        52
+      ],
+      "persons_confidence": [
+        0.9125834703445435
+      ],
+      "gestures_confidence": [
+        0.9125834703445435
+      ],
+      "faces_confidence": [
+        0.5928117632865906
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 2366.6815089999886,
+        "face_detect_ms": 368.79543800000647,
+        "face_embed_ms": 1997.295443999974,
+        "face_match_ms": 0.37760499998285013,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1122.3696049999603,
+        "hands_ms": 729.6249660000171,
+        "pose_ms": 386.7521169999577,
+        "motion_ratio": 0.1296875,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2391.328629000043,
+        "receive_wait_ms": 13.224110000010114,
+        "decode_ms": 5.496581999977934,
+        "pipeline_ms": 2370.523814999956,
+        "logs_ms": 0.05234399998244044,
+        "response_ready_ms": 2376.168210000003,
+        "process_rss_mb": 653.7421875,
+        "temperature_c": 47.774
+      }
+    },
+    {
+      "frame": 13,
+      "rtt_ms": 1040.3012999995553,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        52
+      ],
+      "persons_confidence": [
+        0.906941294670105
+      ],
+      "gestures_confidence": [
+        0.906941294670105
+      ],
+      "faces_confidence": [
+        0.5928117632865906
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 381.79430700000694,
+        "face_detect_ms": 381.5955040000176,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1017.0426189999944,
+        "hands_ms": 625.8466110000427,
+        "pose_ms": 388.3930819999932,
+        "motion_ratio": 0.03895833333333333,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 1071.5792240000042,
+        "receive_wait_ms": 43.13385499995093,
+        "decode_ms": 5.518353000013576,
+        "pipeline_ms": 1021.1103949999938,
+        "logs_ms": 0.052448000019467145,
+        "response_ready_ms": 1026.7739050000273,
+        "process_rss_mb": 653.7421875,
+        "temperature_c": 47.236
+      }
+    },
+    {
+      "frame": 14,
+      "rtt_ms": 2350.083299999824,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        58
+      ],
+      "persons_confidence": [
+        0.9444660544395447
+      ],
+      "gestures_confidence": [
+        0.9444660544395447
+      ],
+      "faces_confidence": [
+        0.6084846258163452
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 2325.164987999983,
+        "face_detect_ms": 370.14937799995096,
+        "face_embed_ms": 1954.5086290000313,
+        "face_match_ms": 0.2981780000368417,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 922.4871389999976,
+        "hands_ms": 530.8677879999664,
+        "pose_ms": 388.2900170000312,
+        "motion_ratio": 0.18786458333333333,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2351.51977299995,
+        "receive_wait_ms": 15.05667000003541,
+        "decode_ms": 5.6945530000120925,
+        "pipeline_ms": 2328.9346889999933,
+        "logs_ms": 0.05114599997568803,
+        "response_ready_ms": 2334.773355999971,
+        "process_rss_mb": 653.7421875,
+        "temperature_c": 47.774
+      }
+    },
+    {
+      "frame": 15,
+      "rtt_ms": 864.4162000000506,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        40
+      ],
+      "persons_confidence": [
+        0.9282242059707642
+      ],
+      "gestures_confidence": [
+        0.9282242059707642
+      ],
+      "faces_confidence": [
+        0.6084846258163452
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 384.1610650000007,
+        "face_detect_ms": 383.96950200001356,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 840.5624050000142,
+        "hands_ms": 446.96484700000383,
+        "pose_ms": 391.0097360000009,
+        "motion_ratio": 0.08661458333333333,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 866.6588040000534,
+        "receive_wait_ms": 12.81359000000748,
+        "decode_ms": 5.39793699999791,
+        "pipeline_ms": 844.8532029999569,
+        "logs_ms": 0.05182300003525597,
+        "response_ready_ms": 850.3927020000219,
+        "process_rss_mb": 653.7421875,
+        "temperature_c": 47.774
+      }
+    },
+    {
+      "frame": 16,
+      "rtt_ms": 2298.3108000007633,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        54
+      ],
+      "persons_confidence": [
+        0.9187008142471313
+      ],
+      "gestures_confidence": [
+        0.9187008142471313
+      ],
+      "faces_confidence": [
+        0.5783528089523315
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 2271.6921960000036,
+        "face_detect_ms": 368.9147119999916,
+        "face_embed_ms": 1902.3308669999892,
+        "face_match_ms": 0.23739700003488906,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 702.7246119999973,
+        "hands_ms": 312.97112499999,
+        "pose_ms": 386.4330060000043,
+        "motion_ratio": 0.20682291666666666,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2300.8341789999918,
+        "receive_wait_ms": 14.569013000027553,
+        "decode_ms": 5.610438000019258,
+        "pipeline_ms": 2278.7499299999467,
+        "logs_ms": 0.05130199997438467,
+        "response_ready_ms": 2284.507919999953,
+        "process_rss_mb": 653.7421875,
+        "temperature_c": 47.236
+      }
+    },
+    {
+      "frame": 17,
+      "rtt_ms": 2511.7778000003455,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Braco Estendido"
+      ],
+      "faces_width_px": [
+        56
+      ],
+      "persons_confidence": [
+        0.9177410006523132
+      ],
+      "gestures_confidence": [
+        0.9177410006523132
+      ],
+      "faces_confidence": [
+        0.5883286595344543
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 2411.4669119999803,
+        "face_detect_ms": 481.1766199999852,
+        "face_embed_ms": 1929.823311000007,
+        "face_match_ms": 0.24500099999613667,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 825.2890219999927,
+        "hands_ms": 326.2854070000003,
+        "pose_ms": 495.10766200000944,
+        "motion_ratio": 0.038697916666666665,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2438.070449999998,
+        "receive_wait_ms": 15.221567999958552,
+        "decode_ms": 5.5888229999823125,
+        "pipeline_ms": 2415.4081770000175,
+        "logs_ms": 80.20978700000114,
+        "response_ready_ms": 2501.328923000017,
+        "process_rss_mb": 655.23046875,
+        "temperature_c": 48.312
+      }
+    },
+    {
+      "frame": 18,
+      "rtt_ms": 2413.3915999991586,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        56
+      ],
+      "persons_confidence": [
+        0.9243531227111816
+      ],
+      "gestures_confidence": [
+        0.9243531227111816
+      ],
+      "faces_confidence": [
+        0.6338460445404053
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 2390.016016000004,
+        "face_detect_ms": 376.2900410000043,
+        "face_embed_ms": 2013.2621189999895,
+        "face_match_ms": 0.2516679999757798,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1158.7926979999565,
+        "hands_ms": 764.0520130000255,
+        "pose_ms": 391.7922360000148,
+        "motion_ratio": 0.15270833333333333,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2492.8621930000077,
+        "receive_wait_ms": 9.525505999988582,
+        "decode_ms": 5.504551999990781,
+        "pipeline_ms": 2393.8593639999795,
+        "logs_ms": 0.050989999976991385,
+        "response_ready_ms": 2399.5055839999964,
+        "process_rss_mb": 655.66796875,
+        "temperature_c": 48.312
+      }
+    },
+    {
+      "frame": 19,
+      "rtt_ms": 1111.8125000011787,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Mao Fechada"
+      ],
+      "faces_width_px": [
+        54
+      ],
+      "persons_confidence": [
+        0.9260001182556152
+      ],
+      "gestures_confidence": [
+        0.9260001182556152
+      ],
+      "faces_confidence": [
+        0.6338460445404053
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 400.04390400002876,
+        "face_detect_ms": 399.84520500001963,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1034.7241439999948,
+        "hands_ms": 626.1971860000131,
+        "pose_ms": 405.4186640000239,
+        "motion_ratio": 0.047760416666666666,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 1060.335441999996,
+        "receive_wait_ms": 12.943174999975327,
+        "decode_ms": 5.445905999977185,
+        "pipeline_ms": 1039.9169240000106,
+        "logs_ms": 56.17844900001501,
+        "response_ready_ms": 1101.6588840000168,
+        "process_rss_mb": 655.6875,
+        "temperature_c": 48.312
+      }
+    },
+    {
+      "frame": 20,
+      "rtt_ms": 1026.938799999698,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Mao Fechada"
+      ],
+      "faces_width_px": [
+        56
+      ],
+      "persons_confidence": [
+        0.914578378200531
+      ],
+      "gestures_confidence": [
+        0.914578378200531
+      ],
+      "faces_confidence": [
+        0.6338460445404053
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 373.5481320000531,
+        "face_detect_ms": 373.3492770000453,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1005.8792620000077,
+        "hands_ms": 622.6740600000085,
+        "pose_ms": 380.34487799995986,
+        "motion_ratio": 0.053020833333333336,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 1081.8557559999817,
+        "receive_wait_ms": 7.990395999968314,
+        "decode_ms": 5.46137600002794,
+        "pipeline_ms": 1010.1418820000276,
+        "logs_ms": 0.06901000000425483,
+        "response_ready_ms": 1015.7661229999917,
+        "process_rss_mb": 655.6875,
+        "temperature_c": 47.774
+      }
+    },
+    {
+      "frame": 21,
+      "rtt_ms": 1030.5520000001707,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Mao Fechada"
+      ],
+      "faces_width_px": [
+        52
+      ],
+      "persons_confidence": [
+        0.9149472117424011
+      ],
+      "gestures_confidence": [
+        0.9149472117424011
+      ],
+      "faces_confidence": [
+        0.6338460445404053
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 373.4062649999714,
+        "face_detect_ms": 373.21464899997636,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1006.4908470000091,
+        "hands_ms": 622.8252710000106,
+        "pose_ms": 380.6270750000067,
+        "motion_ratio": 0.021145833333333332,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 1032.3018860000275,
+        "receive_wait_ms": 14.218597999956728,
+        "decode_ms": 5.451114999971196,
+        "pipeline_ms": 1010.7729470000208,
+        "logs_ms": 0.06838499996320024,
+        "response_ready_ms": 1016.3851560000126,
+        "process_rss_mb": 655.6875,
+        "temperature_c": 47.774
+      }
+    },
+    {
+      "frame": 22,
+      "rtt_ms": 2435.792800000854,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 0,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Mao Fechada"
+      ],
+      "faces_width_px": [
+        42
+      ],
+      "persons_confidence": [
+        0.9214677214622498
+      ],
+      "gestures_confidence": [
+        0.9214677214622498
+      ],
+      "faces_confidence": [
+        0.471254825592041
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 2385.71902700005,
+        "face_detect_ms": 382.4186000000509,
+        "face_embed_ms": 2002.7919350000047,
+        "face_match_ms": 0.28458400004183204,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1140.9315070000048,
+        "hands_ms": 737.3655310000231,
+        "pose_ms": 399.9585139999908,
+        "motion_ratio": 0.13692708333333334,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2411.0383979999597,
+        "receive_wait_ms": 7.326904000024115,
+        "decode_ms": 5.428250999955253,
+        "pipeline_ms": 2389.5439379999743,
+        "logs_ms": 29.834494999988692,
+        "response_ready_ms": 2424.9191309999674,
+        "process_rss_mb": 655.6875,
+        "temperature_c": 48.85
+      }
+    },
+    {
+      "frame": 23,
+      "rtt_ms": 2401.8842999994376,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 0,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Mao Fechada"
+      ],
+      "faces_width_px": [
+        42
+      ],
+      "persons_confidence": [
+        0.9034867286682129
+      ],
+      "gestures_confidence": [
+        0.9034867286682129
+      ],
+      "faces_confidence": [
+        0.3713275194168091
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 2379.1028029999666,
+        "face_detect_ms": 389.7710919999895,
+        "face_embed_ms": 1988.894053000024,
+        "face_match_ms": 0.23380300001463183,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1151.5165480000178,
+        "hands_ms": 741.2799059999884,
+        "pose_ms": 406.9659520000073,
+        "motion_ratio": 0.10828125,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2431.4374390000353,
+        "receive_wait_ms": 11.345044999984566,
+        "decode_ms": 5.418354999960684,
+        "pipeline_ms": 2382.9459429999815,
+        "logs_ms": 0.12041700000509081,
+        "response_ready_ms": 2388.5789870000167,
+        "process_rss_mb": 655.6875,
+        "temperature_c": 49.388
+      }
+    },
+    {
+      "frame": 24,
+      "rtt_ms": 2401.4305000000604,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        54
+      ],
+      "persons_confidence": [
+        0.9418064951896667
+      ],
+      "gestures_confidence": [
+        0.9418064951896667
+      ],
+      "faces_confidence": [
+        0.6164906620979309
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 2351.486231000024,
+        "face_detect_ms": 382.815144999995,
+        "face_embed_ms": 1968.1725429999801,
+        "face_match_ms": 0.294844999984889,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 932.3590419999732,
+        "hands_ms": 534.9776400000223,
+        "pose_ms": 394.05373199997484,
+        "motion_ratio": 0.20713541666666666,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2376.4776869999764,
+        "receive_wait_ms": 13.721044999954302,
+        "decode_ms": 5.522574999986318,
+        "pipeline_ms": 2355.3017159999854,
+        "logs_ms": 28.200583999989703,
+        "response_ready_ms": 2389.1347699999983,
+        "process_rss_mb": 655.69140625,
+        "temperature_c": 49.388
+      }
+    },
+    {
+      "frame": 25,
+      "rtt_ms": 1030.8645000004617,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        52
+      ],
+      "persons_confidence": [
+        0.9484688639640808
+      ],
+      "gestures_confidence": [
+        0.9484688639640808
+      ],
+      "faces_confidence": [
+        0.6164906620979309
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 372.6193379999927,
+        "face_detect_ms": 372.4276699999791,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 1007.1604280000201,
+        "hands_ms": 624.8190200000181,
+        "pose_ms": 379.54931400003034,
+        "motion_ratio": 0.05671875,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 1059.6717889999923,
+        "receive_wait_ms": 10.522542999979123,
+        "decode_ms": 5.8471600000302715,
+        "pipeline_ms": 1011.3702900000021,
+        "logs_ms": 0.051979999966533796,
+        "response_ready_ms": 1017.3560950000251,
+        "process_rss_mb": 655.69140625,
+        "temperature_c": 48.85
+      }
+    },
+    {
+      "frame": 26,
+      "rtt_ms": 912.9567999989376,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Rendicao"
+      ],
+      "faces_width_px": [
+        54
+      ],
+      "persons_confidence": [
+        0.9248483777046204
+      ],
+      "gestures_confidence": [
+        0.9248483777046204
+      ],
+      "faces_confidence": [
+        0.6164906620979309
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 374.18862100003025,
+        "face_detect_ms": 373.99346400002287,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 832.7049869999996,
+        "hands_ms": 449.01299299999664,
+        "pose_ms": 380.90692999998055,
+        "motion_ratio": 0.05203125,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 862.5408390000189,
+        "receive_wait_ms": 18.254971000033038,
+        "decode_ms": 5.46970999999985,
+        "pipeline_ms": 836.8919319999577,
+        "logs_ms": 58.76128400001335,
+        "response_ready_ms": 901.2308419999613,
+        "process_rss_mb": 655.7109375,
+        "temperature_c": 49.388
+      }
+    },
+    {
+      "frame": 27,
+      "rtt_ms": 864.8782999989635,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Rendicao"
+      ],
+      "faces_width_px": [
+        52
+      ],
+      "persons_confidence": [
+        0.9269633293151855
+      ],
+      "gestures_confidence": [
+        0.9269633293151855
+      ],
+      "faces_confidence": [
+        0.6164906620979309
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 384.42142999997486,
+        "face_detect_ms": 384.1788769999539,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 839.8524250000037,
+        "hands_ms": 445.7761109999865,
+        "pose_ms": 391.0407279999504,
+        "motion_ratio": 0.019166666666666665,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 921.4144279999914,
+        "receive_wait_ms": 11.199995000026775,
+        "decode_ms": 5.6365859999800705,
+        "pipeline_ms": 844.068118999985,
+        "logs_ms": 0.06630199999335673,
+        "response_ready_ms": 849.8603300000127,
+        "process_rss_mb": 655.7109375,
+        "temperature_c": 48.312
+      }
+    },
+    {
+      "frame": 28,
+      "rtt_ms": 2397.4460999997973,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 0,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        40
+      ],
+      "persons_confidence": [
+        0.8762722611427307
+      ],
+      "gestures_confidence": [
+        0.8762722611427307
+      ],
+      "faces_confidence": [
+        0.46769168972969055
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 2338.0472160000068,
+        "face_detect_ms": 385.9361300000046,
+        "face_embed_ms": 1951.6574379999838,
+        "face_match_ms": 0.23661599999513783,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 932.3592279999957,
+        "hands_ms": 525.5967609999743,
+        "pose_ms": 403.5137019999979,
+        "motion_ratio": 0.08255208333333333,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2367.9990069999803,
+        "receive_wait_ms": 15.237405999982911,
+        "decode_ms": 5.411325000011402,
+        "pipeline_ms": 2345.368393000001,
+        "logs_ms": 35.39723099999037,
+        "response_ready_ms": 2386.2855429999854,
+        "process_rss_mb": 655.71875,
+        "temperature_c": 49.388
+      }
+    },
+    {
+      "frame": 29,
+      "rtt_ms": 2357.993899999201,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 0,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        42
+      ],
+      "persons_confidence": [
+        0.8604719042778015
+      ],
+      "gestures_confidence": [
+        0.8604719042778015
+      ],
+      "faces_confidence": [
+        0.41012024879455566
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 2335.3417189999846,
+        "face_detect_ms": 386.28702899995915,
+        "face_embed_ms": 1948.541248999959,
+        "face_match_ms": 0.3144279999673927,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 930.6141000000139,
+        "hands_ms": 525.4168349999873,
+        "pose_ms": 402.3417829999971,
+        "motion_ratio": 0.015260416666666667,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2392.31799800001,
+        "receive_wait_ms": 8.73274399998536,
+        "decode_ms": 5.405126000027849,
+        "pipeline_ms": 2339.1712139999754,
+        "logs_ms": 0.08677099998521953,
+        "response_ready_ms": 2344.755195999994,
+        "process_rss_mb": 655.71875,
+        "temperature_c": 49.926
+      }
+    },
+    {
+      "frame": 30,
+      "rtt_ms": 2396.521099999518,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        50
+      ],
+      "persons_confidence": [
+        0.9225199818611145
+      ],
+      "gestures_confidence": [
+        0.9225199818611145
+      ],
+      "faces_confidence": [
+        0.6058444976806641
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 2342.0632389999696,
+        "face_detect_ms": 387.4005920000059,
+        "face_embed_ms": 1954.229572000031,
+        "face_match_ms": 0.23724000004676782,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 934.0262850000158,
+        "hands_ms": 525.3333119999866,
+        "pose_ms": 404.9658740000268,
+        "motion_ratio": 0.085625,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2370.1134610000167,
+        "receive_wait_ms": 13.819849999947564,
+        "decode_ms": 5.434815000000981,
+        "pipeline_ms": 2348.9033199999767,
+        "logs_ms": 31.139768000002732,
+        "response_ready_ms": 2385.5877980000173,
+        "process_rss_mb": 655.71875,
+        "temperature_c": 50.464
+      }
+    },
+    {
+      "frame": 31,
+      "rtt_ms": 861.8944999998348,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 0,
+      "alerts": [],
+      "faces_width_px": [
+        50
+      ],
+      "persons_confidence": [
+        0.9083212018013
+      ],
+      "gestures_confidence": [
+        0.9083212018013
+      ],
+      "faces_confidence": [
+        0.6058444976806641
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 380.8718270000213,
+        "face_detect_ms": 380.6772429999796,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 838.4899200000291,
+        "hands_ms": 448.42123099999753,
+        "pose_ms": 387.22258399997145,
+        "motion_ratio": 0.05046875,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 892.6350460000094,
+        "receive_wait_ms": 11.536715000033837,
+        "decode_ms": 5.526013000007879,
+        "pipeline_ms": 842.662750000045,
+        "logs_ms": 0.05072999999811145,
+        "response_ready_ms": 848.326419999978,
+        "process_rss_mb": 655.71875,
+        "temperature_c": 49.388
+      }
+    },
+    {
+      "frame": 32,
+      "rtt_ms": 2467.0793999994203,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Mao Oculta"
+      ],
+      "faces_width_px": [
+        52
+      ],
+      "persons_confidence": [
+        0.9255362153053284
+      ],
+      "gestures_confidence": [
+        0.9255362153053284
+      ],
+      "faces_confidence": [
+        0.5939505100250244
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 1,
+        "faces_ms": 2356.4307039999335,
+        "face_detect_ms": 376.723013000003,
+        "face_embed_ms": 1979.2344600000433,
+        "face_match_ms": 0.254324000025008,
+        "face_embeddings": 1.0,
+        "face_reused": 0.0,
+        "face_pending": 0.0,
+        "gesture_worker": 0,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 931.2828799999693,
+        "hands_ms": 539.8520429999394,
+        "pose_ms": 388.38785500001904,
+        "motion_ratio": 0.05875,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 2381.781229000012,
+        "receive_wait_ms": 12.409480000030726,
+        "decode_ms": 5.507783999973981,
+        "pipeline_ms": 2360.3601489999733,
+        "logs_ms": 89.93648000000576,
+        "response_ready_ms": 2455.914360999998,
+        "process_rss_mb": 655.71875,
+        "temperature_c": 50.464
+      }
+    },
+    {
+      "frame": 33,
+      "rtt_ms": 858.8674000002356,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Mao Oculta"
+      ],
+      "faces_width_px": [
+        50
+      ],
+      "persons_confidence": [
+        0.9143127799034119
+      ],
+      "gestures_confidence": [
+        0.9143127799034119
+      ],
+      "faces_confidence": [
+        0.5939505100250244
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 378.76678300006006,
+        "face_detect_ms": 378.5729800000581,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 835.7889069999374,
+        "hands_ms": 447.25036400006957,
+        "pose_ms": 385.56941600006667,
+        "motion_ratio": 0.050520833333333334,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 947.5388139999268,
+        "receive_wait_ms": 10.038584999961131,
+        "decode_ms": 5.6511699999646225,
+        "pipeline_ms": 839.9991340000952,
+        "logs_ms": 0.07125100000848761,
+        "response_ready_ms": 845.8130120000078,
+        "process_rss_mb": 655.71875,
+        "temperature_c": 50.464
+      }
+    },
+    {
+      "frame": 34,
+      "rtt_ms": 864.3539999993664,
+      "persons_count": 1,
+      "faces_count": 1,
+      "known_faces_count": 1,
+      "pending_faces_count": 0,
+      "gestures_count": 1,
+      "alerts_count": 1,
+      "alerts": [
+        "Mao Oculta"
+      ],
+      "faces_width_px": [
+        52
+      ],
+      "persons_confidence": [
+        0.8692700266838074
+      ],
+      "gestures_confidence": [
+        0.8692700266838074
+      ],
+      "faces_confidence": [
+        0.5939505100250244
+      ],
+      "metrics": {
+        "persons_ms": 0.0,
+        "face_worker": 0,
+        "faces_ms": 383.5470689999738,
+        "face_detect_ms": 383.3463910000319,
+        "face_embed_ms": 0.0,
+        "face_match_ms": 0.0,
+        "face_embeddings": 0.0,
+        "face_reused": 1.0,
+        "face_pending": 0.0,
+        "gesture_worker": 1,
+        "gesture_torch_threads": 3,
+        "gestures_ms": 841.8699329999981,
+        "hands_ms": 448.4326650000412,
+        "pose_ms": 390.73923500006913,
+        "motion_ratio": 0.09604166666666666,
+        "pose_skipped": 0.0,
+        "ncnn_threads": 2.0,
+        "frame_interval_ms": 866.6289980000101,
+        "receive_wait_ms": 13.291150999975798,
+        "decode_ms": 5.465075999950386,
+        "pipeline_ms": 846.0095860000365,
+        "logs_ms": 0.06770899994990032,
+        "response_ready_ms": 851.6322670000136,
+        "process_rss_mb": 655.71875,
+        "temperature_c": 49.388
+      }
+    }
+  ]
+}

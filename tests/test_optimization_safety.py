@@ -593,6 +593,43 @@ class FaceOptimizationTests(unittest.TestCase):
         # Longe demais (320 px), pode ser outra pessoa: espera o proprio nome.
         self.assertEqual(frame(104.0, Vector([200, 0, 230, 30, .9]))[0]["name"], "VERIFICANDO")
 
+    def test_moved_pending_face_keeps_its_background_job(self):
+        service, _, frame, finish = self.async_frames()
+        here, moved = Vector([0, 0, 30, 30, .9]), Vector([40, 0, 70, 30, .9])
+        frame(100.0, here)
+        job = service._job["id"]
+        # O rosto anda antes do primeiro embedding terminar. O job continua
+        # ligado a ele, mas o resultado levado pela distancia nao gera evento.
+        result = frame(101.0, moved)[0]
+        self.assertEqual((result["name"], result["pending"]), ("VERIFICANDO", True))
+        self.assertEqual((service._job_count, service._identities[0]["job"]), (1, job))
+        finish()
+        result = frame(102.0, moved)[0]
+        self.assertEqual((result["name"], result["confidence"], result["pending"]),
+                         ("Aluno", .87, True))
+        # Confirma de novo na posicao atual; so entao deixa de ser pendente.
+        self.assertEqual(service._job_count, 2)
+        finish()
+        self.assertFalse(frame(103.0, moved)[0]["pending"])
+
+    def test_moved_known_face_keeps_its_recheck_job(self):
+        service, _, frame, finish = self.async_frames()
+        here, moved = Vector([0, 0, 30, 30, .9]), Vector([40, 0, 70, 30, .9])
+        frame(100.0, here)
+        finish()
+        frame(101.0, here)
+        # A identidade vence, inicia a rechecagem e se move antes do resultado.
+        frame(116.0, here)
+        job = service._job["id"]
+        result = frame(117.0, moved)[0]
+        self.assertEqual((result["name"], result["pending"]), ("Aluno", True))
+        self.assertEqual((service._job_count, service._identities[0]["job"]), (2, job))
+        finish()
+        self.assertTrue(frame(118.0, moved)[0]["pending"])
+        self.assertEqual(service._job_count, 3)
+        finish()
+        self.assertFalse(frame(119.0, moved)[0]["pending"])
+
     def test_background_result_from_before_a_reset_is_dropped(self):
         service, _, frame, finish = self.async_frames()
         face = Vector([0, 0, 30, 30, .9])

@@ -290,8 +290,8 @@ Resposta de sucesso:
 }
 ```
 
-Com `FACE_LEARN_FROM_STREAM`, ligado no perfil do Pi e desligado no padrao, o
-sistema tambem aprende com o stream. Um rosto reconhecido com folga, com
+Com `FACE_LEARN_FROM_STREAM`, ligado por padrao no sistema, o sistema tambem
+aprende com o stream. Um rosto reconhecido com folga, com
 semelhanca de 0,60 ou mais e perto do cadastro, vira mais uma referencia da
 pessoa, guardada na colecao
 `rostos_aprendidos`. Sao ate 5 por pessoa, uma a cada 10 min, e o MongoDB apaga
@@ -413,11 +413,12 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   (`FACE_LEARN_FROM_STREAM=1`) levou, no PC, de 233 a 277 os frames
   reconhecidos em 360 com uma foto de cadastro. No Pi, com o video de carga e
   o filtro de copia, levou de 26 a 28 de 30 nas tres rodadas, sem custo de
-  tempo, e passou a ligado no perfil do Pi em 03/10/2026. O video tem uma
-  pessoa so, a do cadastro: o ganho com a camera de verdade, em outras
-  condicoes, e com outras pessoas na cena nao foi medido.
-- **Rostos do stream no banco.** Com o aprendizado ligado, padrao no perfil do
-  Pi desde 03/10/2026, o banco guarda ate 5 embeddings por pessoa tirados do
+  tempo, e passou a ligado no perfil do Pi em 03/10/2026. Em 05/10/2026, o
+  responsavel o promoveu ao padrao dos dois perfis. O video tem uma pessoa so,
+  a do cadastro: o ganho com a camera de verdade, em outras condicoes, e com
+  outras pessoas na cena nao foi medido.
+- **Rostos do stream no banco.** Com o aprendizado ligado por padrao no sistema
+  desde 05/10/2026, o banco guarda ate 5 embeddings por pessoa tirados do
   stream, sem a pessoa fazer nada, por ate 30 dias. Dado biometrico e dado
   pessoal sensivel na LGPD: confira a base legal e o prazo;
   `FACE_LEARN_FROM_STREAM=0` desliga. Uma referencia aprendida por engano sai
@@ -457,12 +458,13 @@ esta nos dois planos. Limitacoes conhecidas desta versao:
   ficou fora de alcance por uns 9 min, com a API rodando o tempo todo. Foi a
   unica reconexao em 24 h; a economia de energia do Wi-Fi esta ligada. Cabo de
   rede evita isso.
-- **Fonte do Pi no limite.** Com a pose no `.pt`, a fonte atual segura o
-  pipeline (`vcgencmd get_throttled` em `0x0` por 10,5 h). Com a pose em NCNN
-  nas 4 threads do padrao, a tensao caiu durante o stream; com 2, padrao do
-  perfil, ficou em `0x0` nas tres rodadas de 04/10/2026. O NCNN foi para uso
-  sem teste longo, por decisao do responsavel: confira o `get_throttled` de
-  vez em quando, e qualquer valor diferente de `0x0` pede a volta ao `.pt`.
+- **Alimentacao conferida.** A subtensao vista nas primeiras rodadas do NCNN
+  foi isolada em 05/10/2026 como problema da tomada. Na nova tomada, o mesmo Pi
+  e a mesma fonte tiveram 86 de 86 leituras em `0x0` no controle sincrono e 253
+  de 253 no teste assincrono. A serie inicial de 4 threads preserva os dados
+  brutos, mas nao demonstra causa do NCNN, da fonte ou do Pi. Qualquer valor
+  diferente de `0x0` deve ser decodificado e investigado antes de atribuir
+  causa ou trocar o backend.
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
   globais. Duas conexoes ao mesmo tempo dividem a thread de inferencia, um
   frame de cada vez, e misturam os rastros.

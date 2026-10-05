@@ -53,24 +53,24 @@ class RpiProfileTests(unittest.TestCase):
         self.assertEqual(self.settings(EVENT_RETENTION_DAYS="0")["EVENT_RETENTION_DAYS"], 0)
         self.assertEqual(self.settings(EVENT_RETENTION_DAYS="-5")["EVENT_RETENTION_DAYS"], 0)
 
-    def test_learning_from_the_stream_is_on_only_on_the_pi(self):
-        # Medido so no rpi3, em 03/10/2026; o perfil default segue sem aprender.
+    def test_learning_from_the_stream_is_on_by_default(self):
+        # Promovido aos dois perfis por decisao do responsavel em 05/10/2026.
         names = ("FACE_LEARN_FROM_STREAM", "FACE_LEARNED_PER_PERSON",
                  "FACE_LEARN_INTERVAL_SECONDS", "FACE_LEARNED_RETENTION_DAYS")
-        for profile, learn in (("default", False), ("rpi3", True)):
+        for profile in ("default", "rpi3"):
             values = self.settings(CITYLAB_PROFILE=profile)
-            self.assertEqual([values[name] for name in names], [learn, 5, 600.0, 30])
-        self.assertIs(self.settings(CITYLAB_PROFILE="rpi3",
-                                    FACE_LEARN_FROM_STREAM="0")["FACE_LEARN_FROM_STREAM"], False)
+            self.assertEqual([values[name] for name in names], [True, 5, 600.0, 30])
+            self.assertIs(self.settings(CITYLAB_PROFILE=profile,
+                                        FACE_LEARN_FROM_STREAM="0")["FACE_LEARN_FROM_STREAM"],
+                          False)
         on = self.settings(FACE_LEARN_FROM_STREAM="1", FACE_LEARNED_PER_PERSON="0",
                            FACE_LEARN_INTERVAL_SECONDS="-1", FACE_LEARNED_RETENTION_DAYS="-1")
-        # No default, ligado pelo .env; no minimo uma referencia, sem intervalo ou
-        # prazo negativo.
+        # No minimo uma referencia, sem intervalo ou prazo negativo.
         self.assertEqual([on[name] for name in names], [True, 1, 0.0, 0])
 
     def test_ncnn_runs_on_two_threads_only_on_the_pi(self):
-        # Em 04/10/2026 o NCNN com o padrao, 4 threads no Pi, derrubou a tensao
-        # da fonte, e com 2 deixou o frame 40% mais rapido, sem queda.
+        # A serie valida de 04/10/2026 deixou o NCNN com 2 threads 40% mais
+        # rapido que o .pt. A subtensao da serie de 4 veio da tomada.
         self.assertEqual(self.settings()["NCNN_NUM_THREADS"], 0)
         self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3")["NCNN_NUM_THREADS"], 2)
         # Zero explicito volta ao padrao do ncnn, para comparar com o mesmo codigo.
@@ -273,6 +273,10 @@ class RpiProfileTests(unittest.TestCase):
         # Rosto esperando o reconhecimento em segundo plano nao e reconhecido.
         payload["rostos"].append({"nome": "VERIFICANDO", "confidence": 0.0})
         self.assertEqual((known_faces(payload), pending_faces(payload)), (1, 1))
+        # Nome carregado de outra posicao aparece na tela, mas segue pendente e
+        # nao pode entrar na contagem de identidade confirmada.
+        payload["rostos"].append({"nome": "temporario", "confidence": .6, "pending": True})
+        self.assertEqual((known_faces(payload), pending_faces(payload)), (1, 2))
 
     def test_benchmark_records_face_width_and_alert_names_without_identity(self):
         payload = {"rostos": [{"nome": "privado", "bbox": [100, 50, 160, 120]},

@@ -269,10 +269,19 @@ class FaceRecognitionService:
 
         for index, (face, bbox_processing, bbox_original) in enumerate(accepted):
             job, confirmed = None, True
+            previous_job, job_carried = None, False
             if self.async_recognition:
                 entry = paired.get(index, carried.get(index))
+                previous_job = entry.get("job") if entry is not None else None
+                if index in carried and previous_job is not None:
+                    # Mantem o resultado ligado ao mesmo rosto, mas ele ainda
+                    # precisa ser confirmado na posicao atual antes de evento.
+                    entry["job_carried"] = True
                 name, best_score, recognized_at, job, inherited, confirmed = self._recognize_async(
                     entry, index in carried, face, frame_context, now)
+                job_carried = bool(
+                    entry is not None and previous_job is not None and job == previous_job
+                    and entry.get("job_carried"))
                 if inherited:
                     reused[index] = entry
             elif index in reused:
@@ -302,7 +311,7 @@ class FaceRecognitionService:
             identities.append({"bbox": bbox_processing, "center": self._center(bbox_original),
                                "name": name, "score": best_score,
                                "recognized_at": recognized_at, "job": job,
-                               "confirmed": confirmed})
+                               "confirmed": confirmed, "job_carried": job_carried})
 
             results.append(
                 {
@@ -344,8 +353,10 @@ class FaceRecognitionService:
         quem acabou de aparecer. O nome que veio de outra posicao (carried) so
         vale para a tela, ate o reconhecimento neste rosto confirmar.
         """
-        if entry is not None and not carried and (
-                entry.get("job") is not None or self._reusable(entry, now)):
+        if entry is not None and entry.get("job") is not None:
+            return (entry["name"], entry["score"], entry["recognized_at"], entry["job"],
+                    False, entry.get("confirmed", True) and not carried)
+        if entry is not None and not carried and self._reusable(entry, now):
             return (entry["name"], entry["score"], entry["recognized_at"], entry.get("job"),
                     entry.get("job") is None, entry.get("confirmed", True))
         job = self._submit_recognition(face, frame_context, now) if self._job is None else None
@@ -365,7 +376,8 @@ class FaceRecognitionService:
 
         taken = {id(entry) for entry in paired.values()}
         free = [entry for entry in self._identities
-                if id(entry) not in taken and entry["name"] != self.PENDING_NAME
+                if id(entry) not in taken
+                and (entry["name"] != self.PENDING_NAME or entry.get("job") is not None)
                 and "center" in entry]
         pairs = sorted(
             (math.dist(self._center(bbox_original), entry["center"]), index, slot)
@@ -439,8 +451,11 @@ class FaceRecognitionService:
             if entry.get("job") == done["id"]:
                 entry["job"] = None
                 if "name" in done:
+                    # Resultado levado so pela distancia nao confirma a pessoa
+                    # na nova posicao; a proxima inferencia faz essa confirmacao.
                     entry.update(name=done["name"], score=done["score"],
-                                 recognized_at=done["recognized_at"], confirmed=True)
+                                 recognized_at=done["recognized_at"],
+                                 confirmed=not entry.get("job_carried", False))
 
     def close(self) -> None:
         """Encerra a thread do reconhecimento em segundo plano."""

@@ -86,9 +86,9 @@ FACE_ASYNC_RECOGNITION = _get_bool("FACE_ASYNC_RECOGNITION", False)
 # o banco apaga as com mais de FACE_LEARNED_RETENTION_DAYS dias. Ligado no rpi3:
 # no Pi, em 03/10/2026, com o video de carga, reconheceu 28 de 30 frames contra
 # 26 nas tres rodadas, sem custo de tempo (docs/PLANO_OTIMIZACAO.md). Guarda
-# rostos tirados do stream, dado biometrico na LGPD; no perfil default segue
-# desligado.
-FACE_LEARN_FROM_STREAM = _get_bool("FACE_LEARN_FROM_STREAM", _RPI3)
+# rostos tirados do stream, dado biometrico na LGPD. Promovido aos dois perfis
+# por decisao do responsavel em 05/10/2026; zero desliga.
+FACE_LEARN_FROM_STREAM = _get_bool("FACE_LEARN_FROM_STREAM", True)
 FACE_LEARNED_PER_PERSON = max(1, _get_int("FACE_LEARNED_PER_PERSON", 5))
 FACE_LEARN_INTERVAL_SECONDS = max(0.0, _get_float("FACE_LEARN_INTERVAL_SECONDS", 600.0))
 FACE_LEARNED_RETENTION_DAYS = max(0, _get_int("FACE_LEARNED_RETENTION_DAYS", 30))
@@ -108,10 +108,9 @@ NATIVE_NUM_THREADS = max(0, _get_int("NATIVE_NUM_THREADS", 1 if _RPI3 else 0))
 # Aceita arquivo .pt ou diretorio NCNN exportado; vazio usa o peso versionado.
 POSE_MODEL_PATH = os.getenv("POSE_MODEL_PATH", "").strip()
 # Threads do ncnn na pose, so com um modelo NCNN. Zero deixa o padrao do ncnn,
-# uma por nucleo fisico, 4 no Pi: com elas, em 04/10/2026, a tensao da fonte do
-# Pi caiu durante o stream. 2 no rpi3: no mesmo dia, o frame com uma pessoa
-# ficou 40% mais rapido que com o .pt, sem queda de tensao
-# (docs/PLANO_OTIMIZACAO.md).
+# uma por nucleo fisico, 4 no Pi. A serie inicial com 4 teve subtensao causada
+# pela tomada e nao compara threads. Com 2 no rpi3, a serie valida ficou 40%
+# mais rapida que o .pt, com throttled=0x0 (docs/PLANO_OTIMIZACAO.md).
 NCNN_NUM_THREADS = max(0, _get_int("NCNN_NUM_THREADS", 2 if _RPI3 else 0))
 # Lado da entrada da pose, multiplo de 32. Zero mantem o padrao do Ultralytics,
 # 640, que amplia o frame ja reduzido pela PROCESS_SCALE. 416 no rpi3: a pose

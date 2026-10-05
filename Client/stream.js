@@ -476,8 +476,11 @@ function drawPersons(pessoas) {
 
 function faceStyle(rosto) {
     const nome = rosto.nome || "NAO ALUNO";
-    if (nome === PENDING_FACE_NAME) {
-        return { cor: "#d97706", label: "verificando" };
+    if (nome === PENDING_FACE_NAME || rosto.pending === true) {
+        return {
+            cor: "#d97706",
+            label: nome === PENDING_FACE_NAME ? "verificando" : `${nome} (verificando)`,
+        };
     }
     const confidence = typeof rosto.confidence === "number" ? Math.round(rosto.confidence * 100) : null;
     return {

@@ -467,6 +467,10 @@ async def websocket_reconhecimento(websocket: WebSocket):
                         "nome": face.get("name", "NAO ALUNO"),
                         "bbox": bbox,
                         "confidence": face.get("confidence"),
+                        # Nome carregado de outra posicao ainda precisa ser
+                        # confirmado neste rosto. O cliente e o benchmark
+                        # distinguem esse estado sem receber dados privados.
+                        "pending": bool(face.get("pending")),
                     }
                 )
 

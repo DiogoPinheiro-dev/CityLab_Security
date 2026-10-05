@@ -374,7 +374,7 @@ pessoas, e intervalos de segundos limitam o beneficio.
 
 1. Baseline e candidato usam os mesmos pesos, cadastros, camera e condicoes,
    exceto a variavel explicitamente testada. Registrar versoes, shapes,
-   hashes, configuracao, energia/refrigeracao e cena. Profiler desligado no
+   hashes, configuracao, tomada/fonte/cabo, refrigeracao e cena. Profiler desligado no
    aceite; microbenchmark de uma rede nao substitui pipeline completa.
 2. Ganho de latencia confirmado somente acima de 5% nas tres rodadas do mesmo
    cenario. P95 com 30 frames e diagnostico. Nao somar tempos paralelos nem
@@ -414,6 +414,90 @@ um video fixo. A decomposicao do rosto entrou no codigo em `9334b9e`, mas, a
 pedido dele, o teste de threads foi medido antes do deploy dela. Resultados em
 "Estado verificado em 01/10/2026".
 
+## Estado verificado em 05/10/2026
+
+### Auditoria das conclusoes para uso no artigo
+
+O documento inteiro foi revisto contra os testes controlados que vieram depois
+de cada hipotese. Os numeros medidos continuam como registro historico, mas as
+interpretacoes abaixo foram corrigidas tambem no trecho original:
+
+- **A subtensao nao foi causada pelo NCNN, pela fonte nem pelo Raspberry.** Na
+  tomada usada nas primeiras rodadas, ela apareceu tambem com o reconhecimento
+  facial sincrono e a opcao assincrona desligada. Mudando somente a tomada, com
+  o mesmo Pi e a mesma fonte, o controle sincrono teve 86 de 86 leituras em
+  `throttled=0x0`. A media foi 1738,9 ms contra 1739,3 ms da base (-0,024%),
+  com pessoas, rostos, identidades, gestos, confiancas e alertas identicos
+  quadro a quadro. Resultado em
+  `resultados/pi3-ef3c0b5-video-controle-sync-outlet2/`.
+- A serie inicial do NCNN com 4 threads preserva o que foi observado, inclusive
+  os valores `0x50005`, mas fica **invalida para atribuir causa ao software ou
+  comparar consumo/desempenho**, porque a tomada era uma variavel nao
+  controlada. Nao ha evidencia de que quatro threads provocaram a subtensao.
+- A promocao do NCNN com 2 threads continua sustentada pelas tres rodadas
+  validas contra o `.pt`, com cerca de 40% de ganho e deteccao identica. O que
+  foi retirado e a explicacao de que duas threads resolveram alimentacao ou de
+  que eram mais rapidas por evitar queda de tensao.
+- A fase 1 nao tinha log de `vcgencmd`; portanto, 59 a 60 C nao permitiam
+  concluir "sem throttling". A medicao de 26/09 mostrou depois que o limite
+  termico de 60 C podia atuar nessa faixa. A linha de base fica inconclusiva
+  quanto a esse efeito, sem mudar seus tempos observados.
+- A falta de sobreposicao atribuida inicialmente ao paralelismo nao era
+  contencao: em 20/09 foi conferido que `PIPELINE_RUN_IN_PARALLEL=0` no `.env`
+  medido. Com o perfil completo, a sobreposicao funcionou. A causa da queda de
+  Wi-Fi de 02/10 tambem nao foi isolada; roteador, PC e economia de energia
+  ficaram apenas como hipoteses, nao como diagnostico.
+
+O reconhecimento facial em segundo plano (P5) continua em validacao. As
+rodadas interrompidas por subtensao ou por defeito encontrado durante a
+medicao sao diagnosticas, nao resultado de aceite, e nao devem ser usadas como
+conclusao no artigo antes das tres rodadas validas.
+
+### P5 - primeira rodada controlada do reconhecimento assincrono
+
+O commit `0ac0bf0`, ja no Pi, foi medido com o video de carga, aprendizado pelo
+stream desligado, 5 frames de aquecimento e 30 medidos. A rodada ficou em
+`resultados/pi3-0ac0bf0-video-async-tomada2/`.
+
+- A media caiu de 1738,865 ms no controle sincrono para 1212,636 ms
+  (-30,263%); mediana de 1222,592 ms e p95 de 1495,908 ms.
+- Pessoa, rosto e gesto apareceram em 30/30 frames. Os 11 alertas, suas regras,
+  larguras do rosto e confiancas de pessoa e gesto ficaram identicos ao
+  controle quadro a quadro.
+- O criterio de identidade falhou: o controle reconheceu o rosto cadastrado em
+  26/30 frames, mas o candidato assincrono, em apenas 2/30. Houve 27 frames com
+  o rosto pendente e 1 como desconhecido. Os 12 embeddings concluidos nao
+  bastaram para confirmar o rosto em movimento.
+- O log do Pi teve 253 de 253 leituras em `throttled=0x0`. Na resposta da API,
+  a temperatura ficou entre 46,7 e 52,1 C e o RSS chegou a 672 MB. Assim, esta
+  perda de reconhecimento nao pode ser atribuida a subtensao ou limite termico.
+- O coletor nao grava nomes. Por isso, a rodada mede quantos frames tiveram um
+  nome cadastrado, mas nao demonstra se os dois nomes publicados eram da pessoa
+  correta.
+
+**Decisao:** candidato reprovado por perda de recall facial, apesar do ganho de
+tempo. As rodadas 2 e 3 nao foram executadas: repetir desempenho nao reverte a
+falha funcional ja observada. `FACE_ASYNC_RECOGNITION` continua experimental e
+desligado nos perfis. Esta rodada e evidencia negativa, nao uma otimizacao
+aprovada para o artigo ou para uso operacional.
+
+### Aprendizado facial promovido ao padrao do sistema
+
+Em 05/10/2026, o responsavel decidiu ligar `FACE_LEARN_FROM_STREAM` por padrao
+nos dois perfis. A decisao e separada do candidato assincrono reprovado: o
+aprendizado continua funcionando com o reconhecimento sincrono.
+
+A promocao usa a evidencia ja medida em 03/10/2026: no Pi, o video de carga
+passou de 26 para 28 frames reconhecidos em 30 nas tres rodadas, sem custo de
+tempo medido. Nao houve nova rodada de modelo para mudar o default. Permanecem
+os limites de 5 referencias por pessoa, intervalo de 600 s e retencao de 30
+dias. `FACE_LEARN_FROM_STREAM=0` continua desligando explicitamente.
+
+O banco passa a guardar automaticamente embeddings tirados do stream, dado
+biometrico na LGPD. Para comparar outra mudanca, desligar o aprendizado ou
+apagar as referencias antes de cada serie; para uso real, acompanhar nomes
+incorretos e administrar as referencias com `tools/limpar_aprendidos.py`.
+
 ## Estado verificado em 04/10/2026
 
 ### Cadastros - ferramenta no Pi para substituir e apagar
@@ -442,7 +526,7 @@ tem SSH no Pi apaga.
 - No mesmo deploy, o `--show-config` mostrou o aprendizado ligado pelo perfil,
   com 600 s, 5 referencias e 30 dias, sem nenhuma linha de teste no `.env`.
 
-### NCNN na pose no Pi - 22% mais rapido, mas a fonte nao aguenta
+### NCNN na pose no Pi - serie inicial invalidada pela tomada
 
 Instalacao: o `pip install ncnn` sem `--no-deps` trocou o numpy 1.26.4 pelo
 2.4.6 e pos o `opencv-python` 5.0 por cima do OpenCV 4.11 do
@@ -478,28 +562,27 @@ inference". API reiniciada antes de cada rodada. Resultados em
 - **O rosto virou o caminho critico**, em 29 a 30 de 30 frames. Os frames com
   o nome reaproveitado cairam de 3256 para uns 1950 ms; os que reconhecem o
   rosto de novo, de 4288 para 3901 a 4040 ms. O p95 subiu de 10% a 11%.
-- **A tensao caiu durante as rodadas do NCNN.** No log de `vcgencmd`, a base
-  ficou em `throttled=0x0` e 1,4 GHz. Nas rodadas do NCNN, 14 de 23, 9 de 22 e
-  9 de 22 leituras deram `0x50005`: tensao baixa naquele instante, com o
+- **A subtensao foi observada durante as rodadas do NCNN.** No log de
+  `vcgencmd`, a base ficou em `throttled=0x0` e 1,4 GHz. Nas rodadas do NCNN,
+  14 de 23, 9 de 22 e 9 de 22 leituras deram `0x50005`: tensao baixa naquele instante, com o
   processador em 600 MHz. Nunca tinha aparecido, nem nas 10,5 h da noite de
-  01/10. O NCNN usa os 4 nucleos com mais carga que o PyTorch e puxa mais
-  corrente que a fonte do Pi segura em 5 V. Os numeros do NCNN saem com essas
-  quedas; a lentidao do rosto vem, em boa parte, delas.
-- Teste com um carregador de celular de 90 W e cabo para micro-USB: a tensao
-  ja caia no boot, `0x50005` sem carga. Voltou a fonte original, com `0x0` no
-  boot e com a API subindo.
+  01/10. Em 05/10, o mesmo estado apareceu nessa tomada com o caminho facial
+  sincrono, sem a opcao assincrona. Ao mudar somente a tomada, o mesmo Pi e a
+  mesma fonte ficaram em `0x0`. Portanto, esta serie registra a ocorrencia,
+  mas nao demonstra que o NCNN, quatro threads, a fonte ou o Pi a causaram.
 - `process_rss_mb` de 676 a 736 MB, contra 637 a 638 MB na base de hoje e 654 a
   729 MB nas series de 03/10; temperatura ate 52,6 C, contra 56,9 C na base,
   mas com o processador parte do tempo em 600 MHz.
-- Decisao: o responsavel tinha escolhido manter o NCNN no `.env` do Pi, antes
-  de ver a queda de tensao. Com ela, voltou ao `.pt`, porque a tensao baixa
-  repetida arrisca o cartao SD e a estabilidade do 24/7. O pacote `ncnn` e a
-  pasta do modelo ficam no Pi, sem uso.
+- Decisao tomada naquele momento: voltar temporariamente ao `.pt` por cautela.
+  A investigacao de 05/10 descartou a hipotese de problema da fonte, do Pi ou
+  do backend. Os tempos desta tabela continuam como dados brutos, mas a serie
+  nao vale como comparacao controlada de 4 threads.
 
-### NCNN com menos threads - configuracao para puxar menos corrente
+### NCNN com menos threads - controle de concorrencia da CPU
 
-O responsavel escolheu testar o NCNN com 2 threads na fonte atual, em vez de
-comprar a fonte oficial primeiro.
+O teste foi iniciado quando a hipotese de carga eletrica ainda estava aberta.
+Depois da correcao de 05/10, o controle permanece util para medir concorrencia
+entre NCNN e reconhecimento facial, nao como solucao de alimentacao.
 
 - `NCNN_NUM_THREADS`, zero nos dois perfis: o padrao do ncnn, uma thread por
   nucleo fisico. Aparece no `--show-config`, junto com o `POSE_MODEL_PATH`, e a
@@ -513,12 +596,12 @@ comprar a fonte oficial primeiro.
 - Criterio para o Pi, alem do ganho e da deteccao igual: `throttled=0x0` em
   todas as leituras das rodadas. Medido na secao seguinte.
 
-### NCNN com 2 threads no Pi - 40% mais rapido, sem queda de tensao
+### NCNN com 2 threads no Pi - 40% mais rapido em serie valida
 
 Video de carga no codigo `50c0ddc`, conferido por hash (`App/GestureRecon/service.py`
 e `App/settings.py`), com `FACE_LEARN_FROM_STREAM=0`, `POSE_MODEL_PATH` e
-`NCNN_NUM_THREADS=2` no `.env`, conferidos com `--show-config`. Fonte original,
-com o Pi reiniciado as 17:18 e `throttled=0x0` antes da serie. API reiniciada
+`NCNN_NUM_THREADS=2` no `.env`, conferidos com `--show-config`. Pi reiniciado
+as 17:18 e `throttled=0x0` antes da serie. API reiniciada
 antes de cada rodada. Resultados em `resultados/pi3-50c0ddc-video-ncnn2/`.
 
 | Rodada | Media | Contra o `.pt` | p95 | Pose | Rosto |
@@ -528,24 +611,26 @@ antes de cada rodada. Resultados em `resultados/pi3-50c0ddc-video-ncnn2/`.
 | NCNN 2 threads r2 | 2237,0 ms | -40,1% | 3255,7 ms | 485 ms | 1475 ms |
 | NCNN 2 threads r3 | 2258,0 ms | -39,6% | 3274,0 ms | 476 ms | 1448 ms |
 
-- **Sem queda de tensao**: `throttled=0x0` nas 257 leituras do log de
+- **Condicao eletrica valida nesta serie**: `throttled=0x0` nas 257 leituras do log de
   `vcgencmd`, das 17:46 as 18:07 pelo relogio do Pi, e no `get_throttled`
   depois de cada rodada. Nenhuma leitura em 1,2 GHz; maxima de 55,3 C.
 - **Deteccao identica**: nas tres rodadas, os mesmos alertas frame a frame que
   o `.pt`, a mesma confianca da caixa da pessoa, a mesma semelhanca do rosto e
   o reconhecimento nos mesmos 26 frames. A metrica `ncnn_threads` deu 2 em
   todos os frames.
-- **Mais rapido que com 4 threads**: o NCNN e o rosto somam 4 threads, uma por
-  nucleo, e, sem as quedas para 600 MHz, o rosto voltou perto do tempo do
-  `.pt`. Os frames com o nome reaproveitado cairam de 3256 para uns 1400 ms, e
-  os que reconhecem o rosto de novo, de 4288 para uns 3200 ms: de 0,27 para
-  0,44 a 0,45 frames por segundo.
+- **Comparacao valida contra o `.pt`**: o NCNN e o rosto somam 4 threads, uma
+  por nucleo. Os frames com o nome reaproveitado cairam de 3256 para uns 1400
+  ms, e os que reconhecem o rosto de novo, de 4288 para uns 3200 ms: de 0,27
+  para 0,44 a 0,45 frames por segundo. A serie antiga de 4 threads foi
+  invalidada pela tomada; por isso ela nao prova vantagem causal de 2 contra 4.
 - `process_rss_mb` de 676 a 695 MB, dentro da faixa das series de 03/10.
 - Decisao do responsavel: promover. `NCNN_NUM_THREADS` passa a 2 no perfil
   rpi3; zero no default, e zero explicito volta ao padrao do ncnn. A pose em
   NCNN segue ligada pelo `POSE_MODEL_PATH` no `.env` do Pi, porque a pasta
   exportada fica fora do Git. Sem teste longo antes do uso, tambem por decisao
-  dele: fica conferir o `get_throttled` de vez em quando.
+  dele: fica conferir o `get_throttled` para validar as condicoes da medicao,
+  sem atribuir um valor nao zero ao backend antes de isolar tomada, cabo,
+  fonte, temperatura e carga.
 
 ### Pedido do responsavel no fim de 04/10
 
@@ -738,8 +823,9 @@ reconhecimento depois do frame em que a pessoa estava.
    do perfil.
 2. Acompanhar no uso o aprendizado, com `tools/cadastros.py`: quantas
    referencias cada pessoa junta e se aparece alguem reconhecido com o nome de
-   outra. E, com o NCNN ligado sem teste longo, o `vcgencmd get_throttled`:
-   qualquer valor diferente de `0x0` pede a volta ao `.pt`.
+   outra. E, com o NCNN ligado sem teste longo, acompanhar o
+   `vcgencmd get_throttled`: valor diferente de `0x0` invalida a condicao ate
+   decodificar os bits e isolar a causa; nao pede volta automatica ao `.pt`.
 3. Da ordem combinada no fim de 04/10 seguem os gestos sem esperar o rosto (P5,
    segunda parte) e as regras de gesto reabertas. Com o frame em 1,7 s, o rosto
    ainda e o caminho critico nos frames que reconhecem de novo (16 de 30), e o
@@ -1163,7 +1249,7 @@ crescimento para conter. O risco que sobra para ficar ligado sem parar e o
 processo cair, por falta de memoria com mais pessoas, falha ou queda da sessao
 SSH em que a API e iniciada, e ninguem subir de novo.
 
-### API como servico - volta sozinha em menos de 2 min
+### API como servico - reinicia sozinha; modelos levam cerca de 2 min
 
 O responsavel pediu o servico em seguida. `3caba9b` traz
 `tools/citylab-api.service` e `tools/instalar_servico_rpi.sh`: servico do
@@ -1187,15 +1273,15 @@ respondeu um minuto depois.
 Logo depois do teste acima, as 11:22:21 pelo relogio do Pi, o Wi-Fi se
 reassociou sozinho ao ponto de acesso da mesma rede, agora na faixa de 5 GHz, e
 renovou o mesmo IP em 3 s. Para o Pi a rede voltou ali; o PC, porem, ficou sem
-alcancar o Pi, nem por ping, SSH ou API, por cerca de 9 min. O mais provavel e o
-roteador, ou o PC, ter continuado mandando pacotes pelo caminho antigo ate a
-tabela de enderecos expirar. O Pi nao reiniciou, a API seguiu rodando com o
-mesmo processo e `throttled` ficou em `0x0`.
+alcancar o Pi, nem por ping, SSH ou API, por cerca de 9 min. A causa nao foi
+isolada. Roteador ou PC mantendo o caminho antigo ate a tabela de enderecos
+expirar foi uma hipotese, nao uma conclusao. O Pi nao reiniciou, a API seguiu
+rodando com o mesmo processo e `throttled` ficou em `0x0`.
 
 - Foi a unica reassociacao no registro desde 01/10 as 11:20, incluindo a noite
   de teste, sem nenhuma pausa no stream.
-- A economia de energia do Wi-Fi esta ligada (`Power save: on`), causa comum de
-  reconexoes no Raspberry Pi.
+- A economia de energia do Wi-Fi estava ligada (`Power save: on`), mas nao foi
+  feito A/B para atribuir a reconexao a ela.
 - Decisao do responsavel: deixar a rede como esta, como risco conhecido. As
   opcoes eram cabo de rede, a mais firme, ou desligar a economia de energia.
 
@@ -1543,7 +1629,7 @@ threads e ficou em `descartadas/`.
   que reconhecem (cerca de 3,2 s). A mediana piora, 3606,8 ms.
 - Fica em 3 threads.
 
-### Spinning do ONNX Runtime desligado - sem efeito
+### Spinning do ONNX Runtime desligado - sem ganho na primeira rodada
 
 Passo 4 de P1: `ONNX_ALLOW_SPINNING=0` faz as threads do rosto dormirem entre
 operadores em vez de girar a espera (`session.intra_op.allow_spinning`). Entrou
@@ -1551,8 +1637,11 @@ desligado por padrao em `3ab0547`, junto com a promocao do reuso. Medido com
 esse commit no Pi, conferido por hash, ONNX Runtime 1.23.2. Base: a serie com
 reuso acima. Resultado em `resultados/pi3-3ab0547-video-spin0/`.
 
-- Media de 3733,8 ms contra 3709,3 a 3739,0 ms: igual. Os tempos de cada
-  etapa tambem. A serie parou na r1, e a opcao fica no padrao da biblioteca.
+- Media de 3733,8 ms contra 3709,3 a 3739,0 ms: igual na primeira rodada. Os
+  tempos de cada etapa tambem. A serie parou na r1 porque ela ja nao atendia o
+  criterio de ganho nas tres rodadas; isso rejeita a promocao, mas nao prova
+  efeito exatamente zero em qualquer carga. A opcao fica no padrao da
+  biblioteca.
 
 ### Decisoes
 
@@ -1614,7 +1703,8 @@ O responsavel encerrou o trabalho de desempenho em 27/09/2026, por considerar
 que o Pi 3 B+ chegou ao limite com este pipeline. O plano fica como registro;
 um item novo o reabre, combinado com o responsavel pelas regras acima.
 
-Resultado final, mediana de `rtt_ms` com webcam e pipeline completo:
+Resultado no encerramento de 27/09, mediana de `rtt_ms` com webcam e pipeline
+completo (o plano foi reaberto depois):
 
 | Cenario | Linha de base (`b05058f`) | Final | Ganho |
 |---|---|---|---|
@@ -2567,7 +2657,9 @@ pipeline completo com rosto e gesto, API reiniciada antes de cada rodada.
 
 Amplitude entre as tres rodadas de cada cenario: 2,1% na cena vazia, 1,7% com
 uma pessoa e 2,7% com duas, sempre na mediana de `rtt_ms`. A temperatura ficou
-entre 59 e 60 C em todas as rodadas, sem indicio de throttling.
+entre 59 e 60 C em todas as rodadas. Nao havia log de `vcgencmd`, portanto nao
+e possivel afirmar se houve throttling. Em 26/09, o limite termico de 60 C foi
+medido atuando nessa faixa; a linha de base pode ter incluido esse efeito.
 
 O que a fase 1 estabeleceu:
 
@@ -2752,18 +2844,15 @@ que ha alguem na cena. O que cresce com a cena e o reconhecimento facial
 fixo das duas passadas YOLO vale mais do que qualquer ajuste proporcional a
 quantidade de pessoas.
 
-Terceiro achado, sobre o paralelismo: `pipeline_ms` e igual a soma de
+Observacao inicial sobre o paralelismo: `pipeline_ms` e igual a soma de
 `persons_ms`, `faces_ms` e `gestures_ms` com diferenca de 0,2% nos tres
 cenarios (5377 contra 5387 na cena vazia, 13332 contra 13340 com uma pessoa,
-16475 contra 16499 com duas). Rosto e gesto **nao se sobrepoem na pratica**,
-apesar de `PIPELINE_RUN_IN_PARALLEL` vir ligado por padrao e de
-`_process_parallel` submeter os dois ao ThreadPoolExecutor. Se houvesse
-sobreposicao real, o frame de duas pessoas cairia de 16499 ms para cerca de
-11137 ms, 32,5% menos. Duas explicacoes possiveis, ainda nao separadas: a flag
-pode estar desligada no ambiente do Pi, ou os quatro nucleos ja estao saturados
-pelas threads internas de cada modelo, de modo que rodar dois modelos juntos so
-divide o mesmo processador. O `.env` local nao define a flag; o do Pi nao foi
-lido nesta sessao.
+16475 contra 16499 com duas). Na epoca isso mostrava execucao serial, mas nao
+demonstrava contencao. A verificacao de 20/09 encontrou
+`PIPELINE_RUN_IN_PARALLEL=0` no `.env` medido; com o perfil rpi3 completo, a
+sobreposicao passou a ocorrer, com residuo de 3,2 ms. Portanto, esta linha de
+base nao mede o paralelismo ligado e nao pode ser usada para dizer que ele nao
+funciona no Pi.
 
 Pontos verificados em `App/FaceRecon/service.py` e `App/GestureRecon/service.py`:
 
@@ -2771,9 +2860,8 @@ Pontos verificados em `App/FaceRecon/service.py` e `App/GestureRecon/service.py`
 - `det_size` fixo em `(320, 320)`.
 - Chamadas YOLO sem `imgsz` explicito.
 - Sem configuracao de threads do ONNX Runtime.
-- `PIPELINE_RUN_IN_PARALLEL` ligado por padrao com 2 workers, mas medido sem
-  nenhuma sobreposicao: confirmar a flag no Pi e testar limitar as threads do
-  ONNX Runtime antes de concluir que paralelismo nao serve nesta placa.
+- `PIPELINE_RUN_IN_PARALLEL` ligado por padrao com 2 workers, mas desligado no
+  ambiente desta linha de base. A medicao posterior confirmou sobreposicao.
 - Dois modelos separados (`yolov8n.pt` para pessoas e `yolov8n-pose.pt` para
   pose): avaliar reaproveitar a deteccao de pose.
 - Filtro de rostos ruins (`FACE_MIN_WIDTH`, `FACE_MIN_HEIGHT`,

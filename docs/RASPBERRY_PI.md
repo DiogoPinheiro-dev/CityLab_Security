@@ -28,10 +28,11 @@ pessoas e pose (`PIPELINE_SHARED_PERSON_POSE`), o gate de movimento antes da
 pose (`GESTURE_MOTION_GATE`), a pose em 416 px (`POSE_IMGSZ`), em vez dos 640
 do Ultralytics, o reuso por 15 s do nome de um rosto que continua no mesmo
 lugar (`FACE_REUSE_SECONDS`), o embedding do rosto no frame original
-(`FACE_EMBED_FULL_FRAME`), o aprendizado de referencias pelo stream
-(`FACE_LEARN_FROM_STREAM`) e 2 threads do ncnn quando a pose e NCNN
+(`FACE_EMBED_FULL_FRAME`) e 2 threads do ncnn quando a pose e NCNN
 (`NCNN_NUM_THREADS`). A pose em NCNN em si depende da pasta exportada, fora do
 Git, e liga pelo `POSE_MODEL_PATH` no `.env`; ver "Backend NCNN opcional".
+O aprendizado de referencias pelo stream (`FACE_LEARN_FROM_STREAM`) fica
+ligado por padrao nos dois perfis desde 05/10/2026.
 Nao desativa reconhecimento nem reduz a qualidade da imagem. Qualquer valor
 explicito dessas variaveis no ambiente tem precedencia; confira tambem
 `Server/.env`.
@@ -112,7 +113,9 @@ python tools/run_rpi.py --host 0.0.0.0 --port 8000
 
 Para a API ficar no ar sem parar, instale-a como servico do usuario `citylab`:
 ela sobe quando o Pi liga, volta sozinha 10 s depois de cair, por erro ou por
-falta de memoria, e nao depende de sessao SSH. Uma vez so, na raiz do projeto:
+falta de memoria, e nao depende de sessao SSH. Os 10 s sao ate reiniciar o
+processo; carregar os modelos e responder pela API levou cerca de 2 min nos
+testes. Uma vez so, na raiz do projeto:
 
 ```bash
 bash tools/instalar_servico_rpi.sh CAMINHO/certificado.pem CAMINHO/chave.pem
@@ -193,6 +196,10 @@ while true; do echo "$(date +%T) $(vcgencmd get_throttled) $(vcgencmd measure_cl
 Em `get_throttled`, o bit `0x8` indica o limite ativo naquele instante e o bit
 `0x80000` indica que ele ja foi atingido desde o boot. Terminada a rodada, o
 clock volta ao repouso de 600 MHz, entao uma leitura isolada nao mostra a queda.
+Para alimentacao, `0x1` indica subtensao atual e `0x10000`, subtensao desde o
+boot; `0x4` e `0x40000` registram throttling atual e historico. Um valor nao
+zero precisa ser decodificado: ele nao identifica sozinho se a causa e
+temperatura, tomada, cabo, fonte ou carga do software.
 
 Um dissipador com ventoinha mantem o chip abaixo do limite. A alternativa e
 subir `temp_soft_limit` em `/boot/firmware/config.txt`, ate 70 no 3 B+, com a
@@ -311,8 +318,17 @@ por vez. Ate o nome sair, o rosto aparece como "verificando", sem evento; o
 rosto que andou ate 120 px herda o nome mais proximo so para a tela, ate o
 reconhecimento na posicao nova confirmar. Vale so com `FACE_PREFILTER=1`.
 
-`FACE_LEARN_FROM_STREAM`, ligado no perfil rpi3 desde 03/10/2026 e desligado no
-default, faz o sistema aprender com o stream: um rosto reconhecido de um
+A primeira rodada controlada no Pi, em 05/10/2026 (`0ac0bf0`), reduziu a media
+do frame em 30,263%, mas reconheceu o rosto cadastrado em apenas 2 de 30 frames,
+contra 26 de 30 no controle sincrono; 27 ficaram pendentes. O log teve 253 de
+253 leituras em `throttled=0x0`, portanto a perda nao veio da alimentacao nem de
+limite termico. O candidato foi reprovado e deve continuar desligado. Ver
+`resultados/pi3-0ac0bf0-video-async-tomada2/` e
+`docs/PLANO_OTIMIZACAO.md`.
+
+`FACE_LEARN_FROM_STREAM`, ligado no perfil rpi3 desde 03/10/2026 e promovido
+ao padrao dos dois perfis em 05/10/2026, faz o sistema aprender com o stream:
+um rosto reconhecido de um
 embedding novo, com semelhanca de 0,60 ou mais e acima do limite contra o
 proprio cadastro, vira referencia da pessoa. As referencias ficam na colecao `rostos_aprendidos` e na memoria da
 API, ate `FACE_LEARNED_PER_PERSON` por pessoa (5), uma a cada
@@ -429,20 +445,25 @@ NCNN usa por padrao uma thread por nucleo fisico, 4 no Pi, sem o limite do
 `TORCH_NUM_THREADS`, e disputa a CPU com o rosto. Medir no Pi antes de assumir
 ganho, sem outra mudanca na mesma rodada.
 
-Medido no Pi em 04/10/2026, com o video de carga e a fonte do Pi:
+Medido no Pi em 04/10/2026, com o video de carga:
 
-- Com as 4 threads do padrao do ncnn, o frame ficou 22% mais rapido, com os
-  mesmos alertas frame a frame, mas a tensao caiu durante as rodadas:
-  `vcgencmd get_throttled` deu `0x50005`, e o processador desceu para 600 MHz,
-  o que nunca aconteceu com o `.pt`. Tensao baixa repetida arrisca o cartao SD.
+- A serie inicial com as 4 threads do padrao do ncnn observou frame 22% mais
+  rapido e os mesmos alertas, mas teve `0x50005`. Em 05/10/2026 foi isolado que
+  a causa era a tomada usada: a subtensao apareceu tambem com o caminho facial
+  sincrono e, mudando somente a tomada, o mesmo Pi e a mesma fonte ficaram em
+  `0x0`. A serie de 4 threads fica como registro bruto, nao como comparacao
+  controlada nem evidencia contra o NCNN.
 - Com 2 threads, o frame ficou 40% mais rapido que com o `.pt`, com a mesma
   deteccao frame a frame e `throttled=0x0` em todas as leituras. O NCNN e o
-  rosto somam 4 threads, uma por nucleo.
+  rosto somam 4 threads, uma por nucleo. Essa comparacao contra o `.pt` e
+  valida; a serie eletricamente invalida de 4 threads nao permite concluir que
+  duas threads corrigiram alimentacao.
 
 `NCNN_NUM_THREADS` e 2 no perfil rpi3 desde entao; zero volta ao padrao do
 ncnn, uma thread por nucleo fisico. As convolucoes do ncnn fixam as threads ao
 carregar a rede, entao o servico a recarrega uma vez, no primeiro frame, ja
 com o valor. A metrica `ncnn_threads` mostra o valor usado em cada frame. Com o
 NCNN ligado, confira `vcgencmd get_throttled` de vez em quando: qualquer valor
-diferente de `0x0` e tensao baixa desde o ultimo boot, e o caminho e voltar ao
-`.pt`, tirando o `POSE_MODEL_PATH` do `.env`.
+diferente de `0x0` pede decodificar os bits e repetir a medicao depois de
+isolar temperatura, tomada, cabo e fonte. Nao volte ao `.pt` nem atribua a
+causa ao NCNN sem um A/B na mesma condicao eletrica.

@@ -9,6 +9,12 @@ pacote `ncnn==1.0.20260526` no ambiente da API. Na r1, o log da API registrou
 "Loading ... yolov8n-pose_ncnn_model for NCNN inference". Resultados e leitura
 em `docs/PLANO_OTIMIZACAO.md`, "Estado verificado em 04/10/2026".
 
+Correcao em 05/10/2026: testes controlados mostraram que a subtensao vinha da
+tomada usada, nao do NCNN, da fonte ou do Raspberry. Ela apareceu com o caminho
+facial sincrono e desapareceu ao mudar somente a tomada, mantendo o mesmo Pi e
+a mesma fonte. Esta pasta preserva os dados brutos, mas a serie nao deve ser
+usada para atribuir causa ao backend nem para comparar 4 contra 2 threads.
+
 - `uma-pessoa-r1.json` a `r3.json`: mesmo video e protocolo da base, API
   reiniciada antes de cada rodada. Media de 2876,4, 2923,1 e 2872,1 ms, contra
   3737,6 ms da base, com os mesmos alertas frame a frame.

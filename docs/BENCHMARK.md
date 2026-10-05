@@ -55,8 +55,8 @@ uname -a > benchmark-host.txt
 ```
 
 Registre tambem resolucao, escala, workers, paralelismo, limites de threads,
-servicos ativos, hashes dos pesos, quantidade de cadastros, alimentacao e
-refrigeracao. Nao inclua credenciais do banco nos artefatos. `--run-label`
+servicos ativos, hashes dos pesos, quantidade de cadastros, alimentacao
+(tomada, fonte e cabo) e refrigeracao. Nao inclua credenciais do banco nos artefatos. `--run-label`
 identifica esse registro; nao detecta automaticamente o ambiente remoto.
 
 ## Execucao com webcam
@@ -78,8 +78,10 @@ Repita cada cenario tres vezes, se as cenas estiverem disponiveis. Use o mesmo
 aquecimento, estado inicial do banco, enquadramento e temperatura comparavel.
 Registre a contagem aproximada de pessoas e as condicoes de luz de cada rodada.
 No Raspberry Pi, deixe o log de `vcgencmd` de `docs/RASPBERRY_PI.md` rodando
-durante cada rodada: o limite de temperatura baixa o clock no meio da medicao e
-muda os tempos sem nenhuma mudanca de codigo.
+durante cada rodada: limite de temperatura ou subtensao podem baixar o clock no
+meio da medicao e invalidar a comparacao sem nenhuma mudanca de codigo. Um bit
+de subtensao nao identifica sozinho a causa; isole a condicao eletrica antes de
+atribui-la ao software.
 Com 30 frames, p95 e especialmente sensivel a variacao da cena: leia as amostras
 individuais e evite atribuir ganhos pequenos a mudancas de codigo.
 

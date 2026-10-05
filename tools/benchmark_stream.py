@@ -41,14 +41,16 @@ def detection_confidences(payload):
 
 
 def known_faces(payload):
-    """Rostos reconhecidos como cadastrados: so a contagem, nunca o nome."""
+    """Rostos cadastrados e confirmados: so a contagem, nunca o nome."""
     return sum(1 for face in payload.get("rostos") or []
-               if face.get("nome") not in (None, "NAO ALUNO", PENDING_FACE_NAME))
+               if not face.get("pending")
+               and face.get("nome") not in (None, "NAO ALUNO", PENDING_FACE_NAME))
 
 
 def pending_faces(payload):
-    """Rostos esperando o reconhecimento em segundo plano (FACE_ASYNC_RECOGNITION)."""
-    return sum(1 for face in payload.get("rostos") or [] if face.get("nome") == PENDING_FACE_NAME)
+    """Rostos sem identidade confirmada, com ou sem nome temporario na tela."""
+    return sum(1 for face in payload.get("rostos") or []
+               if face.get("pending") or face.get("nome") == PENDING_FACE_NAME)
 
 
 def face_widths(payload):
