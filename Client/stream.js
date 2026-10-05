@@ -18,6 +18,9 @@ const RECONNECT_MAX_DELAY = 10000;
 // Um frame sem resposta por este tempo indica servidor travado. No Pi, um frame
 // leva de 6 a 10 s.
 const FRAME_TIMEOUT_MS = 30000;
+// Rosto esperando o reconhecimento em segundo plano: o mesmo texto de
+// FaceRecognitionService.PENDING_NAME, no servidor.
+const PENDING_FACE_NAME = "VERIFICANDO";
 
 const streamConfig = {
     width: 640,
@@ -471,6 +474,18 @@ function drawPersons(pessoas) {
     }
 }
 
+function faceStyle(rosto) {
+    const nome = rosto.nome || "NAO ALUNO";
+    if (nome === PENDING_FACE_NAME) {
+        return { cor: "#d97706", label: "verificando" };
+    }
+    const confidence = typeof rosto.confidence === "number" ? Math.round(rosto.confidence * 100) : null;
+    return {
+        cor: nome === "NAO ALUNO" ? "#dc2626" : "#16a34a",
+        label: confidence === null ? nome : `${nome} (${confidence}%)`,
+    };
+}
+
 function drawFaces(rostos) {
     for (const rosto of rostos) {
         if (!rosto || !Array.isArray(rosto.bbox) || rosto.bbox.length !== 4) {
@@ -478,10 +493,7 @@ function drawFaces(rostos) {
         }
 
         const [x1, y1, x2, y2] = rosto.bbox;
-        const nome = rosto.nome || "NAO ALUNO";
-        const confidence = typeof rosto.confidence === "number" ? Math.round(rosto.confidence * 100) : null;
-        const cor = nome === "NAO ALUNO" ? "#dc2626" : "#16a34a";
-        const label = confidence === null ? nome : `${nome} (${confidence}%)`;
+        const { cor, label } = faceStyle(rosto);
 
         ctx.strokeStyle = cor;
         ctx.lineWidth = 3;

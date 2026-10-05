@@ -96,11 +96,12 @@ rosto no frame original, e nao na imagem reduzida, e aprende referencias da
 pessoa com o stream, guardadas no banco. Um valor explicito no ambiente sempre
 prevalece sobre o perfil.
 
-No Pi, a pose roda em NCNN desde 04/10/2026, pelo `POSE_MODEL_PATH` no `.env`,
-com a pasta exportada copiada a mao (ver
-[docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md)). Com o ncnn em 2 threads, padrao
-do perfil, o frame com uma pessoa no video de carga ficou 40% mais rapido que
-com o `.pt`, com a mesma deteccao.
+No Pi, desde 04/10/2026, a pose roda em NCNN e o rosto usa um detector mais
+leve, pelo `POSE_MODEL_PATH` e pelo `FACE_DETECTOR_PATH` no `.env`, com os
+arquivos copiados a mao (ver [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md)). Com
+o ncnn em 2 threads, padrao do perfil, o frame com uma pessoa no video de carga
+ficou 40% mais rapido que com o `.pt`; com o detector `det_500m`, mais 22%. De
+3,74 s em 03/10 para 1,73 s, com a mesma deteccao de pessoa, rosto e gesto.
 
 Resultado medido no Pi com webcam, tres rodadas por cenario, mediana do tempo
 por frame:
@@ -121,11 +122,10 @@ frames, e a media, que conta os frames que reconhecem o rosto de novo, foi de
 antes das 2 threads do ONNX Runtime e do reuso da identidade do rosto; por isso
 aparece mais lenta que duas. Num video fixo de uma pessoa, as 2 threads
 deixaram o frame 20% mais rapido, de 5,33 para 4,29 s, e o reuso tirou mais
-13% na media, para 3,72 s; com a webcam, nao foram medidos. Com 60 C, sob
-carga continua o firmware baixa o clock para 1,2 GHz, o que custa de 3% a 7%;
-um dissipador com ventoinha evita isso. A pose tambem pode rodar em NCNN, que
-nos videos de validacao deu os mesmos keypoints e alertas do `.pt`; o tempo
-ainda nao foi medido no Pi. Detalhes em
+13% na media, para 3,72 s; com a pose em NCNN e o detector leve, em 04/10, o
+mesmo video caiu para 1,73 s. Com a webcam, nada disso foi medido. Com 60 C,
+sob carga continua o firmware baixa o clock para 1,2 GHz, o que custa de 3% a
+7%; um dissipador com ventoinha evita isso. Detalhes em
 [docs/PLANO_OTIMIZACAO.md](docs/PLANO_OTIMIZACAO.md) e
 [docs/RASPBERRY_PI.md](docs/RASPBERRY_PI.md).
 
@@ -228,7 +228,8 @@ WebSocket.
 
 ### `GET /cadastros` e `GET /cadastro`
 
-Pagina de cadastro de rostos.
+Pagina de cadastro de rostos. Ela e aberta na rede, sem senha, e o QR code
+abaixo leva a ela: servem so para teste. A versao final nao tera o QR code.
 
 ### `GET /access-info`
 
@@ -386,11 +387,13 @@ descrito acima, e as regras de gesto foram revistas em 29 e 30/09/2026. Em
 01/10/2026 a pose passou a rodar em 416 px no perfil. O que ficou para depois
 esta nos dois planos. Limitacoes conhecidas desta versao:
 
-- **Regras de gesto no Pi.** Com o frame entre 4 e 6 s, cada regra exige de 2
-  a 4 observacoes seguidas: uns 4 a 6 s para mao fechada e ameaca, 9 a 12 s
-  para rendicao e mao oculta e 13 a 18 s para braco estendido. Os limiares de
-  0,20 a 0,40 s so pesam com vazao alta. Conferido no Pi em 30/09/2026, numa
-  rodada com gesto.
+- **Regras de gesto no Pi.** Cada regra exige de 2 a 4 observacoes seguidas,
+  uma por frame. Com o frame de 4 a 6 s, em 30/09/2026, numa rodada com gesto
+  no Pi, isso deu uns 4 a 6 s para mao fechada e ameaca, 9 a 12 s para
+  rendicao e mao oculta e 13 a 18 s para braco estendido. Com o frame de 1 a
+  2,4 s de 04/10, a conta da uns 1 a 2,5 s, 2 a 5 s e 3 a 7 s, mas isso ainda
+  nao foi conferido numa rodada com gesto. Os limiares de 0,20 a 0,40 s so
+  pesam com vazao alta.
 - **Nome herdado pelo rosto.** No perfil rpi3, um rosto no mesmo lugar herda
   por ate 15 s o nome ja reconhecido, sem reconhecer de novo, inclusive o de
   desconhecido. A excecao e o desconhecido quase reconhecido, com semelhanca de

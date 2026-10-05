@@ -124,6 +124,10 @@ Nao misture resultados do cliente local e remoto.
   `face_reused` os rostos que herdaram o nome com `FACE_REUSE_SECONDS`.
 - `ncnn_threads`: threads da rede da pose em NCNN, com `NCNN_NUM_THREADS`; zero
   com o peso `.pt`.
+- `face_pending`: com `FACE_ASYNC_RECOGNITION`, rostos do frame sem nome
+  confirmado, esperando o reconhecimento em segundo plano. Nas amostras,
+  `pending_faces_count` conta os que aparecem como `VERIFICANDO`, que
+  `known_faces_count` nao conta como reconhecidos.
 - `process_rss_mb`: RAM residente do processo servidor; `temperature_c`: leitura
   disponivel no host. Ausencia aparece como null e contagem zero no resumo.
 - `detections`: contagem de pessoas, rostos, gestos e alertas por frame. O

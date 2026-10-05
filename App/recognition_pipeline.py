@@ -49,7 +49,7 @@ class UnifiedRecognitionService:
 
     # Total do rosto e suas partes, com as mesmas chaves em todo frame.
     FACE_METRICS = ("faces_ms", "face_detect_ms", "face_embed_ms", "face_match_ms",
-                    "face_embeddings", "face_reused")
+                    "face_embeddings", "face_reused", "face_pending")
     GESTURE_METRICS = ("gestures_ms", "hands_ms", "pose_ms", "motion_ratio", "pose_skipped",
                        "ncnn_threads")
 
@@ -328,6 +328,10 @@ class UnifiedRecognitionService:
         if self.executor is not None:
             self.executor.shutdown(wait=True)
             self.executor = None
+        # A thread do reconhecimento em segundo plano, quando ligada.
+        close_face = getattr(self.face_service, "close", None)
+        if close_face is not None:
+            close_face()
 
     def reset_face_identities(self) -> None:
         reset = getattr(self.face_service, "reset_identities", None)

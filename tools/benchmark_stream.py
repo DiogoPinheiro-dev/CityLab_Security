@@ -11,6 +11,10 @@ from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Rosto esperando o reconhecimento em segundo plano: o mesmo texto de
+# FaceRecognitionService.PENDING_NAME, no servidor.
+PENDING_FACE_NAME = "VERIFICANDO"
+
 
 def summarize(values):
     values = sorted(values)
@@ -39,7 +43,12 @@ def detection_confidences(payload):
 def known_faces(payload):
     """Rostos reconhecidos como cadastrados: so a contagem, nunca o nome."""
     return sum(1 for face in payload.get("rostos") or []
-               if face.get("nome") not in (None, "NAO ALUNO"))
+               if face.get("nome") not in (None, "NAO ALUNO", PENDING_FACE_NAME))
+
+
+def pending_faces(payload):
+    """Rostos esperando o reconhecimento em segundo plano (FACE_ASYNC_RECOGNITION)."""
+    return sum(1 for face in payload.get("rostos") or [] if face.get("nome") == PENDING_FACE_NAME)
 
 
 def face_widths(payload):
@@ -137,6 +146,7 @@ async def run(args):
                                  "persons_count": len(payload.get("pessoas") or []),
                                  "faces_count": len(payload.get("rostos") or []),
                                  "known_faces_count": known_faces(payload),
+                                 "pending_faces_count": pending_faces(payload),
                                  "gestures_count": len(gestures),
                                  "alerts_count": sum(len(item.get("alerts") or []) for item in gestures),
                                  "alerts": alert_names(payload),
@@ -165,8 +175,8 @@ async def run(args):
         "elapsed_seconds": elapsed, "completed_fps": len(rows) / elapsed,
         "rtt_ms": summarize([row["rtt_ms"] for row in rows]),
         "detections": {key: summarize([row[key] for row in rows]) for key in
-                       ("persons_count", "faces_count", "known_faces_count", "gestures_count",
-                        "alerts_count")},
+                       ("persons_count", "faces_count", "known_faces_count",
+                        "pending_faces_count", "gestures_count", "alerts_count")},
         "faces_width_px": summarize([width for row in rows for width in row["faces_width_px"]]),
         "alerts_by_name": dict(sorted(Counter(
             alert for row in rows for alert in row["alerts"]).items())),

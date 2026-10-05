@@ -285,11 +285,12 @@ reduzida.
 `FACE_DETECTOR_PATH` troca so o detector de rosto do `buffalo_l` (`det_10g`)
 por outro `.onnx` do InsightFace, mantendo o reconhecedor `w600k_r50`: os
 embeddings continuam compativeis com o cadastro, e ninguem precisa se
-recadastrar. Vazio usa o detector do pacote. O candidato e o `det_500m`, do
-pacote `buffalo_sc` dos releases v0.7 do InsightFace: no PC, em 04/10/2026,
-detectou 6,7 vezes mais rapido, com os mesmos rostos no video de carga. Copie o
-arquivo do PC, onde ele fica em `.insightface\models\buffalo_sc\` na pasta do
-usuario:
+recadastrar. Vazio usa o detector do pacote. O Pi usa desde 04/10/2026 o
+`det_500m`, do pacote `buffalo_sc` dos releases v0.7 do InsightFace: com o
+video de carga, a deteccao do rosto caiu de 1,36 para 0,39 s, e o frame ficou
+22% mais rapido que so com o NCNN, com o mesmo reconhecimento e os mesmos
+alertas frame a frame. Copie o arquivo do PC, onde ele fica em
+`.insightface\models\buffalo_sc\` na pasta do usuario:
 
 ```bash
 scp $HOME/.insightface/models/buffalo_sc/det_500m.onnx citylab@<ip-do-pi>:.insightface/models/
@@ -302,6 +303,13 @@ FACE_DETECTOR_PATH=~/.insightface/models/det_500m.onnx
 ```
 
 A API para na subida se o arquivo faltar ou se nao for um detector.
+
+`FACE_ASYNC_RECOGNITION=1`, desligado nos dois perfis e em avaliacao, tira o
+reconhecimento do rosto do caminho do frame: a deteccao segue em todo frame, o
+frame volta quando o gesto termina, e o embedding roda numa thread propria, um
+por vez. Ate o nome sair, o rosto aparece como "verificando", sem evento; o
+rosto que andou ate 120 px herda o nome mais proximo so para a tela, ate o
+reconhecimento na posicao nova confirmar. Vale so com `FACE_PREFILTER=1`.
 
 `FACE_LEARN_FROM_STREAM`, ligado no perfil rpi3 desde 03/10/2026 e desligado no
 default, faz o sistema aprender com o stream: um rosto reconhecido de um

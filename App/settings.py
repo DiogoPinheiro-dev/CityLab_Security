@@ -75,6 +75,11 @@ FACE_EMBED_FULL_FRAME = _get_bool("FACE_EMBED_FULL_FRAME", _RPI3)
 # do buffalo_sc, no PC em 04/10/2026, detectou 6,7 vezes mais rapido, com os
 # mesmos rostos no video de carga (docs/PLANO_OTIMIZACAO.md).
 FACE_DETECTOR_PATH = os.getenv("FACE_DETECTOR_PATH", "").strip()
+# Reconhecimento do rosto em segundo plano: a deteccao segue em todo frame, e o
+# frame volta sem esperar o embedding, que roda numa thread propria; ate o nome
+# sair, o rosto aparece como VERIFICANDO, sem evento. So com FACE_PREFILTER. Em
+# avaliacao no Pi desde 04/10/2026, desligado nos dois perfis.
+FACE_ASYNC_RECOGNITION = _get_bool("FACE_ASYNC_RECOGNITION", False)
 # Aprende com o stream: um rosto reconhecido com folga vira mais uma referencia
 # da pessoa, guardada no MongoDB (colecao rostos_aprendidos). Ate
 # FACE_LEARNED_PER_PERSON por pessoa, uma a cada FACE_LEARN_INTERVAL_SECONDS, e

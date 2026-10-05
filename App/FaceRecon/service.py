@@ -12,8 +12,8 @@ import numpy as np
 from ultralytics import YOLO  # type: ignore
 
 from App.frame_context import FrameContext
-from App.settings import (DEBUG_PIPELINE, FACE_DETECTOR_PATH, FACE_EMBED_FULL_FRAME,
-                          FACE_LEARN_FROM_STREAM, FACE_LEARN_INTERVAL_SECONDS,
+from App.settings import (DEBUG_PIPELINE, FACE_ASYNC_RECOGNITION, FACE_DETECTOR_PATH,
+                          FACE_EMBED_FULL_FRAME, FACE_LEARN_FROM_STREAM, FACE_LEARN_INTERVAL_SECONDS,
                           FACE_LEARNED_PER_PERSON, FACE_LEARNED_RETENTION_DAYS,
                           FACE_MIN_CONFIDENCE, FACE_MIN_HEIGHT, FACE_MIN_WIDTH,
                           FACE_MINIMAL_MODULES, FACE_PREFILTER, FACE_REUSE_SECONDS,
@@ -30,6 +30,14 @@ class FaceRecognitionService:
     # seguinte. Rostos de outras pessoas nao passaram de 0,16, e o de um aluno
     # virado ficou de 0,37 a 0,48 (03 e 04/10/2026).
     UNKNOWN_RECHECK_MIN_SIMILARITY = 0.30
+    # Rosto esperando o reconhecimento em segundo plano: aparece assim, sem
+    # evento. O mesmo texto esta em Server/event_logger.py e Client/stream.js.
+    PENDING_NAME = "VERIFICANDO"
+    # Com o reconhecimento em segundo plano, o rosto que andou mais que a
+    # sobreposicao herda, so para a tela, o nome mais proximo ate esta
+    # distancia em pixels do frame original: a mesma do registro de eventos
+    # para seguir um desconhecido (Server/event_logger.py).
+    CARRY_MAX_DISTANCE_PX = 120.0
     # Semelhanca minima de cada foto do cadastro com a media das outras. Em 10
     # fotos da mesma pessoa a pior ficou em 0,50 (03/10/2026); abaixo disso a
     # foto e tratada como de outra pessoa, para nao misturar dois rostos.
@@ -68,6 +76,7 @@ class FaceRecognitionService:
         learn_interval_seconds: float = FACE_LEARN_INTERVAL_SECONDS,
         learned_retention_days: int = FACE_LEARNED_RETENTION_DAYS,
         face_detector_path: str = FACE_DETECTOR_PATH,
+        async_recognition: bool = FACE_ASYNC_RECOGNITION,
     ) -> None:
         self.base_dir = base_dir or os.path.dirname(os.path.abspath(__file__))
         self.database_path = database_path or os.path.join(
@@ -90,6 +99,15 @@ class FaceRecognitionService:
         self.prefilter = prefilter
         # Embedding no frame original em vez da imagem reduzida; so com prefiltro.
         self.embed_full_frame = embed_full_frame
+        # Reconhecimento em segundo plano: so com o prefiltro, que separa a
+        # deteccao do embedding. Um por vez, numa thread propria.
+        self.async_recognition = async_recognition and prefilter
+        self._recognition_pool = None
+        if self.async_recognition:
+            from concurrent.futures import ThreadPoolExecutor
+            self._recognition_pool = ThreadPoolExecutor(max_workers=1, thread_name_prefix="rosto")
+        self._job: Optional[dict[str, Any]] = None
+        self._job_count = 0
         # Zero desliga: todo rosto aceito gera embedding em todo frame.
         self.reuse_seconds = reuse_seconds
         self._identities: list[dict[str, Any]] = []
@@ -129,6 +147,7 @@ class FaceRecognitionService:
             "face_match_ms": 0.0,
             "face_embeddings": 0.0,
             "face_reused": 0.0,
+            "face_pending": 0.0,
             "persons_ms": 0.0,
         }
         self.latest_ignored_faces: list[dict[str, Any]] = []
@@ -232,12 +251,31 @@ class FaceRecognitionService:
         now = getattr(frame_context, "observed_at", None) or time.monotonic()
         generation = self._identity_generation
         reuse = self.prefilter and self.reuse_seconds > 0
-        reused = self._assign_identities(
-            [bbox for _, bbox, _ in accepted], now) if reuse else {}
+        boxes = [bbox for _, bbox, _ in accepted]
+        if self.async_recognition:
+            done = self._collect_recognition()
+            if done is not None:
+                embed_ms += done["embed_ms"]
+                match_ms += done["match_ms"]
+                embeddings += 1 if "name" in done else 0
+                self._apply_recognition(done)
+            # Toda identidade conta, inclusive a que espera o reconhecimento.
+            paired = self._pair_identities(boxes, self._identities)
+            carried = self._carry_identities(accepted, paired)
+            reused = {}
+        else:
+            reused = self._assign_identities(boxes, now) if reuse else {}
         identities = []
 
         for index, (face, bbox_processing, bbox_original) in enumerate(accepted):
-            if index in reused:
+            job, confirmed = None, True
+            if self.async_recognition:
+                entry = paired.get(index, carried.get(index))
+                name, best_score, recognized_at, job, inherited, confirmed = self._recognize_async(
+                    entry, index in carried, face, frame_context, now)
+                if inherited:
+                    reused[index] = entry
+            elif index in reused:
                 entry = reused[index]
                 name, best_score = entry["name"], entry["score"]
                 recognized_at = entry["recognized_at"]
@@ -261,8 +299,10 @@ class FaceRecognitionService:
                 # So de embedding novo: nome herdado pelo reuso nao ensina nada.
                 if self.learn_from_stream:
                     self._maybe_learn(name, best_score, target.normed_embedding)
-            identities.append({"bbox": bbox_processing, "name": name,
-                               "score": best_score, "recognized_at": recognized_at})
+            identities.append({"bbox": bbox_processing, "center": self._center(bbox_original),
+                               "name": name, "score": best_score,
+                               "recognized_at": recognized_at, "job": job,
+                               "confirmed": confirmed})
 
             results.append(
                 {
@@ -270,11 +310,13 @@ class FaceRecognitionService:
                     "bbox": bbox_original,
                     "confidence": float(best_score),
                     "det_confidence": float(getattr(face, "det_score", 0.0)),
+                    # Nome ainda nao confirmado neste rosto: aparece, sem evento.
+                    "pending": not confirmed,
                 }
             )
 
         # Cadastro trocado no meio do frame: nao guardar nomes da base antiga.
-        if reuse and generation == self._identity_generation:
+        if (reuse or self.async_recognition) and generation == self._identity_generation:
             self._identities = identities
         if self.debug_pipeline:
             self.latest_metrics["ignored_faces"] = float(len(ignored_faces))
@@ -286,8 +328,126 @@ class FaceRecognitionService:
             "face_match_ms": match_ms,
             "face_embeddings": float(embeddings),
             "face_reused": float(len(reused)),
+            "face_pending": float(sum(face["pending"] for face in results)),
         })
         return results
+
+    def _recognize_async(self, entry: Optional[dict[str, Any]], carried: bool, face: Any,
+                         frame_context: FrameContext, now: float
+                         ) -> tuple[str, float, float, Optional[int], bool, bool]:
+        """Nome do rosto sem esperar o embedding.
+
+        Devolve nome, semelhanca, hora do reconhecimento, job, se herdou como no
+        reuso e se o nome esta confirmado neste rosto. Herda como no reuso; o que
+        espera reconhecimento segue esperando; o resto pede um, se a thread
+        estiver livre. Enquanto isso fica o nome de antes, ou VERIFICANDO para
+        quem acabou de aparecer. O nome que veio de outra posicao (carried) so
+        vale para a tela, ate o reconhecimento neste rosto confirmar.
+        """
+        if entry is not None and not carried and (
+                entry.get("job") is not None or self._reusable(entry, now)):
+            return (entry["name"], entry["score"], entry["recognized_at"], entry.get("job"),
+                    entry.get("job") is None, entry.get("confirmed", True))
+        job = self._submit_recognition(face, frame_context, now) if self._job is None else None
+        if entry is not None:
+            return (entry["name"], entry["score"], entry["recognized_at"], job, False,
+                    entry.get("confirmed", True) and not carried)
+        return self.PENDING_NAME, 0.0, now, job, False, False
+
+    def _carry_identities(self, accepted: list[Any],
+                          paired: dict[int, dict[str, Any]]) -> dict[int, dict[str, Any]]:
+        """Rosto que andou mais que a sobreposicao: o nome mais proximo, ate o limite.
+
+        So entre os rostos sem par e as identidades com nome que sobraram, do
+        par mais proximo para o mais longe, um para um.
+        """
+        import math
+
+        taken = {id(entry) for entry in paired.values()}
+        free = [entry for entry in self._identities
+                if id(entry) not in taken and entry["name"] != self.PENDING_NAME
+                and "center" in entry]
+        pairs = sorted(
+            (math.dist(self._center(bbox_original), entry["center"]), index, slot)
+            for index, (_, _, bbox_original) in enumerate(accepted) if index not in paired
+            for slot, entry in enumerate(free))
+        carried: dict[int, dict[str, Any]] = {}
+        used: set[int] = set()
+        for distance, index, slot in pairs:
+            if distance > self.CARRY_MAX_DISTANCE_PX:
+                break
+            if index not in carried and slot not in used:
+                carried[index] = free[slot]
+                used.add(slot)
+        return carried
+
+    @staticmethod
+    def _center(bbox: list[int]) -> tuple[float, float]:
+        return ((bbox[0] + bbox[2]) / 2.0, (bbox[1] + bbox[3]) / 2.0)
+
+    def _submit_recognition(self, face: Any, frame_context: FrameContext, now: float) -> int:
+        """Manda o embedding do rosto para a thread do reconhecimento; devolve o job."""
+        if self.embed_full_frame:
+            image, target = frame_context.original_frame, self._face_on_original(face, frame_context)
+        else:
+            image = frame_context.processing_frame
+            target = Face(bbox=face.bbox, kps=face.kps, det_score=face.det_score)
+        self._job_count += 1
+        self._job = {"id": self._job_count, "generation": self._identity_generation,
+                     "observed_at": now,
+                     "future": self._recognition_pool.submit(self._embed, image, target)}
+        return self._job_count
+
+    def _embed(self, image: Any, target: Any) -> tuple[Any, float]:
+        """Roda na thread do reconhecimento: so o embedding, sem estado compartilhado."""
+        import time
+
+        started_at = time.perf_counter()
+        for task, model in self.app_insight.models.items():
+            if task != "detection":
+                model.get(image, target)
+        return target.normed_embedding, (time.perf_counter() - started_at) * 1000.0
+
+    def _collect_recognition(self) -> Optional[dict[str, Any]]:
+        """Reconhecimento em segundo plano que terminou: nome, semelhanca e aprendizado."""
+        import time
+
+        job = self._job
+        if job is None or not job["future"].done():
+            return None
+        self._job = None
+        try:
+            embedding, embed_ms = job["future"].result()
+        except Exception as exc:
+            print(f"[AVISO] Reconhecimento do rosto em segundo plano falhou: {exc}")
+            return {"id": job["id"], "embed_ms": 0.0, "match_ms": 0.0}
+        if job["generation"] != self._identity_generation:
+            # Conexao nova ou cadastro trocado: o nome seria da base anterior.
+            return None
+        started_at = time.perf_counter()
+        name, score = self._match_face(embedding)
+        # So de embedding novo: nome herdado pelo reuso nao ensina nada.
+        if self.learn_from_stream:
+            self._maybe_learn(name, score, embedding)
+        return {"id": job["id"], "name": name, "score": score,
+                "recognized_at": job["observed_at"], "embed_ms": embed_ms,
+                "match_ms": (time.perf_counter() - started_at) * 1000.0}
+
+    def _apply_recognition(self, done: dict[str, Any]) -> None:
+        """Poe o resultado no rosto que esperava por ele, se ainda esta na cena."""
+        for entry in self._identities:
+            if entry.get("job") == done["id"]:
+                entry["job"] = None
+                if "name" in done:
+                    entry.update(name=done["name"], score=done["score"],
+                                 recognized_at=done["recognized_at"], confirmed=True)
+
+    def close(self) -> None:
+        """Encerra a thread do reconhecimento em segundo plano."""
+        pool = getattr(self, "_recognition_pool", None)
+        if pool is not None:
+            pool.shutdown(wait=False, cancel_futures=True)
+            self._recognition_pool = None
 
     @classmethod
     def average_embedding(cls, embeddings: list[Any]) -> tuple[Optional[np.ndarray], Optional[int]]:
@@ -320,14 +480,24 @@ class FaceRecognitionService:
         self, boxes: list[list[int]], now: float
     ) -> dict[int, dict[str, Any]]:
         """Liga cada rosto a no maximo uma identidade valida, pela maior sobreposicao."""
-        valid = [entry for entry in self._identities
-                 if now - entry["recognized_at"] < self.reuse_seconds
-                 and not (entry["name"] == "NAO ALUNO"
-                          and entry["score"] >= self.UNKNOWN_RECHECK_MIN_SIMILARITY)]
+        return self._pair_identities(
+            boxes, [entry for entry in self._identities if self._reusable(entry, now)])
+
+    def _reusable(self, entry: dict[str, Any], now: float) -> bool:
+        """Identidade que um rosto no mesmo lugar herda, sem reconhecer de novo."""
+        return (now - entry["recognized_at"] < self.reuse_seconds
+                and entry.get("job") is None and entry["name"] != self.PENDING_NAME
+                and entry.get("confirmed", True)
+                and not (entry["name"] == "NAO ALUNO"
+                         and entry["score"] >= self.UNKNOWN_RECHECK_MIN_SIMILARITY))
+
+    def _pair_identities(self, boxes: list[list[int]],
+                         entries: list[dict[str, Any]]) -> dict[int, dict[str, Any]]:
+        """Cada rosto com no maximo uma das identidades, pela maior sobreposicao."""
         pairs = sorted(
             ((self._iou(box, entry["bbox"]), index, slot)
              for index, box in enumerate(boxes)
-             for slot, entry in enumerate(valid)),
+             for slot, entry in enumerate(entries)),
             reverse=True,
         )
         assigned: dict[int, dict[str, Any]] = {}
@@ -336,7 +506,7 @@ class FaceRecognitionService:
             if overlap < self.REUSE_MIN_IOU:
                 break
             if index not in assigned and slot not in used:
-                assigned[index] = valid[slot]
+                assigned[index] = entries[slot]
                 used.add(slot)
         return assigned
 

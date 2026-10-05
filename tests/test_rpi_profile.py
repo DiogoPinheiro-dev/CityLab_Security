@@ -16,7 +16,7 @@ from App.inference_runtime import (configure_insight_threads, configure_opencv_t
                                    ensure_torch_threads, prepare_native_environment)
 from tools.run_rpi import main as run_rpi
 from tools.benchmark_stream import (alert_names, detection_confidences, face_widths,
-                                    known_faces, read_frame)
+                                    known_faces, pending_faces, read_frame)
 
 
 class RpiProfileTests(unittest.TestCase):
@@ -83,6 +83,11 @@ class RpiProfileTests(unittest.TestCase):
             self.assertEqual(self.settings(CITYLAB_PROFILE=profile)["FACE_DETECTOR_PATH"], "")
         path = "~/.insightface/models/buffalo_sc/det_500m.onnx"
         self.assertEqual(self.settings(FACE_DETECTOR_PATH=f" {path} ")["FACE_DETECTOR_PATH"], path)
+
+    def test_background_face_recognition_is_off_until_measured(self):
+        for profile in ("default", "rpi3"):
+            self.assertIs(self.settings(CITYLAB_PROFILE=profile)["FACE_ASYNC_RECOGNITION"], False)
+        self.assertIs(self.settings(FACE_ASYNC_RECOGNITION="1")["FACE_ASYNC_RECOGNITION"], True)
 
     def test_full_frame_embedding_is_on_only_on_the_pi(self):
         # Medido so no rpi3, em 03/10/2026; o perfil default segue na imagem reduzida.
@@ -212,6 +217,7 @@ class RpiProfileTests(unittest.TestCase):
         self.assertEqual(configured["POSE_IMGSZ"], 416)
         self.assertEqual((configured["POSE_MODEL_PATH"], configured["NCNN_NUM_THREADS"]), ("", 2))
         self.assertEqual(configured["FACE_DETECTOR_PATH"], "")
+        self.assertIs(configured["FACE_ASYNC_RECOGNITION"], False)
         self.assertEqual(configured["FACE_REUSE_SECONDS"], 15.0)
         # Spinning so muda pelo .env; o embedding no frame inteiro e o
         # aprendizado pelo stream vem do perfil.
@@ -264,6 +270,9 @@ class RpiProfileTests(unittest.TestCase):
         # Reconhecido conta, mas o nome nao sai do payload.
         self.assertEqual(known_faces(payload), 1)
         self.assertNotIn("privado", json.dumps(data))
+        # Rosto esperando o reconhecimento em segundo plano nao e reconhecido.
+        payload["rostos"].append({"nome": "VERIFICANDO", "confidence": 0.0})
+        self.assertEqual((known_faces(payload), pending_faces(payload)), (1, 1))
 
     def test_benchmark_records_face_width_and_alert_names_without_identity(self):
         payload = {"rostos": [{"nome": "privado", "bbox": [100, 50, 160, 120]},

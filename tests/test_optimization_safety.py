@@ -124,8 +124,8 @@ FACE_SERVICE_DEPENDENCIES = dict(
     FACE_MINIMAL_MODULES=True, FACE_PREFILTER=True, ONNX_INTRA_OP_THREADS=0,
     ONNX_ALLOW_SPINNING=True, FACE_REUSE_SECONDS=0.0, FACE_EMBED_FULL_FRAME=False,
     FACE_LEARN_FROM_STREAM=False, FACE_LEARNED_PER_PERSON=5, FACE_LEARN_INTERVAL_SECONDS=600.0,
-    FACE_LEARNED_RETENTION_DAYS=30, FACE_DETECTOR_PATH="", Face=SimpleNamespace, uuid=uuid,
-    datetime=datetime, timedelta=timedelta)
+    FACE_LEARNED_RETENTION_DAYS=30, FACE_DETECTOR_PATH="", FACE_ASYNC_RECOGNITION=False,
+    Face=SimpleNamespace, uuid=uuid, datetime=datetime, timedelta=timedelta)
 
 
 class Vector(list):
@@ -158,6 +158,8 @@ class FaceOptimizationTests(unittest.TestCase):
         service.reuse_seconds = reuse_seconds
         service._identities = []
         service._identity_generation = 0
+        service.async_recognition = False
+        service._recognition_pool, service._job, service._job_count = None, None, 0
         service.latest_metrics = {}
         service._match_face = lambda embedding: ("Aluno", embedding[0])
         keys = [object() for _ in boxes]
@@ -501,6 +503,105 @@ class FaceOptimizationTests(unittest.TestCase):
         frame(100.0, face)
         frame(104.0, face)
         self.assertEqual(recognition.get.call_count, 2)
+
+    def async_frames(self):
+        """Reconhecimento em segundo plano que so termina quando o teste libera."""
+        service, context, recognition, _ = self.make_service(True, [], reuse_seconds=15.0)
+        service.async_recognition = True
+        service._recognition_pool = ThreadPoolExecutor(max_workers=1)
+        gate = threading.Event()
+        self.addCleanup(service.close)
+        self.addCleanup(gate.set)
+
+        def recognize(frame, face):
+            gate.wait(5)
+            face.normed_embedding = [.87]
+
+        recognition.get.side_effect = recognize
+
+        def frame(at, *boxes):
+            service.app_insight.det_model.detect.return_value = (
+                list(boxes), [object() for _ in boxes])
+            return service.recognize_faces(SimpleNamespace(**vars(context), observed_at=at))
+
+        def finish():
+            gate.set()
+            service._job["future"].result(timeout=5)
+            gate.clear()
+
+        return service, recognition, frame, finish
+
+    def test_background_recognition_never_holds_the_frame(self):
+        service, recognition, frame, finish = self.async_frames()
+        service.learn_from_stream = True
+        service._maybe_learn = Mock()
+        face = Vector([0, 0, 30, 30, .9])
+        self.assertEqual(frame(100.0, face)[0]["name"], "VERIFICANDO")
+        self.assertEqual(service.latest_metrics["face_pending"], 1.0)
+        # O mesmo rosto espera o mesmo reconhecimento, sem pedir outro.
+        self.assertEqual(frame(101.0, face)[0]["name"], "VERIFICANDO")
+        finish()
+        result = frame(102.0, face)
+        self.assertEqual((result[0]["name"], result[0]["confidence"]), ("Aluno", .87))
+        self.assertEqual(service.latest_metrics["face_embeddings"], 1.0)
+        # Aprende com o embedding novo, uma vez, quando o resultado chega.
+        service._maybe_learn.assert_called_once_with("Aluno", .87, [.87])
+        # Dai em diante herda, como no reuso.
+        frame(104.0, face)
+        self.assertEqual(recognition.get.call_count, 1)
+        self.assertEqual(service.latest_metrics["face_reused"], 1.0)
+
+    def test_one_background_recognition_at_a_time(self):
+        service, _, frame, finish = self.async_frames()
+        first, second = Vector([0, 0, 30, 30, .9]), Vector([100, 100, 130, 130, .9])
+        frame(100.0, first)
+        # Outro rosto chega com a thread ocupada: espera a vez, sem pedir.
+        self.assertEqual([face["name"] for face in frame(101.0, first, second)],
+                         ["VERIFICANDO", "VERIFICANDO"])
+        self.assertEqual(service._job_count, 1)
+        finish()
+        self.assertEqual([face["name"] for face in frame(102.0, first, second)],
+                         ["Aluno", "VERIFICANDO"])
+        finish()
+        self.assertEqual([face["name"] for face in frame(103.0, first, second)],
+                         ["Aluno", "Aluno"])
+
+    def test_known_face_keeps_its_name_while_it_is_recognized_again(self):
+        service, _, frame, finish = self.async_frames()
+        face = Vector([0, 0, 30, 30, .9])
+        frame(100.0, face)
+        finish()
+        frame(101.0, face)
+        # Passados os 15 s, reconhece de novo, e o nome fica enquanto isso.
+        self.assertEqual(frame(116.0, face)[0]["name"], "Aluno")
+        self.assertEqual(service._job_count, 2)
+
+    def test_moved_face_shows_the_nearest_name_until_it_is_confirmed(self):
+        service, _, frame, finish = self.async_frames()
+        here, moved = Vector([0, 0, 30, 30, .9]), Vector([40, 0, 70, 30, .9])
+        frame(100.0, here)
+        finish()
+        self.assertFalse(frame(101.0, here)[0]["pending"])
+        # Andou mais que a sobreposicao, 80 px no frame original: o nome vem
+        # junto so para a tela, e o rosto e reconhecido de novo onde esta.
+        result = frame(102.0, moved)[0]
+        self.assertEqual((result["name"], result["pending"]), ("Aluno", True))
+        self.assertEqual(service._job_count, 2)
+        finish()
+        result = frame(103.0, moved)[0]
+        self.assertEqual((result["name"], result["pending"]), ("Aluno", False))
+        # Longe demais (320 px), pode ser outra pessoa: espera o proprio nome.
+        self.assertEqual(frame(104.0, Vector([200, 0, 230, 30, .9]))[0]["name"], "VERIFICANDO")
+
+    def test_background_result_from_before_a_reset_is_dropped(self):
+        service, _, frame, finish = self.async_frames()
+        face = Vector([0, 0, 30, 30, .9])
+        frame(100.0, face)
+        service.reset_identities()
+        finish()
+        # O nome sairia da base anterior: o rosto pede um reconhecimento novo.
+        self.assertEqual(frame(101.0, face)[0]["name"], "VERIFICANDO")
+        self.assertEqual(service._job_count, 2)
 
     def test_registration_or_new_connection_forget_the_names(self):
         service, recognition, frame = self.reuse_frames()

@@ -78,6 +78,14 @@ test('frame without response for 30 s closes the socket and schedules a reconnec
     s.run('clearTimeout(state.reconnectTimer)');
 });
 
+test('face waiting for its name is drawn apart, without a percentage', () => {
+    const s = setup();
+    const style = rosto => JSON.parse(s.run(`JSON.stringify(faceStyle(${JSON.stringify(rosto)}))`));
+    assert.deepEqual(style({ nome: 'VERIFICANDO', confidence: 0 }), { cor: '#d97706', label: 'verificando' });
+    assert.deepEqual(style({ nome: 'Aluno', confidence: 0.87 }), { cor: '#16a34a', label: 'Aluno (87%)' });
+    assert.deepEqual(style({ nome: 'NAO ALUNO', confidence: 0.2 }), { cor: '#dc2626', label: 'NAO ALUNO (20%)' });
+});
+
 test('pausing clears the last results from the overlay', () => {
     const s = setup();
     s.run(reply({ frame: 1, gestos: [{ bbox: [1, 2, 3, 4], alerts: ['Rendicao'] }] }));

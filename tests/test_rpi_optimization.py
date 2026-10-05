@@ -82,6 +82,22 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
                           self.collection.insert_one.await_args_list],
                          [[100, 100, 140, 150], [500, 100, 540, 150]])
 
+    async def test_face_waiting_for_its_name_neither_logs_nor_ends_episodes(self):
+        pending = {"name": "VERIFICANDO", "bbox": [0, 0, 10, 10]}
+        unknown = {"name": "NAO ALUNO", "bbox": [100, 100, 140, 150]}
+        # Frame de 7 s, mais longo que o cooldown de 5 s, como no Pi.
+        for frame, faces in enumerate(([self.face, unknown], [pending, pending],
+                                       [self.face, unknown])):
+            self.clock[0] = frame * 7
+            await self.logger.log_face_events(None, faces)
+        # Os dois rostos sem nome no meio podem ser os mesmos: nenhum evento a mais.
+        self.assertEqual(self.collection.insert_one.await_count, 2)
+        # Nome que veio de outra posicao, ainda sem confirmar: tambem nao grava.
+        self.logger.reset_episodes()
+        self.clock[0] = 30
+        await self.logger.log_face_events(None, [{**self.face, "pending": True}])
+        self.assertEqual(self.collection.insert_one.await_count, 2)
+
     async def test_stream_reset_opens_new_face_episodes(self):
         await self.logger.log_face_events(None, [self.face])
         self.logger.reset_episodes()
@@ -288,13 +304,13 @@ class SharedPipelineTests(unittest.TestCase):
         for parallel in (False, True):
             pipeline, face, _ = self.make_pipeline(parallel, True)
             face.latest_metrics.update(face_detect_ms=1.5, face_embed_ms=.5,
-                                       face_embeddings=1.0)
+                                       face_embeddings=1.0, face_pending=1.0)
             metrics = pipeline.process_frame(None)["metrics"]
             self.assertEqual([metrics[name] for name in pipeline.FACE_METRICS],
-                             [2, 1.5, .5, 0.0, 1.0, 0.0])
+                             [2, 1.5, .5, 0.0, 1.0, 0.0, 1.0])
             # Sem rosto as chaves continuam no frame, zeradas.
             metrics = pipeline.process_frame(None, detect_faces=False)["metrics"]
-            self.assertEqual([metrics[name] for name in pipeline.FACE_METRICS], [0.0] * 6)
+            self.assertEqual([metrics[name] for name in pipeline.FACE_METRICS], [0.0] * 7)
 
     def test_reset_forgets_face_names_only_when_the_service_keeps_them(self):
         pipeline, face, _ = self.make_pipeline(False, True)

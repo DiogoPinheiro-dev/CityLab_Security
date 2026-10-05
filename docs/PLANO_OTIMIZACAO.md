@@ -654,6 +654,76 @@ para o `requirements-rpi-bookworm.txt`, e gravou a marca. Resultados em
   Rostos de outras pessoas nao passaram de 0,16 nos testes, e o do aluno virado
   ficou de 0,37 a 0,48. Falta repetir as 3 rodadas com a regra nova.
 
+### Detector leve com a rechecagem no Pi - 22% mais rapido, mesmo reconhecimento
+
+Mesma configuracao da serie anterior, no codigo `9ce1b8c`, conferido por hash,
+com a regra nova no reuso. Resultados em
+`resultados/pi3-9ce1b8c-video-rechecagem/`.
+
+| Rodada | Media | Contra o NCNN com 2 threads | p95 | Reconhecido em |
+|---|---|---|---|---|
+| NCNN 2 threads (base) | 2238,9 a 2258,0 ms | | 3234 a 3274 ms | 26/30 |
+| r1 | 1739,3 ms | -22,5% | 2440,5 ms | 26/30 |
+| r2 | 1732,2 ms | -22,8% | 2408,6 ms | 26/30 |
+| r3 | 1733,7 ms | -22,8% | 2441,0 ms | 26/30 |
+
+- **Reconhecimento igual ao da base** nas tres rodadas, frame a frame: o rosto
+  virado dos frames 28 (0,47) e 29 (0,41) sai "NAO ALUNO", e o frame 30 e
+  rechecado e reconhecido (0,61), com o 31 herdando o nome certo. Os mesmos
+  alertas e a mesma caixa da pessoa frame a frame.
+- **Ganho**: mais de 22% nas tres rodadas, 0,57 a 0,58 frames por segundo. A
+  rechecagem custa 2 embeddings por rodada (16 contra 14) e uns 5 pontos do
+  ganho do detector sozinho. Os frames com o nome reaproveitado levam menos de
+  1 s, e os que reconhecem o rosto de novo uns 2,4 s.
+- **Energia**: `throttled=0x0` nas 211 leituras do log de `vcgencmd`, das 20:07
+  as 20:25 pelo relogio do Pi, sem leitura em 1,2 GHz; maxima de 52,6 C.
+  `process_rss_mb` de 660 a 691 MB.
+- Desde o comeco de 03/10, o frame com uma pessoa no video de carga caiu de
+  3,74 s, com o `.pt` e o detector do pacote, para 1,73 s (-54%), com a mesma
+  deteccao.
+- Decisao do responsavel, tomada antes da serie para o caso de ela passar: o
+  `det_500m` fica ligado no Pi pelo `FACE_DETECTOR_PATH` no `.env`, porque o
+  arquivo vem do PC, fora do Git. A regra de rechecagem vale em todo perfil
+  com reuso.
+
+### Gestos sem esperar o rosto (P5) - reconhecimento em segundo plano
+
+Com o detector leve, o gesto leva uns 1,0 s por frame, e o rosto 0,4 s quando
+so detecta, mas 2,4 s quando reconhece de novo (16 dos 30 frames do video de
+carga); nesses, o gesto espera parado. O responsavel decidiu as regras antes
+da implementacao: enquanto o reconhecimento roda, o rosto aparece com
+"verificando", sem evento, e um nome pode aparecer ate um ciclo de
+reconhecimento depois do frame em que a pessoa estava.
+
+- `FACE_ASYNC_RECOGNITION`, desligado nos dois perfis ate medir, so com o
+  prefiltro. A deteccao do rosto segue em todo frame; o embedding vai para uma
+  thread propria, um por vez, e o frame volta quando o gesto termina. O
+  resultado entra no frame em que fica pronto: o nome, o aprendizado e, a
+  partir dai, o reuso de sempre.
+- Rosto que acabou de aparecer: `VERIFICANDO`. Rosto no mesmo lugar que espera
+  o reconhecimento de novo (reuso vencido ou desconhecido quase reconhecido):
+  fica o nome de antes. Rosto que andou mais que a sobreposicao, ate 120 px no
+  frame original, a distancia que o registro de eventos usa para seguir um
+  desconhecido: herda o nome mais proximo so para a tela, marcado como nao
+  confirmado, e e reconhecido de novo onde esta. Sem isso, no PC, quem anda
+  ficava em "verificando" frame sim, frame nao.
+- Resultado de antes de uma conexao nova ou troca de cadastro e descartado.
+- Eventos: rosto `VERIFICANDO` ou de nome nao confirmado nao gera evento e nao
+  fecha o episodio de quem ja estava na cena. A pagina do stream desenha o
+  `VERIFICANDO` em laranja, sem porcentagem.
+- Metrica `face_pending` (rostos sem nome confirmado no frame) e, no
+  benchmark, `pending_faces_count`; `known_faces_count` nao conta
+  `VERIFICANDO`.
+- No PC, com o servico real, o `det_500m` e o frame 0 do video de carga como
+  cadastro: o reconhecimento rodou na thread, o nome chegou no frame seguinte,
+  e `VERIFICANDO` so apareceu na primeira aparicao e num salto de mais de 120
+  px, nos 20 primeiros frames.
+- Criterio no Pi, contra a serie `pi3-9ce1b8c-video-rechecagem/`, com o
+  aprendizado desligado: mais de 5% de ganho na media nas tres rodadas, os
+  mesmos alertas frame a frame, nenhum nome errado (`VERIFICANDO` e nome nao
+  confirmado contados a parte) e `throttled=0x0`. O reconhecimento em segundo
+  plano disputa a CPU com o gesto do frame seguinte; so a medicao diz o ganho.
+
 ### O que fica aberto
 
 1. Medir no Pi, com o video de carga, sem precisar de duas pessoas. Com o
@@ -663,14 +733,18 @@ para o `requirements-rpi-bookworm.txt`, e gravou a marca. Resultados em
    - um GET repetido durante o stream, para ver as rotas respondendo no Pi;
    - recadastrar com 3 a 5 fotos, rodar `tools/cadastros.py --manter-ultimo` e
      medir a semelhanca de novo, com o aprendizado desligado.
-   No deploy de `a4d6af4`, conferido por hash, o `.env` do Pi ficou so com o
-   `POSE_MODEL_PATH`, e o `--show-config` mostrou o ncnn em 2 threads pelo
-   perfil e o aprendizado ligado, com `throttled=0x0`: a configuracao de uso.
+   Configuracao de uso no Pi desde 04/10, no `.env`: `POSE_MODEL_PATH` (NCNN) e
+   `FACE_DETECTOR_PATH` (`det_500m`); o ncnn em 2 threads e o aprendizado vem
+   do perfil.
 2. Acompanhar no uso o aprendizado, com `tools/cadastros.py`: quantas
    referencias cada pessoa junta e se aparece alguem reconhecido com o nome de
    outra. E, com o NCNN ligado sem teste longo, o `vcgencmd get_throttled`:
    qualquer valor diferente de `0x0` pede a volta ao `.pt`.
-3. O resto da lista de 02/10 continua: as cenas com duas pessoas, os testes de
+3. Da ordem combinada no fim de 04/10 seguem os gestos sem esperar o rosto (P5,
+   segunda parte) e as regras de gesto reabertas. Com o frame em 1,7 s, o rosto
+   ainda e o caminho critico nos frames que reconhecem de novo (16 de 30), e o
+   gesto, nos outros.
+4. O resto da lista de 02/10 continua: as cenas com duas pessoas, os testes de
    dias, o P4 e o que sobrou do "Encerramento em 27/09/2026".
 
 ## Estado verificado em 03/10/2026

@@ -23,6 +23,10 @@ class EventLogger:
     # distancia, em pixels, de um desconhecido ja gravado no frame anterior. E a
     # mesma distancia do casamento de reserva do rastreador de gestos.
     unknown_face_match_distance = 120.0
+    # Rosto esperando o reconhecimento em segundo plano: o mesmo texto de
+    # FaceRecognitionService.PENDING_NAME. Nao gera evento, nem o rosto marcado
+    # com "pending", de nome ainda nao confirmado.
+    pending_name = "VERIFICANDO"
 
     def __init__(self, logs_collection: Any) -> None:
         self.logs_collection = logs_collection
@@ -46,18 +50,25 @@ class EventLogger:
         frame: np.ndarray,
         faces: Iterable[dict[str, Any]],
     ) -> None:
-        students, unknown = [], []
+        students, unknown, pending = [], [], 0
         for face in faces:
             bbox = face.get("bbox")
             if not bbox or len(bbox) != 4:
                 continue
             name = str(face.get("name") or "NAO ALUNO")
+            # Sem nome ainda, ou com o nome que veio de outra posicao e espera a
+            # confirmacao neste rosto: aparece na tela, mas nao vira evento.
+            if name == self.pending_name or face.get("pending"):
+                pending += 1
+                continue
             (unknown if name == "NAO ALUNO" else students).append(
                 (name, bbox, face.get("confidence")))
 
         # Enquanto o aluno segue no frame seguinte, nao grava de novo; quando
-        # some de um frame, a proxima aparicao grava outra vez.
-        self.logged_students &= {name for name, *_ in students}
+        # some de um frame, a proxima aparicao grava outra vez. Um rosto ainda
+        # sem nome pode ser quem ja estava: com ele, nenhum episodio fecha.
+        if not pending:
+            self.logged_students &= {name for name, *_ in students}
         for name, bbox, confidence in students:
             if name in self.logged_students or not self._should_log("ALUNO", name):
                 continue
@@ -85,6 +96,8 @@ class EventLogger:
             payload["imagem_url"] = self._crop_to_base64(frame, bbox)
             if await self._insert_event("NAO_ALUNO", identity, payload):
                 self.logged_unknown_centers.append(center)
+        if pending:
+            self.logged_unknown_centers.extend(previous)
 
     async def log_gesture_events(
         self,
