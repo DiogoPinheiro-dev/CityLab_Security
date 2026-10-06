@@ -199,11 +199,12 @@ class GestureTimeTests(unittest.TestCase):
         return analyzer, alerts
 
     def test_same_duration_at_different_rates(self):
-        for timestamps in ([0, .05, .10, .15, .21], [0, .21]):
+        # A mao fechada pede 4 s desde 06/10, em qualquer taxa de frames.
+        for timestamps in ([0, 1, 2, 3, 4.1], [0, 4.1]):
             analyzer, alerts = self.run_sequence(timestamps)
             self.assertIn("Mao Fechada", alerts)
-            self.assertAlmostEqual(analyzer.history[1]["fist_frames"], .20)
-        self.assertNotIn("Mao Fechada", self.run_sequence([0, .19])[1])
+            self.assertAlmostEqual(analyzer.history[1]["fist_frames"], 4.0)
+        self.assertNotIn("Mao Fechada", self.run_sequence([0, 1.7, 3.4])[1])
 
     def test_new_gesture_does_not_inherit_idle_interval(self):
         analyzer, _ = self.run_sequence([0], active=False)
@@ -214,11 +215,11 @@ class GestureTimeTests(unittest.TestCase):
         self.assertIn("Mao Fechada", result["alerts"])
 
     def test_alert_reports_how_many_observations_sustained_it(self):
-        # Acao 5: o evento distingue 2 observacoes em 6,2 s de 5 em 0,21 s.
+        # Acao 5: o evento distingue 2 observacoes em 6,2 s de 5 em 4,1 s.
         keypoints = raised_left_arm()
         for timestamps, expected in (([0, 6.2], {"observacoes": 2, "duracao_s": 6.2}),
-                                     ([0, .05, .10, .15, .21],
-                                      {"observacoes": 5, "duracao_s": .21})):
+                                     ([0, 1, 2, 3, 4.1],
+                                      {"observacoes": 5, "duracao_s": 4.1})):
             analyzer = GestureAnalyzer()
             for now in timestamps:
                 result = analyzer.analyze(1, keypoints, hand_context={"left_closed": True},

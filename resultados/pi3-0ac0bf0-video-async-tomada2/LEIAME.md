@@ -6,6 +6,12 @@ o video de carga e a mesma configuracao do controle sincrono
 `FACE_ASYNC_RECOGNITION=1`. `FACE_LEARN_FROM_STREAM=0`. O video tem SHA-256
 `b0ef593552469c93881cfa6bb1b0a6f7715f3f4452b0f34e90bd787a887b0431`.
 
+O `0ac0bf0` foi refeito por amend ate `cc7eaf1`, o commit que ficou no
+historico do `main`. O codigo do rosto, do servidor e do cliente e o mesmo nos
+dois. A unica diferenca de execucao e o padrao de `FACE_LEARN_FROM_STREAM` no
+perfil default; no rpi3 ele ja era ligado, e esta rodada o desligou pelo
+`.env`.
+
 - `uma-pessoa-r1.json`: 5 frames de aquecimento e 30 medidos, com a API
   reiniciada pelo deploy antes da rodada.
 - Media de 1212,636 ms, mediana de 1222,592 ms, p95 de 1495,908 ms e 0,823

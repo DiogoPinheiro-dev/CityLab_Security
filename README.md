@@ -383,17 +383,26 @@ node --test tests/client_stream.test.cjs tests/client_cadastro.test.cjs
 ## Estado final e limitacoes conhecidas
 
 O trabalho de desempenho foi encerrado em 27/09/2026 com o perfil do Pi
-descrito acima, e as regras de gesto foram revistas em 29 e 30/09/2026. Em
-01/10/2026 a pose passou a rodar em 416 px no perfil. O que ficou para depois
-esta nos dois planos. Limitacoes conhecidas desta versao:
+descrito acima, e as regras de gesto foram revistas em 29 e 30/09/2026 e em
+06/10/2026. Em 01/10/2026 a pose passou a rodar em 416 px no perfil. O que
+ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
 
 - **Regras de gesto no Pi.** Cada regra exige de 2 a 4 observacoes seguidas,
-  uma por frame. Com o frame de 4 a 6 s, em 30/09/2026, numa rodada com gesto
-  no Pi, isso deu uns 4 a 6 s para mao fechada e ameaca, 9 a 12 s para
-  rendicao e mao oculta e 13 a 18 s para braco estendido. Com o frame de 1 a
-  2,4 s de 04/10, a conta da uns 1 a 2,5 s, 2 a 5 s e 3 a 7 s, mas isso ainda
-  nao foi conferido numa rodada com gesto. Os limiares de 0,20 a 0,40 s so
-  pesam com vazao alta.
+  uma por frame, e uma duracao minima: 8 s na mao oculta, 4 s na mao fechada e
+  de 0,22 a 0,40 s nas outras. Com o frame de 4 a 6 s, em 30/09/2026, numa
+  rodada com gesto no Pi, isso deu uns 4 a 6 s para mao fechada e ameaca, 9 a
+  12 s para rendicao e mao oculta e 13 a 18 s para braco estendido. Com o frame
+  de 1 a 2,4 s de 04/10, a conta da uns 4 a 5 s para mao fechada, 1 a 2,4 s
+  para ameaca, 2 a 5 s para rendicao, 8 a 9 s para mao oculta e 3 a 7 s para
+  braco estendido, ainda nao conferidos numa rodada com gesto. Os 8 e 4 s
+  entraram em 06/10/2026: sem eles, nesse ritmo, as duas regras disparavam em
+  situacoes sem o gesto no conjunto de validacao.
+- **Alarmes falsos de gesto.** No conjunto de validacao, com o frame de 1,7 s,
+  os punhos levantados da ameaca disparam rendicao em 71% das fases, os bracos
+  erguidos da rendicao disparam braco estendido em 67%, e a mao aberta na ponta
+  do braco estendido dispara mao fechada em 73% e ameaca em 67%. Nenhuma
+  duracao minima separa esses casos sem perder alerta verdadeiro. Ver
+  [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
 - **Nome herdado pelo rosto.** No perfil rpi3, um rosto no mesmo lugar herda
   por ate 15 s o nome ja reconhecido, sem reconhecer de novo, inclusive o de
   desconhecido. A excecao e o desconhecido quase reconhecido, com semelhanca de

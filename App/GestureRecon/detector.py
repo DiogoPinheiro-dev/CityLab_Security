@@ -4,9 +4,10 @@ import time
 from typing import Any
 
 
-# Minimo de observacoes seguidas de cada regra, alem da duracao minima. A 30 FPS
-# a duracao domina e nada muda; com o frame de cerca de 6 s do Pi, o numero de
-# observacoes domina, e as regras voltam a exigir persistencias diferentes.
+# Minimo de observacoes seguidas de cada regra, alem da duracao minima: vale o
+# que for mais dificil. A 30 FPS a duracao domina; com o frame de segundos do Pi,
+# o numero de observacoes domina nas regras de duracao curta, e as regras voltam
+# a exigir persistencias diferentes.
 MIN_OBSERVATIONS = {"hidden": 3, "surrender": 3, "aiming": 4, "fist": 2, "threat": 2}
 
 # Limites tirados do video de pose neutra de 29/09/2026: braco solto ficou a no
@@ -48,10 +49,14 @@ class GestureAnalyzer:
         self.streak_started = {}
         self.elapsed = {}
         self.min_observations = {**MIN_OBSERVATIONS, **(min_observations or {})}
-        self.thresh_hidden = 0.35
+        # Duracao minima de cada regra, em segundos. Mao oculta e mao fechada
+        # pedem 8 e 4 s desde 06/10/2026: com o frame do Pi em 1,7 s, so as
+        # observacoes seguidas pesavam, e as duas disparavam em situacoes sem o
+        # gesto no conjunto de validacao (docs/PLANO_GESTOS.md).
+        self.thresh_hidden = 8.0
         self.thresh_surrender = 0.30
         self.thresh_aiming = 0.40
-        self.thresh_fist = 0.20
+        self.thresh_fist = 4.0
         self.thresh_threat = 0.22
 
     def _get_keypoint(self, keypoints, idx):

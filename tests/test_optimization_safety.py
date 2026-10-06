@@ -98,7 +98,8 @@ class GestureSafetyTests(unittest.TestCase):
     def test_normal_pi_interval_still_confirms(self):
         self.observe(0)
         self.assertIn("Mao Fechada", self.observe(17))
-        self.assertLessEqual(self.analyzer.history[1]["fist_frames"], .2)
+        # O intervalo de 17 s nao acumula alem da duracao minima da regra.
+        self.assertLessEqual(self.analyzer.history[1]["fist_frames"], self.analyzer.thresh_fist)
         self.assertNotIn("Mao Fechada", self.observe(17.05, False))
 
     def test_long_continuous_gesture_does_not_latch_alert(self):

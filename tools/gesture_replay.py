@@ -29,8 +29,9 @@ if str(ROOT) not in sys.path:
 
 from App.GestureRecon.detector import GestureAnalyzer, MIN_OBSERVATIONS
 
-# 30 FPS, 1 e 3 s, o frame de duas pessoas no Pi hoje e o da linha de base.
-INTERVALS = (1 / 30, 1.0, 3.0, 6.2, 13.2)
+# 30 FPS, 1 s, o frame de uma pessoa no Pi desde 04/10/2026, 3 s, o de duas
+# pessoas em 26/09 e o da linha de base.
+INTERVALS = (1 / 30, 1.0, 1.7, 3.0, 6.2, 13.2)
 # Uma observacao por regra equivale ao criterio anterior, so de duracao.
 PREVIOUS_MIN_OBSERVATIONS = {rule: 1 for rule in MIN_OBSERVATIONS}
 CODES = {"Mao Fechada": "F", "Mao Fechada + Braco Estendido": "A", "Rendicao": "R",
@@ -91,8 +92,11 @@ def _frame(arms, hands, body=FRONT, face=0.9):
             "box": [120.0, 30.0, 270.0, 235.0], "hand_context": dict(hands)}
 
 
-def synthetic_sequences(sustained=20):
-    """Posturas e gestos mantidos, e cada gesto breve (duas observacoes)."""
+def synthetic_sequences(sustained=300):
+    """Posturas e gestos mantidos, e cada gesto breve (duas observacoes).
+
+    300 observacoes mantidas duram 10 s a 30 FPS, mais que os 8 s da mao oculta.
+    """
     sequences = {}
     for name, (arms, hands, options, expected) in POSTURES.items():
         sequences[name] = {"frames": [_frame(arms, hands, **options)] * sustained,

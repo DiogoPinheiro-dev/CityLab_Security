@@ -8,6 +8,117 @@ resolve com o primeiro.
 Nada aqui esta autorizado a ser implementado. Cada acao e combinada com o
 responsavel antes, uma de cada vez, como no plano de otimizacao.
 
+## Estado verificado em 06/10/2026
+
+O responsavel reabriu o plano como o ultimo item da ordem combinada no fim de
+04/10/2026 (`docs/PLANO_OTIMIZACAO.md`, "Pedido do responsavel no fim de
+04/10"). Antes de mudar qualquer regra, o conjunto de validacao de 30/09 foi
+medido de novo, no ritmo atual do Pi.
+
+### O frame do Pi ficou mais de 3 vezes mais rapido
+
+A acao 4 deste plano aconteceu pelo plano de desempenho: com a pose em 416 px
+e em NCNN e o detector de rosto `det_500m`. O frame com uma pessoa levou de 5,3
+a 6,3 s na rodada com gesto de 30/09; no video de carga, desde 04/10, leva 1,7
+s. As regras contam observacoes seguidas, e a duracao minima de cada uma, de
+0,20 a 0,40 s, foi escolhida para 30 FPS. A 1,7 s, so as observacoes decidem:
+cada alerta dispara mais de 3 vezes mais cedo, e condicoes que duram poucos
+segundos passam a disparar tambem.
+
+Medicao no PC, sem mudar o produto: os 18 videos do conjunto de validacao,
+extraidos com a pose do Pi (NCNN em 320x416), com a regra de 30/09, em todas as
+fases de amostragem a 6,2 s e a 1,7 s: 62 e 17 fases por video, 186 e 51 por
+situacao (`.tmp/analisa_validacao_gestos.py --intervalo`, fora do Git). A 6,2
+s, os JSONs extraidos em 30/09 reproduzem a tabela daquele dia. Parte das fases
+em que o alerta dispara ao menos uma vez no video:
+
+| Situacao | Alerta | 6,2 s | 1,7 s |
+|---|---|---:|---:|
+| Ameaca | Mao fechada (esperado) | 99% | 100% |
+| Ameaca | Ameaca (esperado) | 26% | 33% |
+| Ameaca | Braco estendido (esperado) | 0% | 33% |
+| Braco estendido, mao aberta | Braco estendido (esperado) | 0% | 67% |
+| Rendicao | Rendicao (esperado) | 90% | 100% |
+| Mao oculta | Mao oculta (esperado) | 98% | 100% |
+| Ameaca | Rendicao | 6% | 71% |
+| Ameaca | Mao oculta | 2% | 65% |
+| Braco estendido, mao aberta | Mao fechada | 46% | 94% |
+| Braco estendido, mao aberta | Ameaca | 45% | 67% |
+| Rendicao | Braco estendido | 0% | 67% |
+| Rendicao | Mao oculta | 2% | 49% |
+| Rendicao | Mao fechada | 3% | 41% |
+| Punho, braco solto | Mao oculta | 0% | 31% |
+| Mao oculta | Mao fechada | 0% | 18% |
+| Neutro | Mao oculta | 0% | 12% |
+
+O braco estendido, que pedia 18,6 s a 6,2 s e nunca disparava, passou a
+disparar. Os alarmes falsos subiram em todas as situacoes.
+
+### Duracao minima no ritmo do Pi
+
+Variando a duracao minima de cada regra, com as observacoes seguidas de hoje,
+nos intervalos de 1,0, 1,7, 2,4 e 3,4 s (`.tmp/varre_duracao_gestos.py`, fora
+do Git):
+
+- **Mao oculta:** com 8 s, as fases falsas a 1,7 s caem de 80 para 15 em 255, e
+  o alerta esperado continua em todas as fases, nos quatro intervalos. Com 10 s,
+  7 falsas, ainda sem perder o esperado.
+- **Mao fechada:** com 4 s, as falsas caem de 78 para 38 em 255, e o punho da
+  ameaca continua em todas as fases. O que sobra e a mao aberta lida como
+  fechada na ponta do braco estendido; tirar isso pede 8 s ou mais e perde
+  punho verdadeiro a 3,4 s.
+- **Rendicao, braco estendido e ameaca:** nenhuma duracao tira os falsos sem
+  perder alerta esperado. Eles vem da forma, nao do tempo: os punhos levantados
+  da ameaca cumprem a regra da rendicao, os bracos erguidos da rendicao cumprem
+  a do braco estendido, e a mao aberta na ponta do braco estendido e lida
+  fechada.
+
+### Decisao: mao oculta 8 s, mao fechada 4 s
+
+Decisao do responsavel em 06/10/2026: a mao oculta passa a pedir 8 s, e a mao
+fechada, 4 s, alem das observacoes seguidas de antes. As outras regras ficam
+como estavam. A mudanca esta em `App/GestureRecon/detector.py`. O banco de
+replay ganhou o intervalo de 1,7 s, e os gestos sinteticos passaram a 300
+observacoes, que a 30 FPS duram 10 s.
+
+Com a regra nova, no mesmo conjunto, fases com o alerta a 1,7 s:
+
+| Situacao | Alerta | Antes | Depois |
+|---|---|---:|---:|
+| Mao oculta | Mao oculta (esperado) | 51/51 | 51/51 |
+| Ameaca | Mao fechada (esperado) | 51/51 | 51/51 |
+| Neutro | Mao oculta | 6/51 | 0/51 |
+| Punho, braco solto | Mao oculta | 16/51 | 0/51 |
+| Rendicao | Mao oculta | 25/51 | 5/51 |
+| Ameaca | Mao oculta | 33/51 | 10/51 |
+| Rendicao | Mao fechada | 21/51 | 0/51 |
+| Mao oculta | Mao fechada | 9/51 | 1/51 |
+| Braco estendido, mao aberta | Mao fechada | 48/51 | 37/51 |
+
+- Nenhum alerta esperado perdeu fase a 1,0, 1,7, 2,4 ou 3,4 s. A 6,2 s o
+  resultado ficou identico ao de antes, nos JSONs de 30/09 e nos da pose do Pi:
+  nessa taxa, as observacoes seguidas ja pediam mais tempo que a duracao nova.
+- Custo: a 1,7 s por frame, a mao oculta dispara na sexta observacao seguida,
+  8,5 s depois da primeira, em vez de na terceira, 3,4 s; a mao fechada, na
+  quarta, 5,1 s, em vez de na segunda, 1,7 s. Em 30/09, com o frame de uns 6 s,
+  eram 12,4 s e 6,2 s. Um gesto breve, de duas observacoes, so confirma a
+  ameaca.
+- A 30 FPS, num computador rapido, a duracao passa a decidir as duas regras: 8 e
+  4 s, em vez de 0,35 e 0,20 s.
+- Falta conferir os tempos novos numa rodada com gesto no Pi, a criterio do
+  responsavel.
+
+### O que fica aberto
+
+1. Rendicao com os punhos levantados: a 1,7 s, dispara em 71% das fases dos
+   videos de ameaca.
+2. Braco estendido na rendicao: com os bracos erguidos, dispara em 67% das
+   fases dos videos de rendicao. Em 30/09 nao aparecia porque pedia 18,6 s.
+3. Mao aberta lida como fechada com o braco levantado: mao fechada e ameaca
+   falsas em 73% e 67% das fases dos videos de braco estendido.
+4. Rosto de perfil vira `NAO_ALUNO` e reabre o episodio do aluno.
+5. Rodada com gesto no Pi para conferir os tempos novos.
+
 ## Estado verificado em 30/09/2026
 
 O responsavel combinou gravar um conjunto de validacao para a mao fechada, e o
@@ -638,6 +749,10 @@ E o unico caminho que desfaz o dilema da acao 2. Candidatos, um por vez:
 
 Risco alto em todos: mexem na qualidade de keypoints, que e a entrada das
 regras. Nenhum vale sem a acao 1 medindo o recall antes e depois.
+
+Feita pelo plano de desempenho: em 04/10/2026, com a pose em NCNN e o detector
+de rosto `det_500m`, o frame com uma pessoa chegou a 1,7 s. O efeito nas regras
+e a duracao minima nova estao em "Estado verificado em 06/10/2026".
 
 ### 5. Registrar a resolucao temporal em cada alerta
 

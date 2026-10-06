@@ -448,16 +448,20 @@ interpretacoes abaixo foram corrigidas tambem no trecho original:
   Wi-Fi de 02/10 tambem nao foi isolada; roteador, PC e economia de energia
   ficaram apenas como hipoteses, nao como diagnostico.
 
-O reconhecimento facial em segundo plano (P5) continua em validacao. As
-rodadas interrompidas por subtensao ou por defeito encontrado durante a
-medicao sao diagnosticas, nao resultado de aceite, e nao devem ser usadas como
-conclusao no artigo antes das tres rodadas validas.
+No reconhecimento facial em segundo plano (P5), as rodadas interrompidas por
+subtensao ou por defeito encontrado durante a medicao sao diagnosticas, nao
+resultado de aceite, e ficaram fora do repositorio. A rodada valida, que
+reprovou o candidato, esta na subsecao seguinte.
 
 ### P5 - primeira rodada controlada do reconhecimento assincrono
 
 O commit `0ac0bf0`, ja no Pi, foi medido com o video de carga, aprendizado pelo
 stream desligado, 5 frames de aquecimento e 30 medidos. A rodada ficou em
-`resultados/pi3-0ac0bf0-video-async-tomada2/`.
+`resultados/pi3-0ac0bf0-video-async-tomada2/`. Depois da rodada, o commit foi
+refeito por amend ate `cc7eaf1`, o que ficou no historico do `main`. O codigo
+do rosto, do servidor e do cliente e o mesmo nos dois. A unica diferenca de
+execucao e o padrao de `FACE_LEARN_FROM_STREAM` no perfil default; no rpi3 ele
+ja era ligado, e a rodada o desligou pelo `.env`.
 
 - A media caiu de 1738,865 ms no controle sincrono para 1212,636 ms
   (-30,263%); mediana de 1222,592 ms e p95 de 1495,908 ms.
@@ -497,6 +501,23 @@ O banco passa a guardar automaticamente embeddings tirados do stream, dado
 biometrico na LGPD. Para comparar outra mudanca, desligar o aprendizado ou
 apagar as referencias antes de cada serie; para uso real, acompanhar nomes
 incorretos e administrar as referencias com `tools/limpar_aprendidos.py`.
+
+### O que fica aberto
+
+Substitui a lista de 04/10.
+
+1. Medir com o aprendizado desligado (`FACE_LEARN_FROM_STREAM=0`) ou com as
+   referencias apagadas antes de cada serie, e com o log de `vcgencmd`
+   rodando. Valor diferente de `0x0` invalida a rodada ate isolar a causa:
+   tomada, cabo, fonte, temperatura ou carga.
+2. Acompanhar no uso o aprendizado, com `tools/cadastros.py`: quantas
+   referencias cada pessoa junta e se alguem aparece com o nome de outra.
+3. P5 reprovado: `FACE_ASYNC_RECOGNITION` segue desligado. Voltar a ele pede
+   outra regra para confirmar o nome do rosto em movimento, a combinar.
+4. Regras de gesto, reabertas em 06/10/2026: ver `docs/PLANO_GESTOS.md`.
+5. Da lista de 04/10 seguem: um GET repetido durante o stream, o recadastro
+   com 3 a 5 fotos, as cenas com duas pessoas, os testes de dias, o P4 e o que
+   sobrou do "Encerramento em 27/09/2026".
 
 ## Estado verificado em 04/10/2026
 
