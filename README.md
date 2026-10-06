@@ -398,10 +398,11 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   entraram em 06/10/2026: sem eles, nesse ritmo, as duas regras disparavam em
   situacoes sem o gesto no conjunto de validacao.
 - **Alarmes falsos de gesto.** No conjunto de validacao, com o frame de 1,7 s,
-  os punhos levantados da ameaca disparam rendicao em 71% das fases, os bracos
-  erguidos da rendicao disparam braco estendido em 67%, e a mao aberta na ponta
-  do braco estendido dispara mao fechada em 73% e ameaca em 67%. Nenhuma
-  duracao minima separa esses casos sem perder alerta verdadeiro. Ver
+  os punhos levantados da ameaca disparam rendicao em 71% das fases, e a mao
+  aberta na ponta do braco estendido dispara mao fechada em 73% e ameaca em
+  67%. Nenhuma duracao minima separa esses casos sem perder alerta verdadeiro.
+  O braco estendido falso na rendicao, com os bracos retos para cima, saiu em
+  06/10/2026: a regra vale de 45 a 135 graus da vertical. Ver
   [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
 - **Nome herdado pelo rosto.** No perfil rpi3, um rosto no mesmo lugar herda
   por ate 15 s o nome ja reconhecido, sem reconhecer de novo, inclusive o de
@@ -446,7 +447,8 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   frames, e na rodada no Pi o punho na ponta do braco estendido nao foi lido:
   a ameaca e pouco confiavel. Ver [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
 - **Braco apontado para a camera.** Aparece curto na imagem e nao conta como
-  braco estendido; so o braco esticado para o lado dispara.
+  braco estendido; so o braco esticado para o lado dispara, de 45 a 135 graus
+  da vertical.
 - **Mao oculta depende de como a pessoa esta virada.** De costas nao dispara, e
   de lado a mao que a camera nao ve conta como oculta.
 - **Eventos por episodio.** Rostos e alertas gravam quando aparecem e nao se

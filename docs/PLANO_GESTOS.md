@@ -107,17 +107,57 @@ Com a regra nova, no mesmo conjunto, fases com o alerta a 1,7 s:
   4 s, em vez de 0,35 e 0,20 s.
 - Falta conferir os tempos novos numa rodada com gesto no Pi, a criterio do
   responsavel.
+- Commit `2aca583`, implantado no Pi e conferido por hash do `detector.py`,
+  com `throttled=0x0`.
+
+### Braco estendido so ate 135 graus
+
+A regra do braco estendido valia do braco a 45 graus da vertical ate o braco
+reto para cima, a 180. Com os bracos esticados para cima, a rendicao disparava
+o braco estendido, e o detector nem avaliava a rendicao naquele frame: ela so e
+conferida quando nao ha braco estendido. Medido com o braco estendido limitado
+a 135 graus, ou seja, a ate 45 graus acima da horizontal, no conjunto da webcam
+e nas gravacoes do celular de 29/09, uma por situacao
+(`.tmp/varre_geometria_gestos.py`, fora do Git):
+
+| Conjunto | Intervalo | Braco estendido na rendicao (falso) | Rendicao (esperado) |
+|---|---|---:|---:|
+| Webcam | 1,0 s | 20/30 -> 0/30 | 30/30 -> 30/30 |
+| Webcam | 1,7 s | 34/51 -> 0/51 | 51/51 -> 51/51 |
+| Webcam | 2,4 s | 39/72 -> 0/72 | 72/72 -> 72/72 |
+| Webcam | 3,4 s | 16/102 -> 0/102 | 100/102 -> 102/102 |
+| Webcam | 6,2 s | 0/186 -> 0/186 | 168/186 -> 179/186 |
+| Celular | 1,0 a 1,7 s | 0 -> 0 | todas as fases, antes e depois |
+| Celular | 2,4 s | 0/24 -> 0/24 | 21/24 -> 24/24 |
+| Celular | 3,4 s | 0/34 -> 0/34 | 6/34 -> 32/34 |
+| Celular | 6,2 s | 0/62 -> 0/62 | 10/62 -> 36/62 |
+
+- O braco estendido esperado, nos videos de braco estendido e de ameaca, nao
+  perdeu nenhuma fase em nenhum intervalo, nos dois conjuntos. Com 120 graus o
+  resultado e o mesmo, salvo a rendicao do celular a 3,4 s, em 34/34.
+- No celular, a 2,4 s, a ameaca falsa no video de rendicao caiu de 2 para 0
+  fases em 24. A 3,4 s, apareceu 1 fase de rendicao falsa em 34 no video de
+  ameaca.
+- A rendicao falsa nos videos de ameaca, com os punhos levantados, nao muda
+  com o limite: 36 de 51 fases a 1,7 s. O teste de 30/09, rendicao ignorando a
+  mao levantada lida como fechada, foi repetido no ritmo de hoje, junto com o
+  limite. Na webcam, a rendicao falsa cai de 36 para 13 em 51 fases; no
+  celular, a rendicao verdadeira cai de 17 para 16 em 17 a 1,7 s, de 24 para
+  19 em 24 a 2,4 s e de 32 para 21 em 34 a 3,4 s. Ficou de fora.
+
+Decisao do responsavel em 06/10/2026: o braco estendido vale de 45 a 135 graus
+da vertical (`MAX_AIMING_RAISE_DEGREES` em `App/GestureRecon/detector.py`). O
+banco de replay ganhou a rendicao com os bracos retos, que dispara rendicao, e
+nao braco estendido.
 
 ### O que fica aberto
 
 1. Rendicao com os punhos levantados: a 1,7 s, dispara em 71% das fases dos
    videos de ameaca.
-2. Braco estendido na rendicao: com os bracos erguidos, dispara em 67% das
-   fases dos videos de rendicao. Em 30/09 nao aparecia porque pedia 18,6 s.
-3. Mao aberta lida como fechada com o braco levantado: mao fechada e ameaca
+2. Mao aberta lida como fechada com o braco levantado: mao fechada e ameaca
    falsas em 73% e 67% das fases dos videos de braco estendido.
-4. Rosto de perfil vira `NAO_ALUNO` e reabre o episodio do aluno.
-5. Rodada com gesto no Pi para conferir os tempos novos.
+3. Rosto de perfil vira `NAO_ALUNO` e reabre o episodio do aluno.
+4. Rodada com gesto no Pi para conferir os tempos e o limite novos.
 
 ## Estado verificado em 30/09/2026
 

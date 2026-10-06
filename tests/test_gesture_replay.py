@@ -43,6 +43,13 @@ class GestureReplayTests(unittest.TestCase):
         for interval in (FPS30, PI_INTERVAL):
             self.assertEqual(self.first("punho_braco_solto", interval), {}, interval)
 
+    def test_straight_arms_up_are_surrender_not_extended_arm(self):
+        # Decisao de 06/10: o braco estendido vale de 45 a 135 graus da vertical.
+        # Com os bracos retos para cima, disparava braco estendido e nao rendicao.
+        for interval in (PI_INTERVAL_NOW, PI_INTERVAL):
+            self.assertEqual(self.first("rendicao_bracos_retos", interval), {"Rendicao": 3},
+                             interval)
+
     def test_arm_the_camera_cannot_see_from_the_side_counts_as_hidden(self):
         # Decisao do responsavel em 29/09: de lado, o braco fora de vista e oculto.
         self.assertEqual(self.first("de_lado_mao_do_outro_lado", PI_INTERVAL), {"Mao Oculta": 3})

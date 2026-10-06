@@ -35,6 +35,17 @@ def raised_left_arm(degrees=90.0):
     return points
 
 
+def straight_left_arm(degrees, length=60.0):
+    """Braco esquerdo esticado, com o cotovelo no meio, a tantos graus da vertical."""
+    points = [[0, 0, 0] for _ in range(17)]
+    angle = math.radians(degrees)
+    points[5] = [100, 100, 0.9]
+    for index, share in ((7, 0.5), (9, 1.0)):
+        points[index] = [100 + length * share * math.sin(angle),
+                         100 + length * share * math.cos(angle), 0.9]
+    return points
+
+
 class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.clock = [0.0]
@@ -236,6 +247,16 @@ class GestureTimeTests(unittest.TestCase):
                                           hand_context={"left_closed": True},
                                           observed_at=now)["alerts"]
             self.assertEqual("Mao Fechada" in alerts, fires, degrees)
+
+    def test_extended_arm_counts_only_up_to_135_degrees(self):
+        # Decisao de 06/10: o braco esticado para cima e rendicao, nao braco
+        # estendido, e a rendicao volta a ser avaliada nesse frame.
+        for degrees, extended in ((90, True), (130, True), (140, False), (170, False)):
+            analyzer = GestureAnalyzer()
+            for now in (0, 1.7, 3.4, 5.1):
+                alerts = analyzer.analyze(1, straight_left_arm(degrees), observed_at=now)["alerts"]
+            self.assertEqual("Braco Estendido" in alerts, extended, degrees)
+            self.assertEqual("Rendicao" in alerts, not extended, degrees)
 
     def test_missing_track_resets_time_and_state(self):
         analyzer, _ = self.run_sequence([0, .21])

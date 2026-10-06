@@ -17,6 +17,11 @@ MIN_OBSERVATIONS = {"hidden": 3, "surrender": 3, "aiming": 4, "fist": 2, "threat
 # corpo, o detector de maos marcou como fechada 99% dos punhos e 51% das maos
 # relaxadas do conjunto de validacao, entao a mao fechada so conta levantada.
 MIN_ARM_RAISE_DEGREES = 45.0
+# Teto do braco estendido desde 06/10/2026: o braco esticado para cima disparava
+# a regra na rendicao, em 67% das fases dos videos de rendicao com o frame do Pi
+# em 1,7 s, e tirava a rendicao da avaliacao naquele frame. De 45 a 135 graus, o
+# braco fica a ate 45 graus da horizontal (docs/PLANO_GESTOS.md).
+MAX_AIMING_RAISE_DEGREES = 135.0
 MAX_HIDDEN_ELBOW_DEGREES = 130.0
 # De lado, a largura dos ombros ficou entre 3% e 34% da altura do tronco; de
 # frente e de costas, perto de 60%.
@@ -265,12 +270,13 @@ class GestureAnalyzer:
             )
         )
 
-        # Braco esticado e caido ao lado do corpo nao e braco estendido.
+        # Braco esticado e caido ao lado do corpo nao e braco estendido, nem o
+        # braco esticado para cima, que e rendicao.
         if (left_straightness > 0.82 and left_reach > 1.05 and not left_wrist_in_torso
-                and left_raise >= MIN_ARM_RAISE_DEGREES):
+                and MIN_ARM_RAISE_DEGREES <= left_raise <= MAX_AIMING_RAISE_DEGREES):
             is_aiming = True
         if (right_straightness > 0.82 and right_reach > 1.05 and not right_wrist_in_torso
-                and right_raise >= MIN_ARM_RAISE_DEGREES):
+                and MIN_ARM_RAISE_DEGREES <= right_raise <= MAX_AIMING_RAISE_DEGREES):
             is_aiming = True
 
         aiming_confirmed = self._confirm_gesture(
