@@ -478,19 +478,57 @@ no scratchpad, fora do Git). Frames 5 a 34, os 30 medidos pelo benchmark:
   alertas frame a frame, nome confirmado perto do controle, nenhum nome errado
   e `throttled=0x0`.
 
+### P5 no Pi - duas rodadas validas, e a subtensao de volta
+
+Commit `71b384e`, implantado e conferido por hash (`App/FaceRecon/service.py`
+e `App/settings.py`), video de carga, aprendizado desligado e log de
+`vcgencmd`. Resultados em `resultados/pi3-71b384e-video-controle-sync/` e
+`resultados/pi3-71b384e-video-async/`; as rodadas com queda de tensao ficaram
+nas pastas `descartadas`.
+
+| Rodada | Media | Contra o controle | Nome confirmado | Energia |
+|---|---:|---:|---:|---|
+| Controle sincrono | 1729,3 ms | | 26/30 | 39 leituras em `0x0` |
+| Segundo plano r1 | 1177,6 ms | -31,9% | 20/30 | 87 leituras em `0x0` |
+| Segundo plano r2 | 1175,4 ms | -32,0% | 20/30 | log visto em `0x0` pelo responsavel; arquivo perdido |
+
+- Nenhum frame saiu desconhecido. No Pi, o embedding em segundo plano levou
+  2,65 s na mediana, 2 a 3 frames: o rosto que saltou com a thread ocupada
+  ficou "verificando" nos frames 16 a 19, e os rostos de perfil ficaram
+  pendentes um frame a mais que no controle.
+- Alertas iguais ao controle frame a frame, menos a mao fechada, que disparou
+  no frame 22 em vez do 21: com o tempo minimo de 4 s, decidido no mesmo dia
+  (`docs/PLANO_GESTOS.md`), frames mais rapidos adiam o alerta em frames, nao
+  em segundos. O criterio "mesmos alertas frame a frame" foi combinado antes
+  desse tempo minimo.
+- Invalidas por subtensao, com o processador em 600 MHz: a primeira tentativa
+  do controle (1 leitura `0x50005`), duas tentativas da r3 (10 de 14 leituras
+  sob carga; depois, queda 30 s apos o inicio) e um teste com o aprendizado
+  ligado, que repetiu os estados do rosto da r1. Mesma fonte, de 5,1 V, mesmo
+  cabo e mesma tomada de 05/10. Antes da primeira r3, o acesso ao Pi caiu e ele
+  foi desligado pelo cabo; o registro do sistema nao guarda boots anteriores, e
+  a causa da perda de acesso nao foi vista.
+- P5 ainda nao aprovado: falta a terceira rodada valida e a decisao do
+  responsavel sobre o criterio dos alertas e o nome confirmado em 20 de 30,
+  contra 26.
+
 ### O que fica aberto
 
 Substitui a lista de 05/10.
 
-1. P5 no Pi, com a regra nova: as rodadas acima.
-2. Medir com o aprendizado desligado (`FACE_LEARN_FROM_STREAM=0`) ou com as
+1. P5 no Pi: uma rodada valida no lugar da r3, com a alimentacao resolvida, e
+   as duas decisoes acima. Antes, apagar as referencias aprendidas no teste com
+   o aprendizado ligado.
+2. Alimentacao: separar fonte, cabo e conector, que voltaram a dar subtensao
+   em 06/10.
+3. Medir com o aprendizado desligado (`FACE_LEARN_FROM_STREAM=0`) ou com as
    referencias apagadas antes de cada serie, e com o log de `vcgencmd`
    rodando. Valor diferente de `0x0` invalida a rodada ate isolar a causa.
-3. Acompanhar no uso o aprendizado, com `tools/cadastros.py`, e o
+4. Acompanhar no uso o aprendizado, com `tools/cadastros.py`, e o
    `vcgencmd get_throttled`.
-4. Regras de gesto: ver `docs/PLANO_GESTOS.md`, "Estado verificado em
+5. Regras de gesto: ver `docs/PLANO_GESTOS.md`, "Estado verificado em
    06/10/2026".
-5. Da lista de 04/10 seguem: um GET repetido durante o stream, o recadastro
+6. Da lista de 04/10 seguem: um GET repetido durante o stream, o recadastro
    com 3 a 5 fotos, as cenas com duas pessoas, os testes de dias, o P4 e o que
    sobrou do "Encerramento em 27/09/2026".
 
@@ -502,18 +540,22 @@ O documento inteiro foi revisto contra os testes controlados que vieram depois
 de cada hipotese. Os numeros medidos continuam como registro historico, mas as
 interpretacoes abaixo foram corrigidas tambem no trecho original:
 
-- **A subtensao nao foi causada pelo NCNN, pela fonte nem pelo Raspberry.** Na
-  tomada usada nas primeiras rodadas, ela apareceu tambem com o reconhecimento
-  facial sincrono e a opcao assincrona desligada. Mudando somente a tomada, com
-  o mesmo Pi e a mesma fonte, o controle sincrono teve 86 de 86 leituras em
-  `throttled=0x0`. A media foi 1738,9 ms contra 1739,3 ms da base (-0,024%),
-  com pessoas, rostos, identidades, gestos, confiancas e alertas identicos
-  quadro a quadro. Resultado em
-  `resultados/pi3-ef3c0b5-video-controle-sync-outlet2/`.
+- **Nao ha evidencia de que o NCNN provocou a subtensao, e a causa dela nao
+  esta isolada.** Na tomada usada nas primeiras rodadas, ela apareceu tambem
+  com o reconhecimento facial sincrono e a opcao assincrona desligada. Mudando
+  somente a tomada, com o mesmo Pi e a mesma fonte, o controle sincrono teve 86
+  de 86 leituras em `throttled=0x0`. A media foi 1738,9 ms contra 1739,3 ms da
+  base (-0,024%), com pessoas, rostos, identidades, gestos, confiancas e
+  alertas identicos quadro a quadro. Resultado em
+  `resultados/pi3-ef3c0b5-video-controle-sync-outlet2/`. Em 06/10, porem, a
+  queda voltou nessa mesma tomada, com a mesma fonte e o mesmo cabo, nos modos
+  sincrono e assincrono ("Estado verificado em 06/10/2026"). A troca de tomada
+  nao separou a causa entre a tomada, a fonte, o cabo e o contato dos
+  conectores.
 - A serie inicial do NCNN com 4 threads preserva o que foi observado, inclusive
   os valores `0x50005`, mas fica **invalida para atribuir causa ao software ou
-  comparar consumo/desempenho**, porque a tomada era uma variavel nao
-  controlada. Nao ha evidencia de que quatro threads provocaram a subtensao.
+  comparar consumo/desempenho**, porque a alimentacao nao estava controlada.
+  Nao ha evidencia de que quatro threads provocaram a subtensao.
 - A promocao do NCNN com 2 threads continua sustentada pelas tres rodadas
   validas contra o `.pt`, com cerca de 40% de ganho e deteccao identica. O que
   foi retirado e a explicacao de que duas threads resolveram alimentacao ou de
@@ -627,7 +669,7 @@ tem SSH no Pi apaga.
 - No mesmo deploy, o `--show-config` mostrou o aprendizado ligado pelo perfil,
   com 600 s, 5 referencias e 30 dias, sem nenhuma linha de teste no `.env`.
 
-### NCNN na pose no Pi - serie inicial invalidada pela tomada
+### NCNN na pose no Pi - serie inicial invalidada por subtensao
 
 Instalacao: o `pip install ncnn` sem `--no-deps` trocou o numpy 1.26.4 pelo
 2.4.6 e pos o `opencv-python` 5.0 por cima do OpenCV 4.11 do
@@ -669,15 +711,17 @@ inference". API reiniciada antes de cada rodada. Resultados em
   processador em 600 MHz. Nunca tinha aparecido, nem nas 10,5 h da noite de
   01/10. Em 05/10, o mesmo estado apareceu nessa tomada com o caminho facial
   sincrono, sem a opcao assincrona. Ao mudar somente a tomada, o mesmo Pi e a
-  mesma fonte ficaram em `0x0`. Portanto, esta serie registra a ocorrencia,
-  mas nao demonstra que o NCNN, quatro threads, a fonte ou o Pi a causaram.
+  mesma fonte ficaram em `0x0`; em 06/10, a queda voltou na tomada nova.
+  Portanto, esta serie registra a ocorrencia, mas nao demonstra que o NCNN,
+  quatro threads, a fonte ou o Pi a causaram.
 - `process_rss_mb` de 676 a 736 MB, contra 637 a 638 MB na base de hoje e 654 a
   729 MB nas series de 03/10; temperatura ate 52,6 C, contra 56,9 C na base,
   mas com o processador parte do tempo em 600 MHz.
 - Decisao tomada naquele momento: voltar temporariamente ao `.pt` por cautela.
-  A investigacao de 05/10 descartou a hipotese de problema da fonte, do Pi ou
-  do backend. Os tempos desta tabela continuam como dados brutos, mas a serie
-  nao vale como comparacao controlada de 4 threads.
+  A investigacao de 05/10 nao achou evidencia contra o backend; a hipotese da
+  fonte e do cabo, que a troca de tomada parecia descartar, voltou a ficar
+  aberta em 06/10. Os tempos desta tabela continuam como dados brutos, mas a
+  serie nao vale como comparacao controlada de 4 threads.
 
 ### NCNN com menos threads - controle de concorrencia da CPU
 
@@ -723,7 +767,8 @@ antes de cada rodada. Resultados em `resultados/pi3-50c0ddc-video-ncnn2/`.
   por nucleo. Os frames com o nome reaproveitado cairam de 3256 para uns 1400
   ms, e os que reconhecem o rosto de novo, de 4288 para uns 3200 ms: de 0,27
   para 0,44 a 0,45 frames por segundo. A serie antiga de 4 threads foi
-  invalidada pela tomada; por isso ela nao prova vantagem causal de 2 contra 4.
+  invalidada pela subtensao; por isso ela nao prova vantagem causal de 2
+  contra 4.
 - `process_rss_mb` de 676 a 695 MB, dentro da faixa das series de 03/10.
 - Decisao do responsavel: promover. `NCNN_NUM_THREADS` passa a 2 no perfil
   rpi3; zero no default, e zero explicito volta ao padrao do ncnn. A pose em

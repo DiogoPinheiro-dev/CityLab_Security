@@ -18,8 +18,12 @@ eletrica foi ligar a fonte em outra tomada. O video tem SHA-256
 - O resumo do log `~/vcgencmd-tomada2.log`, mantido no Pi, teve 86 de 86
   leituras em `throttled=0x0`. Temperatura de 45,1 a 50,5 C na resposta da API.
 
-Conclusao limitada ao que o controle demonstra: a subtensao das tentativas
-anteriores nao veio da fonte, do Raspberry nem da opcao assincrona; ao mudar a
-tomada, o mesmo caminho sincrono voltou exatamente ao desempenho e ao resultado
-da base. Uma rodada nao compara candidatos de desempenho; ela isola a condicao
-eletrica que tinha invalidado as tentativas anteriores.
+Conclusao limitada ao que o controle demonstra: com a opcao assincrona
+desligada e mudando so a tomada, o mesmo caminho sincrono voltou exatamente ao
+desempenho e ao resultado da base, sem queda de tensao. Uma rodada nao compara
+candidatos de desempenho; ela registra a condicao eletrica daquele momento.
+
+Revisao em 06/10/2026: a queda voltou nessa mesma tomada, com a mesma fonte e o
+mesmo cabo, nos dois modos (`resultados/pi3-71b384e-video-controle-sync/` e
+`resultados/pi3-71b384e-video-async/`, pastas `descartadas`). A troca de
+tomada nao isolou a causa entre tomada, fonte, cabo e contato.

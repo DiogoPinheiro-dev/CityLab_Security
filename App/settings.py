@@ -110,8 +110,8 @@ NATIVE_NUM_THREADS = max(0, _get_int("NATIVE_NUM_THREADS", 1 if _RPI3 else 0))
 # Aceita arquivo .pt ou diretorio NCNN exportado; vazio usa o peso versionado.
 POSE_MODEL_PATH = os.getenv("POSE_MODEL_PATH", "").strip()
 # Threads do ncnn na pose, so com um modelo NCNN. Zero deixa o padrao do ncnn,
-# uma por nucleo fisico, 4 no Pi. A serie inicial com 4 teve subtensao causada
-# pela tomada e nao compara threads. Com 2 no rpi3, a serie valida ficou 40%
+# uma por nucleo fisico, 4 no Pi. A serie inicial com 4 teve subtensao, de causa
+# nao isolada, e nao compara threads. Com 2 no rpi3, a serie valida ficou 40%
 # mais rapida que o .pt, com throttled=0x0 (docs/PLANO_OTIMIZACAO.md).
 NCNN_NUM_THREADS = max(0, _get_int("NCNN_NUM_THREADS", 2 if _RPI3 else 0))
 # Lado da entrada da pose, multiplo de 32. Zero mantem o padrao do Ultralytics,

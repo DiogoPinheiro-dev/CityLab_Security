@@ -475,13 +475,16 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   ficou fora de alcance por uns 9 min, com a API rodando o tempo todo. Foi a
   unica reconexao em 24 h; a economia de energia do Wi-Fi esta ligada. Cabo de
   rede evita isso.
-- **Alimentacao conferida.** A subtensao vista nas primeiras rodadas do NCNN
-  foi isolada em 05/10/2026 como problema da tomada. Na nova tomada, o mesmo Pi
-  e a mesma fonte tiveram 86 de 86 leituras em `0x0` no controle sincrono e 253
-  de 253 no teste assincrono. A serie inicial de 4 threads preserva os dados
-  brutos, mas nao demonstra causa do NCNN, da fonte ou do Pi. Qualquer valor
-  diferente de `0x0` deve ser decodificado e investigado antes de atribuir
-  causa ou trocar o backend.
+- **Alimentacao do Pi no limite.** A subtensao vista nas primeiras rodadas do
+  NCNN sumiu em 05/10/2026 ao trocar so a tomada: o mesmo Pi e a mesma fonte
+  tiveram 86 de 86 leituras em `0x0` no controle sincrono e 253 de 253 no
+  teste assincrono. Em 06/10/2026 ela voltou na mesma tomada, com a mesma fonte
+  e o mesmo cabo, nos dois modos, em 4 das 7 rodadas com carga conferidas. A
+  causa segue sem isolar entre tomada, fonte, cabo e contato dos conectores, e
+  nao ha evidencia contra o NCNN. Rodada com valor diferente de `0x0` nao vale
+  como medicao, e tensao baixa repetida arrisca o cartao SD e o uso 24/7. O Pi
+  usa a fonte original, de 5,1 V; falta separar fonte, cabo e conector, com
+  outro cabo ou outra fonte, ou medindo a tensao na entrada do Pi.
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
   globais. Duas conexoes ao mesmo tempo dividem a thread de inferencia, um
   frame de cada vez, e misturam os rastros.

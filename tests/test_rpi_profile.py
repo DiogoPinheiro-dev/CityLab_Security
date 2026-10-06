@@ -70,7 +70,7 @@ class RpiProfileTests(unittest.TestCase):
 
     def test_ncnn_runs_on_two_threads_only_on_the_pi(self):
         # A serie valida de 04/10/2026 deixou o NCNN com 2 threads 40% mais
-        # rapido que o .pt. A subtensao da serie de 4 veio da tomada.
+        # rapido que o .pt. A serie de 4 teve subtensao e nao compara threads.
         self.assertEqual(self.settings()["NCNN_NUM_THREADS"], 0)
         self.assertEqual(self.settings(CITYLAB_PROFILE="rpi3")["NCNN_NUM_THREADS"], 2)
         # Zero explicito volta ao padrao do ncnn, para comparar com o mesmo codigo.

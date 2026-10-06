@@ -1,0 +1,1 @@
+﻿17:24:51 throttled=0x50005 frequency(48)=600000000 temp=41.3'C

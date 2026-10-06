@@ -452,11 +452,12 @@ ganho, sem outra mudanca na mesma rodada.
 Medido no Pi em 04/10/2026, com o video de carga:
 
 - A serie inicial com as 4 threads do padrao do ncnn observou frame 22% mais
-  rapido e os mesmos alertas, mas teve `0x50005`. Em 05/10/2026 foi isolado que
-  a causa era a tomada usada: a subtensao apareceu tambem com o caminho facial
-  sincrono e, mudando somente a tomada, o mesmo Pi e a mesma fonte ficaram em
-  `0x0`. A serie de 4 threads fica como registro bruto, nao como comparacao
-  controlada nem evidencia contra o NCNN.
+  rapido e os mesmos alertas, mas teve `0x50005`. Em 05/10/2026 a subtensao
+  apareceu tambem com o caminho facial sincrono e sumiu ao mudar somente a
+  tomada, com o mesmo Pi e a mesma fonte. Em 06/10/2026 voltou na mesma tomada,
+  nos dois modos, com a mesma fonte e o mesmo cabo: a causa nao esta isolada
+  entre tomada, fonte, cabo e contato. A serie de 4 threads fica como registro
+  bruto, nao como comparacao controlada nem evidencia contra o NCNN.
 - Com 2 threads, o frame ficou 40% mais rapido que com o `.pt`, com a mesma
   deteccao frame a frame e `throttled=0x0` em todas as leituras. O NCNN e o
   rosto somam 4 threads, uma por nucleo. Essa comparacao contra o `.pt` e
