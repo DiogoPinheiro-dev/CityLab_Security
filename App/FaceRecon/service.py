@@ -35,9 +35,10 @@ class FaceRecognitionService:
     # evento. O mesmo texto esta em Server/event_logger.py e Client/stream.js.
     PENDING_NAME = "VERIFICANDO"
     # Com o reconhecimento em segundo plano, o rosto que andou mais que a
-    # sobreposicao herda, so para a tela, o nome mais proximo ate esta
-    # distancia em pixels do frame original: a mesma do registro de eventos
-    # para seguir um desconhecido (Server/event_logger.py).
+    # sobreposicao leva o nome mais proximo ate esta distancia em pixels do
+    # frame original, a mesma do registro de eventos para seguir um
+    # desconhecido (Server/event_logger.py), e e reconhecido de novo. Sem
+    # outro rosto ou outra identidade por perto, o nome segue confirmado.
     CARRY_MAX_DISTANCE_PX = 120.0
     # Semelhanca minima de cada foto do cadastro com a media das outras. Em 10
     # fotos da mesma pessoa a pior ficou em 0,50 (03/10/2026); abaixo disso a
@@ -259,10 +260,10 @@ class FaceRecognitionService:
                 embed_ms += done["embed_ms"]
                 match_ms += done["match_ms"]
                 embeddings += 1 if "name" in done else 0
-                self._apply_recognition(done)
+                self._apply_recognition(done, now)
             # Toda identidade conta, inclusive a que espera o reconhecimento.
             paired = self._pair_identities(boxes, self._identities)
-            carried = self._carry_identities(accepted, paired)
+            carried, unsure = self._carry_identities(accepted, paired)
             reused = {}
         else:
             reused = self._assign_identities(boxes, now) if reuse else {}
@@ -272,21 +273,24 @@ class FaceRecognitionService:
 
         for index, (face, bbox_processing, bbox_original) in enumerate(accepted):
             job, confirmed = None, True
-            previous_job, job_carried = None, False
+            previous_job, job_carried, seen_at = None, False, None
             if self.async_recognition:
                 entry = paired.get(index, carried.get(index))
                 previous_job = entry.get("job") if entry is not None else None
-                if index in carried and previous_job is not None:
-                    # Mantem o resultado ligado ao mesmo rosto, mas ele ainda
-                    # precisa ser confirmado na posicao atual antes de evento.
+                if index in unsure and previous_job is not None:
+                    # Com outro rosto ou outra identidade perto, o resultado fica
+                    # com o rosto mais proximo, mas so confirma na posicao atual.
                     entry["job_carried"] = True
                 name, best_score, recognized_at, job, inherited, confirmed = self._recognize_async(
-                    entry, index in carried, face, frame_context, now)
+                    entry, index in carried, index in unsure, face, frame_context, now)
                 job_carried = bool(
                     entry is not None and previous_job is not None and job == previous_job
                     and entry.get("job_carried"))
                 if inherited:
                     reused[index] = entry
+                # Sem confirmar, o rosto guarda quando o nome foi visto confirmado.
+                if entry is not None:
+                    seen_at = entry.get("seen_at")
             elif index in reused:
                 entry = reused[index]
                 name, best_score = entry["name"], entry["score"]
@@ -319,7 +323,7 @@ class FaceRecognitionService:
                                "name": name, "score": best_score,
                                "recognized_at": recognized_at, "job": job,
                                "confirmed": confirmed, "job_carried": job_carried,
-                               "seen_at": now if confirmed else None})
+                               "seen_at": now if confirmed else seen_at})
 
             results.append(
                 {
@@ -401,8 +405,8 @@ class FaceRecognitionService:
         seen_at = entry.get("seen_at")
         return entry["recognized_at"] if seen_at is None else seen_at
 
-    def _recognize_async(self, entry: Optional[dict[str, Any]], carried: bool, face: Any,
-                         frame_context: FrameContext, now: float
+    def _recognize_async(self, entry: Optional[dict[str, Any]], carried: bool, unsure: bool,
+                         face: Any, frame_context: FrameContext, now: float
                          ) -> tuple[str, float, float, Optional[int], bool, bool]:
         """Nome do rosto sem esperar o embedding.
 
@@ -410,27 +414,44 @@ class FaceRecognitionService:
         reuso e se o nome esta confirmado neste rosto. Herda como no reuso; o que
         espera reconhecimento segue esperando; o resto pede um, se a thread
         estiver livre. Enquanto isso fica o nome de antes, ou VERIFICANDO para
-        quem acabou de aparecer. O nome que veio de outra posicao (carried) so
-        vale para a tela, ate o reconhecimento neste rosto confirmar.
+        quem acabou de aparecer. O nome que veio de outra posicao (carried) nao
+        e herdado sem reconhecer de novo; ele so continua confirmado se nao ha
+        duvida de que e o mesmo rosto (ver _still_confirmed).
         """
         if entry is not None and entry.get("job") is not None:
             return (entry["name"], entry["score"], entry["recognized_at"], entry["job"],
-                    False, entry.get("confirmed", True) and not carried)
+                    False, self._still_confirmed(entry, carried, unsure, now))
         if entry is not None and not carried and self._reusable(entry, now):
             return (entry["name"], entry["score"], entry["recognized_at"], entry.get("job"),
                     entry.get("job") is None, entry.get("confirmed", True))
         job = self._submit_recognition(face, frame_context, now) if self._job is None else None
         if entry is not None:
             return (entry["name"], entry["score"], entry["recognized_at"], job, False,
-                    entry.get("confirmed", True) and not carried)
+                    self._still_confirmed(entry, carried, unsure, now))
         return self.PENDING_NAME, 0.0, now, job, False, False
 
-    def _carry_identities(self, accepted: list[Any],
-                          paired: dict[int, dict[str, Any]]) -> dict[int, dict[str, Any]]:
+    def _still_confirmed(self, entry: dict[str, Any], carried: bool, unsure: bool,
+                         now: float) -> bool:
+        """O nome confirmado antes vale neste rosto enquanto ele e reconhecido de novo.
+
+        No mesmo lugar, sim. Levado pela distancia, so se ele era o unico rosto
+        perto do nome e o nome, a unica identidade perto dele (unsure falso), e
+        se o ultimo reconhecimento tem menos de reuse_seconds. No Pi, em
+        05/10/2026, exigir a sobreposicao deixou quem anda em "verificando" em
+        27 de 30 frames: o resultado chega quando a pessoa ja saiu do lugar.
+        """
+        if not entry.get("confirmed", True) or unsure:
+            return False
+        return not carried or now - entry["recognized_at"] < self.reuse_seconds
+
+    def _carry_identities(self, accepted: list[Any], paired: dict[int, dict[str, Any]]
+                          ) -> tuple[dict[int, dict[str, Any]], set[int]]:
         """Rosto que andou mais que a sobreposicao: o nome mais proximo, ate o limite.
 
         So entre os rostos sem par e as identidades com nome que sobraram, do
-        par mais proximo para o mais longe, um para um.
+        par mais proximo para o mais longe, um para um. Devolve tambem os rostos
+        levados com duvida: com outro rosto sem par perto da mesma identidade,
+        ou outra identidade livre perto do mesmo rosto.
         """
         import math
 
@@ -451,7 +472,12 @@ class FaceRecognitionService:
             if index not in carried and slot not in used:
                 carried[index] = free[slot]
                 used.add(slot)
-        return carried
+        near = [(index, slot) for distance, index, slot in pairs
+                if distance <= self.CARRY_MAX_DISTANCE_PX]
+        unsure = {index for index, entry in carried.items()
+                  if sum(1 for face, _ in near if face == index) > 1
+                  or sum(1 for _, slot in near if free[slot] is entry) > 1}
+        return carried, unsure
 
     @staticmethod
     def _center(bbox: list[int]) -> tuple[float, float]:
@@ -501,21 +527,37 @@ class FaceRecognitionService:
         # So de embedding novo: nome herdado pelo reuso nao ensina nada.
         if self.learn_from_stream:
             self._maybe_learn(name, score, embedding)
-        return {"id": job["id"], "name": name, "score": score,
+        return {"id": job["id"], "name": name, "score": score, "embedding": embedding,
                 "recognized_at": job["observed_at"], "embed_ms": embed_ms,
                 "match_ms": (time.perf_counter() - started_at) * 1000.0}
 
-    def _apply_recognition(self, done: dict[str, Any]) -> None:
+    def _apply_recognition(self, done: dict[str, Any], now: float) -> None:
         """Poe o resultado no rosto que esperava por ele, se ainda esta na cena."""
         for entry in self._identities:
             if entry.get("job") == done["id"]:
                 entry["job"] = None
-                if "name" in done:
-                    # Resultado levado so pela distancia nao confirma a pessoa
-                    # na nova posicao; a proxima inferencia faz essa confirmacao.
-                    entry.update(name=done["name"], score=done["score"],
-                                 recognized_at=done["recognized_at"],
-                                 confirmed=not entry.get("job_carried", False))
+                if "name" not in done:
+                    continue
+                if self._turned_away(entry, done, now):
+                    # Aluno de perfil, como em _keep_turned_students: segue com o
+                    # nome dele, sem confirmar, e o rosto e reconhecido de novo.
+                    entry.update(score=done["score"], confirmed=False,
+                                 seen_at=self._seen_at(entry))
+                    continue
+                # Resultado levado com duvida, com outro rosto ou outra
+                # identidade perto, nao confirma a pessoa na nova posicao;
+                # a proxima inferencia faz essa confirmacao.
+                entry.update(name=done["name"], score=done["score"],
+                             recognized_at=done["recognized_at"],
+                             confirmed=not entry.get("job_carried", False))
+
+    def _turned_away(self, entry: dict[str, Any], done: dict[str, Any], now: float) -> bool:
+        """O resultado e "NAO ALUNO" quase reconhecido como o aluno deste rosto."""
+        return (done["name"] == "NAO ALUNO"
+                and done["score"] >= self.UNKNOWN_RECHECK_MIN_SIMILARITY
+                and entry["name"] not in ("NAO ALUNO", self.PENDING_NAME)
+                and now - self._seen_at(entry) < self.reuse_seconds
+                and self._person_score(entry["name"], done["embedding"]) >= done["score"] - 1e-6)
 
     def close(self) -> None:
         """Encerra a thread do reconhecimento em segundo plano."""

@@ -637,16 +637,17 @@ class FaceOptimizationTests(unittest.TestCase):
         self.assertEqual(frame(116.0, face)[0]["name"], "Aluno")
         self.assertEqual(service._job_count, 2)
 
-    def test_moved_face_shows_the_nearest_name_until_it_is_confirmed(self):
+    def test_moved_face_alone_keeps_its_confirmed_name(self):
         service, _, frame, finish = self.async_frames()
         here, moved = Vector([0, 0, 30, 30, .9]), Vector([40, 0, 70, 30, .9])
         frame(100.0, here)
         finish()
         self.assertFalse(frame(101.0, here)[0]["pending"])
-        # Andou mais que a sobreposicao, 80 px no frame original: o nome vem
-        # junto so para a tela, e o rosto e reconhecido de novo onde esta.
+        # Andou mais que a sobreposicao, 80 px no frame original, e e o unico
+        # rosto por perto: o nome segue confirmado e o rosto e reconhecido de
+        # novo onde esta (decisao de 06/10).
         result = frame(102.0, moved)[0]
-        self.assertEqual((result["name"], result["pending"]), ("Aluno", True))
+        self.assertEqual((result["name"], result["pending"]), ("Aluno", False))
         self.assertEqual(service._job_count, 2)
         finish()
         result = frame(103.0, moved)[0]
@@ -654,24 +655,48 @@ class FaceOptimizationTests(unittest.TestCase):
         # Longe demais (320 px), pode ser outra pessoa: espera o proprio nome.
         self.assertEqual(frame(104.0, Vector([200, 0, 230, 30, .9]))[0]["name"], "VERIFICANDO")
 
+    def test_moved_face_next_to_another_waits_for_its_own_name(self):
+        service, _, frame, finish = self.async_frames()
+        here = Vector([0, 0, 30, 30, .9])
+        frame(100.0, here)
+        finish()
+        frame(101.0, here)
+        # Dois rostos sem sobreposicao, os dois a 80 px de onde o aluno estava:
+        # nao da para saber qual e ele, e o nome levado nao confirma.
+        faces = frame(102.0, Vector([40, 0, 70, 30, .9]), Vector([-40, 0, -10, 30, .9]))
+        self.assertEqual([(face["name"], face["pending"]) for face in faces],
+                         [("Aluno", True), ("VERIFICANDO", True)])
+
     def test_moved_pending_face_keeps_its_background_job(self):
         service, _, frame, finish = self.async_frames()
         here, moved = Vector([0, 0, 30, 30, .9]), Vector([40, 0, 70, 30, .9])
         frame(100.0, here)
         job = service._job["id"]
-        # O rosto anda antes do primeiro embedding terminar. O job continua
-        # ligado a ele, mas o resultado levado pela distancia nao gera evento.
+        # O rosto anda antes do primeiro embedding terminar: o job continua
+        # ligado a ele, e o rosto segue "verificando".
         result = frame(101.0, moved)[0]
         self.assertEqual((result["name"], result["pending"]), ("VERIFICANDO", True))
         self.assertEqual((service._job_count, service._identities[0]["job"]), (1, job))
         finish()
+        # Era o unico rosto por perto: o resultado confirma o nome onde ele esta.
         result = frame(102.0, moved)[0]
         self.assertEqual((result["name"], result["confidence"], result["pending"]),
-                         ("Aluno", .87, True))
-        # Confirma de novo na posicao atual; so entao deixa de ser pendente.
-        self.assertEqual(service._job_count, 2)
+                         ("Aluno", .87, False))
+        self.assertEqual(service._job_count, 1)
+
+    def test_background_result_carried_with_doubt_confirms_only_in_place(self):
+        service, _, frame, finish = self.async_frames()
+        frame(100.0, Vector([0, 0, 30, 30, .9]))
+        # Antes do resultado, dois rostos aparecem perto de onde ele estava: o
+        # job fica com o mais proximo, mas o resultado nao confirma.
+        left, right = Vector([40, 0, 70, 30, .9]), Vector([-45, 0, -15, 30, .9])
+        frame(101.0, left, right)
         finish()
-        self.assertFalse(frame(103.0, moved)[0]["pending"])
+        result = frame(102.0, left, right)[0]
+        self.assertEqual((result["name"], result["pending"]), ("Aluno", True))
+        # O rosto, agora no mesmo lugar, e reconhecido de novo e confirma.
+        finish()
+        self.assertFalse(frame(103.0, left, right)[0]["pending"])
 
     def test_moved_known_face_keeps_its_recheck_job(self):
         service, _, frame, finish = self.async_frames()
@@ -679,17 +704,37 @@ class FaceOptimizationTests(unittest.TestCase):
         frame(100.0, here)
         finish()
         frame(101.0, here)
-        # A identidade vence, inicia a rechecagem e se move antes do resultado.
+        # A identidade vence, inicia a rechecagem e se move antes do resultado:
+        # com o nome vencido, o rosto espera a rechecagem para confirmar.
         frame(116.0, here)
         job = service._job["id"]
         result = frame(117.0, moved)[0]
         self.assertEqual((result["name"], result["pending"]), ("Aluno", True))
         self.assertEqual((service._job_count, service._identities[0]["job"]), (2, job))
         finish()
-        self.assertTrue(frame(118.0, moved)[0]["pending"])
-        self.assertEqual(service._job_count, 3)
+        # Unico rosto por perto: a rechecagem confirma o nome onde ele esta.
+        self.assertFalse(frame(118.0, moved)[0]["pending"])
+        self.assertEqual(service._job_count, 2)
+
+    def test_background_result_of_a_turned_student_stays_unconfirmed(self):
+        # Como no reconhecimento normal: o aluno de perfil segue ele, sem
+        # confirmar, e nao vira "NAO ALUNO".
+        service, _, frame, finish = self.async_frames()
+        service._person_score = lambda name, embedding: .45
+        face = Vector([0, 0, 30, 30, .9])
+        frame(100.0, face)
         finish()
-        self.assertFalse(frame(119.0, moved)[0]["pending"])
+        frame(101.0, face)
+        frame(116.0, face)
+        service._match_face = lambda embedding: ("NAO ALUNO", .45)
+        finish()
+        result = frame(117.0, face)[0]
+        self.assertEqual((result["name"], result["confidence"], result["pending"]),
+                         ("Aluno", .45, True))
+        # O prazo conta da ultima vez em que ele foi visto confirmado, aos 116 s.
+        finish()
+        result = frame(132.0, face)[0]
+        self.assertEqual((result["name"], result["pending"]), ("NAO ALUNO", False))
 
     def test_background_result_from_before_a_reset_is_dropped(self):
         service, _, frame, finish = self.async_frames()

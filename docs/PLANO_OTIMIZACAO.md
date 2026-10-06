@@ -414,6 +414,86 @@ um video fixo. A decomposicao do rosto entrou no codigo em `9334b9e`, mas, a
 pedido dele, o teste de threads foi medido antes do deploy dela. Resultados em
 "Estado verificado em 01/10/2026".
 
+## Estado verificado em 06/10/2026
+
+O trabalho do dia nas regras de gesto e no rosto de perfil esta em
+`docs/PLANO_GESTOS.md`, "Estado verificado em 06/10/2026". Aqui fica o P5.
+
+### P5 - regra nova de confirmacao do nome, no PC
+
+O responsavel pediu para tentar de novo o reconhecimento em segundo plano com
+outra regra de confirmacao. Em 05/10 o candidato foi reprovado porque so
+confirmava o nome quando a caixa do rosto, no frame em que o resultado chegava,
+se sobrepunha a do frame em que o embedding tinha sido feito. Com a pessoa
+andando, o resultado chegava depois de ela sair do lugar, e 27 de 30 frames
+ficaram pendentes.
+
+Regra nova, em `App/FaceRecon/service.py`:
+
+- O rosto que andou mais que a sobreposicao continua levando o nome mais
+  proximo, ate 120 px no frame original, e e reconhecido de novo onde esta.
+- Se ele e o unico rosto sem par perto daquela identidade, e ela a unica
+  identidade livre perto dele, nao ha duvida de que e o mesmo rosto. O nome
+  confirmado antes continua confirmado enquanto o reconhecimento novo roda,
+  por ate 15 s depois do ultimo embedding, e o resultado que chega confirma o
+  nome.
+- Com outro rosto ou outra identidade a ate 120 px, fica como antes: o nome
+  aparece como "verificando", e so o reconhecimento na posicao atual confirma.
+- Sem reconhecer de novo, o nome so e herdado, como no reuso, quando a caixa
+  se sobrepoe; o rosto que andou sempre pede outro embedding.
+- A regra do aluno de perfil (`docs/PLANO_GESTOS.md`, 06/10) vale tambem aqui:
+  o resultado "NAO ALUNO" quase reconhecido como o aluno daquele rosto, visto
+  confirmado ha menos de 15 s, mantem o nome dele sem confirmar.
+
+Medido no PC com o servico de rosto e o registro de eventos reais, no video de
+carga: `det_500m`, embedding no frame inteiro, reuso de 15 s, o frame 0 do
+video como cadastro, frames a 1,2 s no relogio simulado e o resultado de cada
+embedding liberado 1, 2 ou 3 frames depois do frame em que foi pedido (roteiro
+no scratchpad, fora do Git). Frames 5 a 34, os 30 medidos pelo benchmark:
+
+| Modo | Confirmado | Pendente | Desconhecido | Eventos |
+|---|---:|---:|---:|---|
+| Sincrono | 26 | 4 | 0 | 1 `ALUNO` |
+| Segundo plano, regra de 05/10, atraso de 1 frame | 14 | 14 | 2 | 2 `ALUNO`, 1 `NAO_ALUNO` |
+| Segundo plano, regra de 05/10, atraso de 2 frames | 5 | 23 | 2 | 2 `ALUNO`, 1 `NAO_ALUNO` |
+| Segundo plano, regra nova, atraso de 1 frame | 25 | 5 | 0 | 1 `ALUNO` |
+| Segundo plano, regra nova, atraso de 2 frames | 24 | 6 | 0 | 1 `ALUNO` |
+| Segundo plano, regra nova, atraso de 3 frames | 21 | 9 | 0 | 1 `ALUNO` |
+
+- Com 2 frames de atraso, a regra de 05/10 no PC fica perto do que o Pi mediu
+  com ela (2 confirmados em 30).
+- Com a regra nova e 2 frames de atraso, a diferenca para o sincrono e o
+  atraso que o responsavel aceitou em 04/10: o rosto que salta mais de 120 px
+  e tratado como novo e fica "verificando" ate o resultado chegar, nos frames
+  16 e 17. Os outros pendentes sao os rostos de perfil, como no sincrono.
+- O modo sincrono, que roda no Pi, nao mudou: os mesmos nomes, semelhancas e
+  eventos frame a frame.
+- Risco, explicado ao responsavel antes do pedido: se, entre dois frames, uma
+  pessoa sai e outra entra sozinha a ate 120 px, o nome confirmado passa para
+  ela ate o reconhecimento novo chegar. O reuso do modo sincrono ja aceita algo
+  parecido com a caixa sobreposta, por ate 15 s.
+- Falta o Pi: uma rodada de controle sincrono e 3 rodadas com
+  `FACE_ASYNC_RECOGNITION=1`, no mesmo commit, com o aprendizado desligado e o
+  log de `vcgencmd`. Criterio: mais de 5% de ganho na media nas tres, os mesmos
+  alertas frame a frame, nome confirmado perto do controle, nenhum nome errado
+  e `throttled=0x0`.
+
+### O que fica aberto
+
+Substitui a lista de 05/10.
+
+1. P5 no Pi, com a regra nova: as rodadas acima.
+2. Medir com o aprendizado desligado (`FACE_LEARN_FROM_STREAM=0`) ou com as
+   referencias apagadas antes de cada serie, e com o log de `vcgencmd`
+   rodando. Valor diferente de `0x0` invalida a rodada ate isolar a causa.
+3. Acompanhar no uso o aprendizado, com `tools/cadastros.py`, e o
+   `vcgencmd get_throttled`.
+4. Regras de gesto: ver `docs/PLANO_GESTOS.md`, "Estado verificado em
+   06/10/2026".
+5. Da lista de 04/10 seguem: um GET repetido durante o stream, o recadastro
+   com 3 a 5 fotos, as cenas com duas pessoas, os testes de dias, o P4 e o que
+   sobrou do "Encerramento em 27/09/2026".
+
 ## Estado verificado em 05/10/2026
 
 ### Auditoria das conclusoes para uso no artigo

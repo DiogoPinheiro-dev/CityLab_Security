@@ -77,8 +77,10 @@ FACE_EMBED_FULL_FRAME = _get_bool("FACE_EMBED_FULL_FRAME", _RPI3)
 FACE_DETECTOR_PATH = os.getenv("FACE_DETECTOR_PATH", "").strip()
 # Reconhecimento do rosto em segundo plano: a deteccao segue em todo frame, e o
 # frame volta sem esperar o embedding, que roda numa thread propria; ate o nome
-# sair, o rosto aparece como VERIFICANDO, sem evento. So com FACE_PREFILTER. Em
-# avaliacao no Pi desde 04/10/2026, desligado nos dois perfis.
+# sair, o rosto aparece como VERIFICANDO, sem evento. So com FACE_PREFILTER.
+# Reprovado no Pi em 05/10/2026, com o nome confirmado em 2 de 30 frames; a
+# regra de confirmacao de 06/10/2026 foi medida so no PC. Desligado nos dois
+# perfis (docs/PLANO_OTIMIZACAO.md).
 FACE_ASYNC_RECOGNITION = _get_bool("FACE_ASYNC_RECOGNITION", False)
 # Aprende com o stream: um rosto reconhecido com folga vira mais uma referencia
 # da pessoa, guardada no MongoDB (colecao rostos_aprendidos). Ate

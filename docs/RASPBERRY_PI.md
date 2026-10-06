@@ -311,12 +311,14 @@ FACE_DETECTOR_PATH=~/.insightface/models/det_500m.onnx
 
 A API para na subida se o arquivo faltar ou se nao for um detector.
 
-`FACE_ASYNC_RECOGNITION=1`, desligado nos dois perfis e em avaliacao, tira o
-reconhecimento do rosto do caminho do frame: a deteccao segue em todo frame, o
-frame volta quando o gesto termina, e o embedding roda numa thread propria, um
-por vez. Ate o nome sair, o rosto aparece como "verificando", sem evento; o
-rosto que andou ate 120 px herda o nome mais proximo so para a tela, ate o
-reconhecimento na posicao nova confirmar. Vale so com `FACE_PREFILTER=1`.
+`FACE_ASYNC_RECOGNITION=1`, desligado nos dois perfis, tira o reconhecimento
+do rosto do caminho do frame: a deteccao segue em todo frame, o frame volta
+quando o gesto termina, e o embedding roda numa thread propria, um por vez. Ate
+o nome sair, o rosto aparece como "verificando", sem evento. O rosto que andou
+ate 120 px leva o nome mais proximo e e reconhecido de novo; desde 06/10/2026,
+se ele e o unico rosto perto daquele nome, o nome segue confirmado, e com outro
+rosto por perto fica "verificando" ate o reconhecimento na posicao nova. Vale
+so com `FACE_PREFILTER=1`.
 
 A primeira rodada controlada no Pi, em 05/10/2026 (`0ac0bf0`), reduziu a media
 do frame em 30,263%, mas reconheceu o rosto cadastrado em apenas 2 de 30 frames,
@@ -324,7 +326,9 @@ contra 26 de 30 no controle sincrono; 27 ficaram pendentes. O log teve 253 de
 253 leituras em `throttled=0x0`, portanto a perda nao veio da alimentacao nem de
 limite termico. O candidato foi reprovado e deve continuar desligado. Ver
 `resultados/pi3-0ac0bf0-video-async-tomada2/` e
-`docs/PLANO_OTIMIZACAO.md`.
+`docs/PLANO_OTIMIZACAO.md`. A regra de confirmacao de 06/10/2026 levou, no PC,
+o nome confirmado de 5 para 24 de 30 frames com o resultado 2 frames atrasado;
+falta medir no Pi.
 
 `FACE_LEARN_FROM_STREAM`, ligado no perfil rpi3 desde 03/10/2026 e promovido
 ao padrao dos dois perfis em 05/10/2026, faz o sistema aprender com o stream:

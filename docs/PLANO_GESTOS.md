@@ -185,8 +185,9 @@ fecha o episodio do aluno; o frame seguinte reconhece de novo. No mesmo video,
 com a regra, ficou 1 evento `ALUNO` nos tres ritmos, e os outros frames, com os
 mesmos nomes, semelhancas e embeddings de antes.
 
-- So vale com o reuso ligado, como no perfil rpi3, e no reconhecimento normal;
-  o assincrono, desligado, nao tem a regra.
+- So vale com o reuso ligado, como no perfil rpi3. Com a regra nova de
+  confirmacao do P5, no mesmo dia, vale tambem no reconhecimento em segundo
+  plano, desligado nos perfis (`docs/PLANO_OTIMIZACAO.md`, 06/10).
 - Rosto de perfil com semelhanca abaixo de 0,30 continua `NAO ALUNO`. Na
   rodada de 30/09 as semelhancas nao foram gravadas; o efeito no Pi falta
   conferir pelos eventos de uma rodada.
