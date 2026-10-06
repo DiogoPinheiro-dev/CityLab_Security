@@ -109,6 +109,16 @@ class EventLoggerTests(unittest.IsolatedAsyncioTestCase):
         await self.logger.log_face_events(None, [{**self.face, "pending": True}])
         self.assertEqual(self.collection.insert_one.await_count, 2)
 
+    async def test_turned_student_keeps_the_episode(self):
+        # Decisao de 06/10: de perfil, o aluno chega com o nome dele sem
+        # confirmar, em vez de "NAO ALUNO", e o episodio dele continua.
+        turned = {**self.face, "confidence": .45, "pending": True}
+        for frame, faces in enumerate(([self.face], [turned], [turned], [self.face])):
+            self.clock[0] = frame * 7
+            await self.logger.log_face_events(None, faces)
+        self.assertEqual([call.args[0]["tipo"] for call in
+                          self.collection.insert_one.await_args_list], ["ALUNO"])
+
     async def test_stream_reset_opens_new_face_episodes(self):
         await self.logger.log_face_events(None, [self.face])
         self.logger.reset_episodes()

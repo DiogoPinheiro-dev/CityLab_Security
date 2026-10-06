@@ -505,6 +505,66 @@ class FaceOptimizationTests(unittest.TestCase):
         frame(104.0, face)
         self.assertEqual(recognition.get.call_count, 2)
 
+    def turned_frames(self, student_score=.45):
+        """Reuso de 15 s, e uma funcao que vira o rosto: o aluno passa a "NAO ALUNO"."""
+        service, recognition, frame = self.reuse_frames()
+        service._person_score = lambda name, embedding: student_score
+
+        def turn():
+            service._match_face = lambda embedding: ("NAO ALUNO", .45)
+        return service, recognition, frame, turn
+
+    def test_turned_student_stays_unconfirmed_until_the_window_ends(self):
+        # Decisao de 06/10: de perfil, o aluno sai "NAO ALUNO" quase reconhecido.
+        # Perto de onde ele estava, o rosto fica com o nome dele, sem confirmar.
+        service, recognition, frame, turn = self.turned_frames()
+        front, side = Vector([0, 0, 30, 30, .9]), Vector([20, 0, 50, 30, .9])
+        self.assertEqual(frame(100.0, front)[0]["name"], "Aluno")
+        turn()
+        face = frame(104.0, side)[0]
+        self.assertEqual((face["name"], face["pending"], face["confidence"]), ("Aluno", True, .45))
+        self.assertEqual(service.latest_metrics["face_pending"], 1.0)
+        # Nao herda: o frame seguinte reconhece de novo, e segue sem confirmar.
+        face = frame(108.0, side)[0]
+        self.assertEqual((face["name"], face["pending"]), ("Aluno", True))
+        self.assertEqual(recognition.get.call_count, 3)
+        # O prazo conta da ultima vez em que ele foi visto confirmado, aos 100 s.
+        face = frame(115.0, side)[0]
+        self.assertEqual((face["name"], face["pending"]), ("NAO ALUNO", False))
+
+    def test_turned_student_window_counts_from_the_last_confirmed_frame(self):
+        # Com o reuso, o aluno visto aos 110 s vale ate os 125 s, embora o
+        # embedding seja dos 100 s.
+        _, _, frame, turn = self.turned_frames()
+        front = Vector([0, 0, 30, 30, .9])
+        frame(100.0, front)
+        frame(110.0, front)
+        turn()
+        face = frame(118.0, Vector([20, 0, 50, 30, .9]))[0]
+        self.assertEqual((face["name"], face["pending"]), ("Aluno", True))
+
+    def test_unknown_that_is_not_the_student_stays_unknown(self):
+        # Mais parecido com outra pessoa do cadastro do que com o aluno.
+        _, _, frame, turn = self.turned_frames(student_score=.2)
+        frame(100.0, Vector([0, 0, 30, 30, .9]))
+        turn()
+        face = frame(104.0, Vector([20, 0, 50, 30, .9]))[0]
+        self.assertEqual((face["name"], face["pending"]), ("NAO ALUNO", False))
+        # A 140 px de onde o aluno estava, no frame original: outra pessoa.
+        _, _, frame, turn = self.turned_frames()
+        frame(100.0, Vector([0, 0, 30, 30, .9]))
+        turn()
+        self.assertEqual(frame(104.0, Vector([70, 0, 100, 30, .9]))[0]["name"], "NAO ALUNO")
+
+    def test_unknown_next_to_the_student_stays_unknown(self):
+        # O aluno continua no lugar dele: o rosto quase reconhecido ao lado e outro.
+        _, _, frame, turn = self.turned_frames()
+        front = Vector([0, 0, 30, 30, .9])
+        frame(100.0, front)
+        turn()
+        names = [face["name"] for face in frame(104.0, front, Vector([20, 0, 50, 30, .9]))]
+        self.assertEqual(names, ["Aluno", "NAO ALUNO"])
+
     def async_frames(self):
         """Reconhecimento em segundo plano que so termina quando o teste libera."""
         service, context, recognition, _ = self.make_service(True, [], reuse_seconds=15.0)

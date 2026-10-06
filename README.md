@@ -411,6 +411,12 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   frame seguinte. Nesse intervalo o nome aparece mesmo num frame em que o
   reconhecimento falharia, e a troca de nome entre duas pessoas que trocam de
   lugar nao foi testada. `FACE_REUSE_SECONDS=0` volta a reconhecer todo frame.
+- **Aluno de perfil.** Desde 06/10/2026, o desconhecido quase reconhecido cuja
+  pessoa mais parecida e o aluno que estava a ate 120 px no frame anterior
+  aparece com o nome do aluno e "verificando", sem gravar evento nem fechar o
+  episodio dele, por ate 15 s depois de o aluno ser visto confirmado. No video
+  de carga, a mesma pessoa passou de 3 eventos `ALUNO` e 2 `NAO_ALUNO` para 1
+  `ALUNO`. Rosto de perfil abaixo de 0,30 continua desconhecido.
 - **Reconhecimento perto do limite.** Em 02/10/2026, com duas pessoas na
   frente da webcam, o rosto cadastrado de frente teve semelhanca de 0,42 a 0,59
   com o cadastro, em volta do limite de 0,52, e foi reconhecido em 9, 21 e 25

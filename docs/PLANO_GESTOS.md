@@ -150,14 +150,59 @@ da vertical (`MAX_AIMING_RAISE_DEGREES` em `App/GestureRecon/detector.py`). O
 banco de replay ganhou a rendicao com os bracos retos, que dispara rendicao, e
 nao braco estendido.
 
+- Commit `4935202`, implantado no Pi.
+
+### Rosto de perfil no episodio do aluno
+
+Na rodada com gesto de 30/09, o rosto de perfil saia `NAO ALUNO`, e cada troca
+abria um episodio: 11 `ALUNO` e 7 `NAO_ALUNO` da mesma pessoa na primeira
+tentativa. A rechecagem de
+04/10 ja reconhece de novo o desconhecido quase reconhecido, com semelhanca de
+0,30 ate o limite, mas o frame em que ele sai `NAO ALUNO` ainda gravava o
+evento e fechava o episodio do aluno.
+
+Medido no PC com o servico de rosto e o registro de eventos reais, no video de
+carga: reconhecimento normal com reuso de 15 s, `det_500m`, embedding no frame
+inteiro, o frame 0 do video como cadastro e o relogio simulado no ritmo do Pi
+(roteiro no scratchpad, fora do Git). Os rostos virados dos frames 22 e 23 (0,44
+e 0,36) e 28 e 29 (0,47 e 0,41, as semelhancas medidas no Pi em 04/10) saiam
+`NAO ALUNO`, e a mesma pessoa gravava 3 eventos `ALUNO` e 2 `NAO_ALUNO` nos 36
+frames, a 1,7, 3,4 e 6,2 s.
+
+O responsavel pediu a correcao em 06/10/2026. A regra, em
+`App/FaceRecon/service.py`: o rosto que sai `NAO ALUNO` com semelhanca de 0,30
+ate o limite fica com o nome do aluno, sem confirmar, quando:
+
+- a pessoa mais parecida com ele, mesmo abaixo do limite, e esse aluno;
+- o aluno estava a ate 120 px dele no frame anterior, a distancia que o
+  registro de eventos usa para seguir um desconhecido, e nao aparece
+  confirmado em outro rosto do mesmo frame;
+- o aluno foi visto confirmado, pelo reconhecimento ou pelo reuso, ha menos de
+  15 s, a validade do reuso.
+
+O rosto aparece em laranja, com o nome e "verificando", nao grava evento e nao
+fecha o episodio do aluno; o frame seguinte reconhece de novo. No mesmo video,
+com a regra, ficou 1 evento `ALUNO` nos tres ritmos, e os outros frames, com os
+mesmos nomes, semelhancas e embeddings de antes.
+
+- So vale com o reuso ligado, como no perfil rpi3, e no reconhecimento normal;
+  o assincrono, desligado, nao tem a regra.
+- Rosto de perfil com semelhanca abaixo de 0,30 continua `NAO ALUNO`. Na
+  rodada de 30/09 as semelhancas nao foram gravadas; o efeito no Pi falta
+  conferir pelos eventos de uma rodada.
+- Estranho no lugar do aluno: so fica com o nome dele se for mais parecido com
+  ele do que com qualquer outro cadastro e passar de 0,30, e no maximo por 15 s
+  depois do aluno visto confirmado. Rostos de outras pessoas nao passaram de
+  0,16 nos testes de 03 e 04/10.
+
 ### O que fica aberto
 
 1. Rendicao com os punhos levantados: a 1,7 s, dispara em 71% das fases dos
    videos de ameaca.
 2. Mao aberta lida como fechada com o braco levantado: mao fechada e ameaca
    falsas em 73% e 67% das fases dos videos de braco estendido.
-3. Rosto de perfil vira `NAO_ALUNO` e reabre o episodio do aluno.
-4. Rodada com gesto no Pi para conferir os tempos e o limite novos.
+3. Rodada com gesto no Pi para conferir os tempos, o limite e os eventos do
+   rosto de perfil.
 
 ## Estado verificado em 30/09/2026
 

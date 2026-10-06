@@ -28,7 +28,8 @@ class FaceRecognitionService:
     # "NAO ALUNO" com semelhanca daqui ate o limite costuma ser aluno de lado, e
     # nao estranho: nao herda o nome, e o rosto e reconhecido de novo no frame
     # seguinte. Rostos de outras pessoas nao passaram de 0,16, e o de um aluno
-    # virado ficou de 0,37 a 0,48 (03 e 04/10/2026).
+    # virado ficou de 0,37 a 0,48 (03 e 04/10/2026). No lugar do aluno que
+    # estava ali, fica com o nome dele sem confirmar (_keep_turned_students).
     UNKNOWN_RECHECK_MIN_SIMILARITY = 0.30
     # Rosto esperando o reconhecimento em segundo plano: aparece assim, sem
     # evento. O mesmo texto esta em Server/event_logger.py e Client/stream.js.
@@ -266,6 +267,8 @@ class FaceRecognitionService:
         else:
             reused = self._assign_identities(boxes, now) if reuse else {}
         identities = []
+        # "NAO ALUNO" quase reconhecidos neste frame, que podem ser aluno de perfil.
+        near_misses = []
 
         for index, (face, bbox_processing, bbox_original) in enumerate(accepted):
             job, confirmed = None, True
@@ -308,10 +311,15 @@ class FaceRecognitionService:
                 # So de embedding novo: nome herdado pelo reuso nao ensina nada.
                 if self.learn_from_stream:
                     self._maybe_learn(name, best_score, target.normed_embedding)
+                if (reuse and name == "NAO ALUNO"
+                        and best_score >= self.UNKNOWN_RECHECK_MIN_SIMILARITY):
+                    near_misses.append((index, target.normed_embedding, best_score,
+                                        bbox_original))
             identities.append({"bbox": bbox_processing, "center": self._center(bbox_original),
                                "name": name, "score": best_score,
                                "recognized_at": recognized_at, "job": job,
-                               "confirmed": confirmed, "job_carried": job_carried})
+                               "confirmed": confirmed, "job_carried": job_carried,
+                               "seen_at": now if confirmed else None})
 
             results.append(
                 {
@@ -324,6 +332,8 @@ class FaceRecognitionService:
                 }
             )
 
+        if near_misses:
+            self._keep_turned_students(near_misses, results, identities, now)
         # Cadastro trocado no meio do frame: nao guardar nomes da base antiga.
         if (reuse or self.async_recognition) and generation == self._identity_generation:
             self._identities = identities
@@ -340,6 +350,56 @@ class FaceRecognitionService:
             "face_pending": float(sum(face["pending"] for face in results)),
         })
         return results
+
+    def _keep_turned_students(self, near_misses: list[tuple[int, Any, float, list[int]]],
+                              results: list[dict[str, Any]],
+                              identities: list[dict[str, Any]], now: float) -> None:
+        """Aluno que virou o rosto continua ele, sem confirmar, no lugar onde estava.
+
+        De perfil, o aluno sai "NAO ALUNO" com semelhanca de 0,30 ate o limite, e
+        o registro de eventos gravava um NAO_ALUNO e reabria o episodio dele. Se a
+        pessoa mais parecida com o rosto e o aluno que estava ate
+        CARRY_MAX_DISTANCE_PX dele no frame anterior, visto confirmado ha menos de
+        reuse_seconds, o rosto fica com o nome do aluno sem confirmar: aparece
+        como "verificando", nao vira evento e nao fecha o episodio. O frame
+        seguinte reconhece de novo; o prazo conta da ultima vez em que o aluno foi
+        visto confirmado, pelo reconhecimento ou pelo reuso.
+        """
+        import math
+
+        present = {result["name"] for result in results if not result["pending"]}
+        students = [entry for entry in self._identities
+                    if entry["name"] not in ("NAO ALUNO", self.PENDING_NAME)
+                    and entry["name"] not in present and "center" in entry
+                    and now - self._seen_at(entry) < self.reuse_seconds]
+        pairs = sorted(
+            (math.dist(self._center(bbox_original), entry["center"]), position, slot)
+            for position, (_, _, _, bbox_original) in enumerate(near_misses)
+            for slot, entry in enumerate(students))
+        used_faces: set[int] = set()
+        used_students: set[int] = set()
+        for distance, position, slot in pairs:
+            if distance > self.CARRY_MAX_DISTANCE_PX:
+                break
+            if position in used_faces or slot in used_students:
+                continue
+            index, embedding, score, _ = near_misses[position]
+            student = students[slot]
+            # So quando o aluno e o mais parecido, mesmo abaixo do limite.
+            if self._person_score(student["name"], embedding) < score - 1e-6:
+                continue
+            used_faces.add(position)
+            used_students.add(slot)
+            results[index].update(name=student["name"], pending=True)
+            identities[index].update(name=student["name"], confirmed=False,
+                                     recognized_at=student["recognized_at"],
+                                     seen_at=self._seen_at(student))
+
+    @staticmethod
+    def _seen_at(entry: dict[str, Any]) -> float:
+        """Ultima vez em que o nome foi visto confirmado neste rosto."""
+        seen_at = entry.get("seen_at")
+        return entry["recognized_at"] if seen_at is None else seen_at
 
     def _recognize_async(self, entry: Optional[dict[str, Any]], carried: bool, face: Any,
                          frame_context: FrameContext, now: float
@@ -592,6 +652,13 @@ class FaceRecognitionService:
         return max((float(np.dot(embedding, live_embedding))
                     for embedding, known in zip(self.known_face_embeddings, self.known_face_names)
                     if known == name), default=0.0)
+
+    def _person_score(self, name: str, live_embedding: np.ndarray) -> float:
+        """Semelhanca com a pessoa: o cadastro e as referencias aprendidas dela."""
+        learned = max((float(np.dot(embedding, live_embedding))
+                       for embedding, known in zip(self._learned_embeddings, self._learned_names)
+                       if known == name), default=0.0)
+        return max(self._cadastro_score(name, live_embedding), learned)
 
     def _maybe_learn(self, name: str, score: float, embedding: np.ndarray) -> None:
         """Guarda o rosto como referencia da pessoa, se a folga e o cadastro permitem.
