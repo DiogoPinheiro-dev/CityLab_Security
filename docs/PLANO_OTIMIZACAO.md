@@ -440,6 +440,15 @@ terceira rodada continua pendente de uma alimentacao adequada. A opcao fica
 ativa por decisao de uso, nao como aceite final de desempenho. O fallback do
 codigo permanece `false`, e o `.env.rpi.example` registra a escolha do Pi.
 
+### Estado do plano de gestos
+
+O responsavel encerrou `docs/PLANO_GESTOS.md` em 07/10/2026, sem mudar o
+produto. O segundo conjunto independente preservou os alertas esperados, mas
+confirmou que a mao aberta ainda pode ser confundida com punho. Nenhum ajuste
+avaliado reduziu os falsos sem perder recall em outro conjunto. Essa limitacao
+fica aceita neste encerramento; outro classificador de mao e dados rotulados
+proprios so entram se um trabalho novo for combinado.
+
 ### O que fica aberto
 
 1. Substituir a alimentacao por uma fonte regulada de boa qualidade, de
@@ -447,7 +456,8 @@ codigo permanece `false`, e o `.env.rpi.example` registra a escolha do Pi.
 2. Com `throttled=0x0`, completar a terceira rodada do P5 e acompanhar nomes
    incorretos, recusas e tempo em `VERIFICANDO` no uso real.
 3. Acompanhar o aprendizado com `tools/cadastros.py` e manter as demais acoes
-   abertas das secoes anteriores.
+   de desempenho abertas das secoes anteriores. O plano de gestos esta
+   encerrado na decisao acima.
 
 ## Estado verificado em 06/10/2026
 

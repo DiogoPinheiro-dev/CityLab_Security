@@ -8,6 +8,86 @@ resolve com o primeiro.
 Nada aqui esta autorizado a ser implementado. Cada acao e combinada com o
 responsavel antes, uma de cada vez, como no plano de otimizacao.
 
+## Estado verificado em 07/10/2026
+
+### Triagem offline dos dois falsos positivos restantes
+
+O responsavel autorizou medir hipoteses no replay, sem mudar o produto. A
+versao `7ba3b97` reproduziu, a 1,7 s, os dois problemas registrados em 06/10:
+
+- rendicao falsa em `36/51` fases dos videos de ameaca;
+- mao fechada e ameaca falsas em `37/51` e `34/51` fases dos videos de braco
+  estendido com a mao aberta.
+
+Duas familias simples foram reprovadas nos conjuntos da webcam e do celular,
+nos intervalos de 1,0, 1,7, 2,4, 3,4 e 6,2 s:
+
+1. Exigir postura de rendicao nos dois lados reduziu o falso da webcam de
+   `36/51` para `11/51`, sem perder a rendicao da webcam, mas tirou toda a
+   rendicao do celular a 1,7 s (`17/17 -> 0/17`). Ignorar a mao levantada lida
+   como fechada repetiu a perda ja conhecida: no celular, `17/17 -> 16/17` a
+   1,7 s, `24/24 -> 19/24` a 2,4 s e `32/34 -> 21/34` a 3,4 s.
+2. Uma grade de 72 combinacoes apertou quantidade de pontas compactas, media
+   da distancia das pontas e abertura das pontas na regra lateral de punho.
+   A regra atual foi a unica sem perda de acerto. A alteracao mais proxima,
+   abertura `< 1,20` no lugar de `< 1,35`, reduziu os falsos agregados de 561
+   para 525, mas perdeu punho verdadeiro no celular a 3,4 s (`28 -> 27`).
+
+Nenhuma variante foi promovida. Os mesmos videos ja serviram para escolher
+regras anteriores e nao podem ser o unico aceite de outra mudanca.
+
+### Segundo conjunto independente
+
+O responsavel gravou outros 18 videos em 07/10: tres de cada situacao, com 20 s
+cada. A extracao usou o caminho do Pi, com escala 0,5, pose NCNN em 320x416 e
+duas threads. Foram 3.600 frames, com a pessoa detectada nos 3.600. Um processo
+paralelo do MediaPipe falhou em `braco_aberto_r3`; so esse video foi repetido
+sequencialmente, com os 200 frames extraidos. Os videos continuam locais e os
+JSONs guardam apenas keypoints e maos.
+
+No replay a 1,7 s:
+
+| Situacao | Esperado | Acerto | Falso |
+|---|---|---:|---:|
+| Ameaca | Mao fechada, ameaca e braco estendido | `51/51` nos tres | nenhum |
+| Braco estendido, mao aberta | Braco estendido | `51/51` | mao fechada `1/51`; ameaca `16/51` |
+| Rendicao | Rendicao | `51/51` | mao fechada `10/51` |
+| Mao oculta | Mao oculta | `51/51` | nenhum |
+| Neutro | nenhum | - | nenhum |
+| Punho, braco solto | nenhum | - | nenhum |
+
+A rendicao falsa da ameaca, `36/51` no conjunto anterior, nao apareceu no
+novo (`0/51`). Endurecer a rendicao resolveria um resultado que nao se repetiu
+e perderia o conjunto do celular, portanto continua reprovado.
+
+A grade da regra lateral foi repetida com os tres conjuntos. A configuracao
+atual voltou a ser a unica das 72 sem perda de acerto. Exigir quatro pontas
+compactas reduziu os falsos agregados de 736 para 664, mas perdeu mao fechada
+verdadeira na webcam anterior a 6,2 s (`185 -> 183`). Limitar a abertura a
+`1,20` reduziu para 670, mas perdeu no celular a 3,4 s (`28 -> 27`).
+
+Por fim, 40 combinacoes variaram as observacoes e a duracao da ameaca. Aumentar
+a duracao de 0,22 para 1 s nao mudou nenhum resultado. Com 2 s, os falsos
+agregados cairam de 308 para 291, mas a ameaca verdadeira do celular a 1,7 s
+caiu de `17` para `6`. Exigir tres observacoes perdeu ainda mais acertos.
+
+### Encerramento em 07/10/2026
+
+O responsavel decidiu encerrar este plano sem mudar o produto. Os sinais
+atuais nao separam a mao aberta do punho em todos os conjuntos sem perder
+recall. Ficam registradas como limitacoes conhecidas a ameaca falsa em `16/51`
+fases de um dos tres videos novos de braco estendido com a mao aberta, a mao
+fechada falsa em `10/51` fases da rendicao e em `1/51` do braco estendido. A
+rendicao falsa da ameaca, vista em `36/51` fases no conjunto anterior, nao se
+repetiu no conjunto independente (`0/51`), portanto nao foi usada sozinha para
+aprovar uma mudanca.
+
+As grades avaliadas nao encontraram ajuste seguro de limiar, duracao ou numero
+de observacoes. Corrigir as limitacoes exige outra entrada ou outro
+classificador de mao, com dados rotulados proprios. Esse trabalho maior nao
+faz parte deste encerramento e so reabre o plano se for combinado com o
+responsavel.
+
 ## Estado verificado em 06/10/2026
 
 O responsavel reabriu o plano como o ultimo item da ordem combinada no fim de

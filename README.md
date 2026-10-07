@@ -383,9 +383,11 @@ node --test tests/client_stream.test.cjs tests/client_cadastro.test.cjs
 ## Estado final e limitacoes conhecidas
 
 O trabalho de desempenho foi encerrado em 27/09/2026 com o perfil do Pi
-descrito acima, e as regras de gesto foram revistas em 29 e 30/09/2026 e em
-06/10/2026. Em 01/10/2026 a pose passou a rodar em 416 px no perfil. O que
-ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
+descrito acima e reaberto em 01/10/2026 para a fila atual. Em 01/10/2026 a pose
+passou a rodar em 416 px no perfil. As regras de gesto foram revistas em 29 e
+30/09/2026 e em 06 e 07/10/2026; o plano de gestos foi encerrado em 07/10 com
+as limitacoes conhecidas abaixo. O que continua aberto no desempenho e o
+encerramento de gestos estao registrados nos respectivos planos.
 
 - **Regras de gesto no Pi.** Cada regra exige de 2 a 4 observacoes seguidas,
   uma por frame, e uma duracao minima: 8 s na mao oculta, 4 s na mao fechada e
@@ -397,12 +399,15 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   braco estendido, ainda nao conferidos numa rodada com gesto. Os 8 e 4 s
   entraram em 06/10/2026: sem eles, nesse ritmo, as duas regras disparavam em
   situacoes sem o gesto no conjunto de validacao.
-- **Alarmes falsos de gesto.** No conjunto de validacao, com o frame de 1,7 s,
-  os punhos levantados da ameaca disparam rendicao em 71% das fases, e a mao
-  aberta na ponta do braco estendido dispara mao fechada em 73% e ameaca em
-  67%. Nenhuma duracao minima separa esses casos sem perder alerta verdadeiro.
-  O braco estendido falso na rendicao, com os bracos retos para cima, saiu em
-  06/10/2026: a regra vale de 45 a 135 graus da vertical. Ver
+- **Alarmes falsos de gesto.** Num segundo conjunto independente de 18 videos,
+  a 1,7 s, os alertas esperados apareceram em `51/51` fases de cada situacao.
+  Mesmo assim, a mao aberta na ponta do braco estendido disparou ameaca em
+  `16/51` fases e mao fechada em `1/51`; na rendicao, mao fechada apareceu em
+  `10/51`. A rendicao falsa da ameaca, `36/51` no conjunto anterior, nao se
+  repetiu (`0/51`). Grades de limiar, duracao e observacoes reduziram falsos,
+  mas tambem perderam alertas verdadeiros em outro conjunto. O plano foi
+  encerrado sem mudar o produto; a correcao exige outra entrada ou outro
+  classificador de mao com dados rotulados proprios. Ver
   [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
 - **Nome herdado pelo rosto.** No perfil rpi3, um rosto no mesmo lugar herda
   por ate 15 s o nome ja reconhecido, sem reconhecer de novo, inclusive o de
@@ -454,9 +459,10 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   separa o punho da mao relaxada. Por isso, desde 30/09/2026 o punho so conta,
   no alerta de mao fechada e no de ameaca, com o braco levantado a 45 graus ou
   mais da vertical: o punho com o braco solto nao alerta. Com o braco
-  levantado, a mao aberta ou relaxada ainda e lida como fechada em parte dos
-  frames, e na rodada no Pi o punho na ponta do braco estendido nao foi lido:
-  a ameaca e pouco confiavel. Ver [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
+  levantado, a mao aberta ou relaxada ainda pode ser lida como fechada. O
+  segundo conjunto preservou a ameaca verdadeira em `51/51` fases, mas tambem
+  confirmou a ameaca falsa descrita acima. Ver
+  [docs/PLANO_GESTOS.md](docs/PLANO_GESTOS.md).
 - **Braco apontado para a camera.** Aparece curto na imagem e nao conta como
   braco estendido; so o braco esticado para o lado dispara, de 45 a 135 graus
   da vertical.
