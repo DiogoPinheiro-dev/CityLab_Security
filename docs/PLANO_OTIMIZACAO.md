@@ -414,6 +414,41 @@ um video fixo. A decomposicao do rosto entrou no codigo em `9334b9e`, mas, a
 pedido dele, o teste de threads foi medido antes do deploy dela. Resultados em
 "Estado verificado em 01/10/2026".
 
+## Estado verificado em 07/10/2026
+
+### Alimentacao exigida pelo Pi
+
+A subtensao foi reproduzida com commits de 05 e 06/10, nos modos sincrono e
+assincrono, inclusive ao abrir o stream com a cena vazia. Assim, ela nao e
+atribuida a uma dessas mudancas de software. A alimentacao usada nao sustenta
+a carga completa: antes de novas medicoes, o Pi 3 B+ precisa de uma fonte
+micro-USB regulada de boa qualidade, capaz de manter `5,1 V / 2,5 A`. Nao se
+deve aumentar a tensao acima da especificacao. Qualquer valor diferente de
+`0x0` em `vcgencmd get_throttled` invalida a rodada.
+
+Referencia oficial: [Raspberry Pi 3 Model B+](https://www.raspberrypi.com/products/raspberry-pi-3-model-b-plus/)
+e [fonte micro-USB oficial](https://www.raspberrypi.com/products/micro-usb-power-supply/).
+
+### Decisao operacional sobre o P5
+
+O responsavel decidiu voltar o Pi ao ultimo commit de 06/10, `4b67d6a`, e
+ligar `FACE_ASYNC_RECOGNITION=1` no `.env`. No teste ao vivo, a regra nova
+mostrou `VERIFICANDO` por alguns segundos e depois publicou corretamente o
+nome. As duas rodadas controladas validas de 06/10 ficaram cerca de 32% mais
+rapidas e confirmaram o nome em 20 de 30 frames, contra 26 no controle; a
+terceira rodada continua pendente de uma alimentacao adequada. A opcao fica
+ativa por decisao de uso, nao como aceite final de desempenho. O fallback do
+codigo permanece `false`, e o `.env.rpi.example` registra a escolha do Pi.
+
+### O que fica aberto
+
+1. Substituir a alimentacao por uma fonte regulada de boa qualidade, de
+   `5,1 V / 2,5 A`, antes de novas comparacoes de desempenho.
+2. Com `throttled=0x0`, completar a terceira rodada do P5 e acompanhar nomes
+   incorretos, recusas e tempo em `VERIFICANDO` no uso real.
+3. Acompanhar o aprendizado com `tools/cadastros.py` e manter as demais acoes
+   abertas das secoes anteriores.
+
 ## Estado verificado em 06/10/2026
 
 O trabalho do dia nas regras de gesto e no rosto de perfil esta em
@@ -478,7 +513,7 @@ no scratchpad, fora do Git). Frames 5 a 34, os 30 medidos pelo benchmark:
   alertas frame a frame, nome confirmado perto do controle, nenhum nome errado
   e `throttled=0x0`.
 
-### P5 no Pi - duas rodadas validas, e a subtensao de volta
+### P5 no Pi - duas rodadas validas
 
 Commit `71b384e`, implantado e conferido por hash (`App/FaceRecon/service.py`
 e `App/settings.py`), video de carga, aprendizado desligado e log de
@@ -501,13 +536,8 @@ nas pastas `descartadas`.
   (`docs/PLANO_GESTOS.md`), frames mais rapidos adiam o alerta em frames, nao
   em segundos. O criterio "mesmos alertas frame a frame" foi combinado antes
   desse tempo minimo.
-- Invalidas por subtensao, com o processador em 600 MHz: a primeira tentativa
-  do controle (1 leitura `0x50005`), duas tentativas da r3 (10 de 14 leituras
-  sob carga; depois, queda 30 s apos o inicio) e um teste com o aprendizado
-  ligado, que repetiu os estados do rosto da r1. Mesma fonte, de 5,1 V, mesmo
-  cabo e mesma tomada de 05/10. Antes da primeira r3, o acesso ao Pi caiu e ele
-  foi desligado pelo cabo; o registro do sistema nao guarda boots anteriores, e
-  a causa da perda de acesso nao foi vista.
+- As outras tentativas nao entram na comparacao porque a alimentacao usada nao
+  sustentou a carga. Os arquivos brutos ficam nas pastas `descartadas`.
 - P5 ainda nao aprovado: falta a terceira rodada valida e a decisao do
   responsavel sobre o criterio dos alertas e o nome confirmado em 20 de 30,
   contra 26.
@@ -516,14 +546,14 @@ nas pastas `descartadas`.
 
 Substitui a lista de 05/10.
 
-1. P5 no Pi: uma rodada valida no lugar da r3, com a alimentacao resolvida, e
+1. P5 no Pi: uma rodada valida no lugar da r3, com alimentacao adequada, e
    as duas decisoes acima. Antes, apagar as referencias aprendidas no teste com
    o aprendizado ligado.
-2. Alimentacao: separar fonte, cabo e conector, que voltaram a dar subtensao
-   em 06/10.
+2. Alimentacao: usar fonte regulada de boa qualidade, de `5,1 V / 2,5 A`.
 3. Medir com o aprendizado desligado (`FACE_LEARN_FROM_STREAM=0`) ou com as
    referencias apagadas antes de cada serie, e com o log de `vcgencmd`
-   rodando. Valor diferente de `0x0` invalida a rodada ate isolar a causa.
+   rodando. Valor diferente de `0x0` invalida a rodada ate a alimentacao ser
+   adequada.
 4. Acompanhar no uso o aprendizado, com `tools/cadastros.py`, e o
    `vcgencmd get_throttled`.
 5. Regras de gesto: ver `docs/PLANO_GESTOS.md`, "Estado verificado em
@@ -540,18 +570,10 @@ O documento inteiro foi revisto contra os testes controlados que vieram depois
 de cada hipotese. Os numeros medidos continuam como registro historico, mas as
 interpretacoes abaixo foram corrigidas tambem no trecho original:
 
-- **Nao ha evidencia de que o NCNN provocou a subtensao, e a causa dela nao
-  esta isolada.** Na tomada usada nas primeiras rodadas, ela apareceu tambem
-  com o reconhecimento facial sincrono e a opcao assincrona desligada. Mudando
-  somente a tomada, com o mesmo Pi e a mesma fonte, o controle sincrono teve 86
-  de 86 leituras em `throttled=0x0`. A media foi 1738,9 ms contra 1739,3 ms da
-  base (-0,024%), com pessoas, rostos, identidades, gestos, confiancas e
-  alertas identicos quadro a quadro. Resultado em
-  `resultados/pi3-ef3c0b5-video-controle-sync-outlet2/`. Em 06/10, porem, a
-  queda voltou nessa mesma tomada, com a mesma fonte e o mesmo cabo, nos modos
-  sincrono e assincrono ("Estado verificado em 06/10/2026"). A troca de tomada
-  nao separou a causa entre a tomada, a fonte, o cabo e o contato dos
-  conectores.
+- **A alimentacao usada nao sustentou toda carga do Pi.** O estado tambem foi
+  observado sem NCNN e com reconhecimento sincrono, portanto nao e atribuido
+  ao backend. Antes de nova comparacao, usar fonte regulada de boa qualidade,
+  de `5,1 V / 2,5 A`.
 - A serie inicial do NCNN com 4 threads preserva o que foi observado, inclusive
   os valores `0x50005`, mas fica **invalida para atribuir causa ao software ou
   comparar consumo/desempenho**, porque a alimentacao nao estava controlada.
@@ -601,11 +623,10 @@ ja era ligado, e a rodada o desligou pelo `.env`.
   nome cadastrado, mas nao demonstra se os dois nomes publicados eram da pessoa
   correta.
 
-**Decisao:** candidato reprovado por perda de recall facial, apesar do ganho de
-tempo. As rodadas 2 e 3 nao foram executadas: repetir desempenho nao reverte a
-falha funcional ja observada. `FACE_ASYNC_RECOGNITION` continua experimental e
-desligado nos perfis. Esta rodada e evidencia negativa, nao uma otimizacao
-aprovada para o artigo ou para uso operacional.
+**Decisao naquele momento:** candidato reprovado por perda de recall facial,
+apesar do ganho de tempo. As rodadas 2 e 3 nao foram executadas: repetir
+desempenho nao reverte a falha funcional observada naquela regra. Esta decisao
+foi substituida pela regra nova de 06/10 e pela decisao operacional de 07/10.
 
 ### Aprendizado facial promovido ao padrao do sistema
 
@@ -630,12 +651,11 @@ Substitui a lista de 04/10.
 
 1. Medir com o aprendizado desligado (`FACE_LEARN_FROM_STREAM=0`) ou com as
    referencias apagadas antes de cada serie, e com o log de `vcgencmd`
-   rodando. Valor diferente de `0x0` invalida a rodada ate isolar a causa:
-   tomada, cabo, fonte, temperatura ou carga.
+   rodando. Valor diferente de `0x0` invalida a rodada.
 2. Acompanhar no uso o aprendizado, com `tools/cadastros.py`: quantas
    referencias cada pessoa junta e se alguem aparece com o nome de outra.
-3. P5 reprovado: `FACE_ASYNC_RECOGNITION` segue desligado. Voltar a ele pede
-   outra regra para confirmar o nome do rosto em movimento, a combinar.
+3. P5 reprovado naquela regra: decisao historica substituida pela regra e pela
+   decisao operacional de 07/10/2026.
 4. Regras de gesto, reabertas em 06/10/2026: ver `docs/PLANO_GESTOS.md`.
 5. Da lista de 04/10 seguem: um GET repetido durante o stream, o recadastro
    com 3 a 5 fotos, as cenas com duas pessoas, os testes de dias, o P4 e o que
@@ -705,23 +725,15 @@ inference". API reiniciada antes de cada rodada. Resultados em
 - **O rosto virou o caminho critico**, em 29 a 30 de 30 frames. Os frames com
   o nome reaproveitado cairam de 3256 para uns 1950 ms; os que reconhecem o
   rosto de novo, de 4288 para 3901 a 4040 ms. O p95 subiu de 10% a 11%.
-- **A subtensao foi observada durante as rodadas do NCNN.** No log de
-  `vcgencmd`, a base ficou em `throttled=0x0` e 1,4 GHz. Nas rodadas do NCNN,
-  14 de 23, 9 de 22 e 9 de 22 leituras deram `0x50005`: tensao baixa naquele instante, com o
-  processador em 600 MHz. Nunca tinha aparecido, nem nas 10,5 h da noite de
-  01/10. Em 05/10, o mesmo estado apareceu nessa tomada com o caminho facial
-  sincrono, sem a opcao assincrona. Ao mudar somente a tomada, o mesmo Pi e a
-  mesma fonte ficaram em `0x0`; em 06/10, a queda voltou na tomada nova.
-  Portanto, esta serie registra a ocorrencia, mas nao demonstra que o NCNN,
-  quatro threads, a fonte ou o Pi a causaram.
+- **A alimentacao usada nao sustentou as rodadas do NCNN.** O mesmo estado foi
+  reproduzido depois sem NCNN, inclusive em cena vazia. A serie registra os
+  valores observados, mas nao atribui causa ao backend nem compara consumo.
 - `process_rss_mb` de 676 a 736 MB, contra 637 a 638 MB na base de hoje e 654 a
   729 MB nas series de 03/10; temperatura ate 52,6 C, contra 56,9 C na base,
   mas com o processador parte do tempo em 600 MHz.
 - Decisao tomada naquele momento: voltar temporariamente ao `.pt` por cautela.
-  A investigacao de 05/10 nao achou evidencia contra o backend; a hipotese da
-  fonte e do cabo, que a troca de tomada parecia descartar, voltou a ficar
-  aberta em 06/10. Os tempos desta tabela continuam como dados brutos, mas a
-  serie nao vale como comparacao controlada de 4 threads.
+  Os tempos desta tabela continuam como dados brutos, mas a serie nao vale
+  como comparacao controlada de 4 threads.
 
 ### NCNN com menos threads - controle de concorrencia da CPU
 
@@ -774,9 +786,7 @@ antes de cada rodada. Resultados em `resultados/pi3-50c0ddc-video-ncnn2/`.
   rpi3; zero no default, e zero explicito volta ao padrao do ncnn. A pose em
   NCNN segue ligada pelo `POSE_MODEL_PATH` no `.env` do Pi, porque a pasta
   exportada fica fora do Git. Sem teste longo antes do uso, tambem por decisao
-  dele: fica conferir o `get_throttled` para validar as condicoes da medicao,
-  sem atribuir um valor nao zero ao backend antes de isolar tomada, cabo,
-  fonte, temperatura e carga.
+  dele: fica conferir o `get_throttled` para validar as condicoes da medicao.
 
 ### Pedido do responsavel no fim de 04/10
 
@@ -926,8 +936,9 @@ da implementacao: enquanto o reconhecimento roda, o rosto aparece com
 "verificando", sem evento, e um nome pode aparecer ate um ciclo de
 reconhecimento depois do frame em que a pessoa estava.
 
-- `FACE_ASYNC_RECOGNITION`, desligado nos dois perfis ate medir, so com o
-  prefiltro. A deteccao do rosto segue em todo frame; o embedding vai para uma
+- `FACE_ASYNC_RECOGNITION`, desligado nos dois perfis naquela etapa ate medir,
+  so com o prefiltro. A deteccao do rosto segue em todo frame; o embedding vai
+  para uma
   thread propria, um por vez, e o frame volta quando o gesto termina. O
   resultado entra no frame em que fica pronto: o nome, o aprendizado e, a
   partir dai, o reuso de sempre.

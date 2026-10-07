@@ -9,13 +9,11 @@ pacote `ncnn==1.0.20260526` no ambiente da API. Na r1, o log da API registrou
 "Loading ... yolov8n-pose_ncnn_model for NCNN inference". Resultados e leitura
 em `docs/PLANO_OTIMIZACAO.md`, "Estado verificado em 04/10/2026".
 
-Correcao em 05/10/2026, revista em 06/10/2026: a subtensao apareceu tambem com
-o caminho facial sincrono e, em 05/10, sumiu ao mudar somente a tomada,
-mantendo o mesmo Pi e a mesma fonte; em 06/10 voltou nessa mesma tomada. Nao ha
-evidencia de que o NCNN a provocou, mas a causa nao esta isolada entre tomada,
-fonte, cabo e contato. Esta pasta preserva os dados brutos, mas a serie nao
-deve ser usada para atribuir causa ao backend nem para comparar 4 contra 2
-threads.
+Revisao em 07/10/2026: a alimentacao usada nao sustentou a carga completa. O
+mesmo estado foi reproduzido sem NCNN, inclusive em cena vazia. Esta pasta
+preserva os dados brutos, mas a serie nao deve ser usada para atribuir causa ao
+backend nem para comparar 4 contra 2 threads. Nova medicao exige uma fonte
+regulada de boa qualidade, capaz de manter `5,1 V / 2,5 A`.
 
 - `uma-pessoa-r1.json` a `r3.json`: mesmo video e protocolo da base, API
   reiniciada antes de cada rodada. Media de 2876,4, 2923,1 e 2872,1 ms, contra

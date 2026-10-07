@@ -417,6 +417,11 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   episodio dele, por ate 15 s depois de o aluno ser visto confirmado. No video
   de carga, a mesma pessoa passou de 3 eventos `ALUNO` e 2 `NAO_ALUNO` para 1
   `ALUNO`. Rosto de perfil abaixo de 0,30 continua desconhecido.
+- **Reconhecimento facial em segundo plano.** No Pi do projeto,
+  `FACE_ASYNC_RECOGNITION=1` fica ativo por decisao do responsavel desde
+  07/10/2026. O frame nao espera o embedding; enquanto o resultado nao chega,
+  o rosto aparece como `VERIFICANDO`, sem evento. O fallback do codigo segue
+  desligado, e o `.env` do Pi registra a escolha operacional.
 - **Reconhecimento perto do limite.** Em 02/10/2026, com duas pessoas na
   frente da webcam, o rosto cadastrado de frente teve semelhanca de 0,42 a 0,59
   com o cadastro, em volta do limite de 0,52, e foi reconhecido em 9, 21 e 25
@@ -475,16 +480,11 @@ ficou para depois esta nos dois planos. Limitacoes conhecidas desta versao:
   ficou fora de alcance por uns 9 min, com a API rodando o tempo todo. Foi a
   unica reconexao em 24 h; a economia de energia do Wi-Fi esta ligada. Cabo de
   rede evita isso.
-- **Alimentacao do Pi no limite.** A subtensao vista nas primeiras rodadas do
-  NCNN sumiu em 05/10/2026 ao trocar so a tomada: o mesmo Pi e a mesma fonte
-  tiveram 86 de 86 leituras em `0x0` no controle sincrono e 253 de 253 no
-  teste assincrono. Em 06/10/2026 ela voltou na mesma tomada, com a mesma fonte
-  e o mesmo cabo, nos dois modos, em 4 das 7 rodadas com carga conferidas. A
-  causa segue sem isolar entre tomada, fonte, cabo e contato dos conectores, e
-  nao ha evidencia contra o NCNN. Rodada com valor diferente de `0x0` nao vale
-  como medicao, e tensao baixa repetida arrisca o cartao SD e o uso 24/7. O Pi
-  usa a fonte original, de 5,1 V; falta separar fonte, cabo e conector, com
-  outro cabo ou outra fonte, ou medindo a tensao na entrada do Pi.
+- **Alimentacao do Pi.** A carga completa do stream exige uma fonte micro-USB
+  regulada de boa qualidade, com `5,1 V / 2,5 A` estaveis. A alimentacao usada
+  nos testes nao sustentou essa carga; qualquer `vcgencmd get_throttled`
+  diferente de `0x0` invalida a medicao. Nao aumente a tensao acima da
+  especificacao.
 - **Uma camera por processo.** O rastreador e o historico de gestos sao
   globais. Duas conexoes ao mesmo tempo dividem a thread de inferencia, um
   frame de cada vez, e misturam os rastros.

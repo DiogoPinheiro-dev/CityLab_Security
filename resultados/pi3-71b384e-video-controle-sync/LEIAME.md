@@ -19,7 +19,8 @@ desligado e `FACE_ASYNC_RECOGNITION=0`. O video tem SHA-256
 
 A primeira tentativa ficou em `descartadas/`: apesar da media de 1783,201 ms,
 o log `vcgencmd-tentativa1.txt` registrou `0x50005` as 15:20:29 e o historico
-`0x50000` depois. Essa tentativa nao entra na comparacao de desempenho.
+`0x50000` depois. Essa tentativa nao entra na comparacao de desempenho; nova
+medicao exige uma fonte regulada capaz de manter `5,1 V / 2,5 A`.
 
 Este controle serve de base para as rodadas assincronas em
 `resultados/pi3-71b384e-video-async/`. Ele nao aprova o P5 por si so.

@@ -13,7 +13,8 @@ mesmos estados da r1 assincrona valida. A API nao registrou erro.
 
 O tempo nao e comparavel: `descartadas/vcgencmd-r1.txt` registrou `0x50005` as
 17:24:51, com o processador em 600 MHz. Por isso, o arquivo esta preservado
-somente como diagnostico de funcionamento e de alimentacao.
+somente como diagnostico de funcionamento. Nova medicao exige uma fonte
+regulada de boa qualidade, capaz de manter `5,1 V / 2,5 A`.
 
 O aprendizado guardou referencias tiradas do video de carga. Antes da proxima
 serie controlada, elas precisam ser apagadas com `tools/limpar_aprendidos.py`,

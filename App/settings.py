@@ -78,9 +78,8 @@ FACE_DETECTOR_PATH = os.getenv("FACE_DETECTOR_PATH", "").strip()
 # Reconhecimento do rosto em segundo plano: a deteccao segue em todo frame, e o
 # frame volta sem esperar o embedding, que roda numa thread propria; ate o nome
 # sair, o rosto aparece como VERIFICANDO, sem evento. So com FACE_PREFILTER.
-# Reprovado no Pi em 05/10/2026, com o nome confirmado em 2 de 30 frames; a
-# regra de confirmacao de 06/10/2026 foi medida so no PC. Desligado nos dois
-# perfis (docs/PLANO_OTIMIZACAO.md).
+# O fallback segue desligado; o Pi liga no .env por decisao operacional de
+# 07/10/2026, depois da regra nova de confirmacao (docs/PLANO_OTIMIZACAO.md).
 FACE_ASYNC_RECOGNITION = _get_bool("FACE_ASYNC_RECOGNITION", False)
 # Aprende com o stream: um rosto reconhecido com folga vira mais uma referencia
 # da pessoa, guardada no MongoDB (colecao rostos_aprendidos). Ate
@@ -110,8 +109,8 @@ NATIVE_NUM_THREADS = max(0, _get_int("NATIVE_NUM_THREADS", 1 if _RPI3 else 0))
 # Aceita arquivo .pt ou diretorio NCNN exportado; vazio usa o peso versionado.
 POSE_MODEL_PATH = os.getenv("POSE_MODEL_PATH", "").strip()
 # Threads do ncnn na pose, so com um modelo NCNN. Zero deixa o padrao do ncnn,
-# uma por nucleo fisico, 4 no Pi. A serie inicial com 4 teve subtensao, de causa
-# nao isolada, e nao compara threads. Com 2 no rpi3, a serie valida ficou 40%
+# uma por nucleo fisico, 4 no Pi. A serie inicial com 4 teve alimentacao
+# inadequada e nao compara threads. Com 2 no rpi3, a serie valida ficou 40%
 # mais rapida que o .pt, com throttled=0x0 (docs/PLANO_OTIMIZACAO.md).
 NCNN_NUM_THREADS = max(0, _get_int("NCNN_NUM_THREADS", 2 if _RPI3 else 0))
 # Lado da entrada da pose, multiplo de 32. Zero mantem o padrao do Ultralytics,

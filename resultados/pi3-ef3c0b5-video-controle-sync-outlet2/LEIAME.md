@@ -23,7 +23,6 @@ desligada e mudando so a tomada, o mesmo caminho sincrono voltou exatamente ao
 desempenho e ao resultado da base, sem queda de tensao. Uma rodada nao compara
 candidatos de desempenho; ela registra a condicao eletrica daquele momento.
 
-Revisao em 06/10/2026: a queda voltou nessa mesma tomada, com a mesma fonte e o
-mesmo cabo, nos dois modos (`resultados/pi3-71b384e-video-controle-sync/` e
-`resultados/pi3-71b384e-video-async/`, pastas `descartadas`). A troca de
-tomada nao isolou a causa entre tomada, fonte, cabo e contato.
+Revisao em 07/10/2026: esta rodada registra somente a condicao eletrica daquele
+momento. Novas medicoes exigem fonte regulada de boa qualidade, capaz de manter
+`5,1 V / 2,5 A` sob carga.

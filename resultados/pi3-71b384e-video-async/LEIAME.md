@@ -33,8 +33,8 @@ confirmados, 10 pendentes e nenhum desconhecido, mas nao valem para desempenho:
   `vcgencmd-r3-2.txt` registrou `0x50005` e clock de 600 MHz depois de a
   rodada comecar.
 
-Conclusao: o ganho passou de 5% nas duas rodadas validas, mas a terceira foi
-impedida pela alimentacao. O P5 segue sem aprovacao. Alem da r3 valida, falta a
-decisao do responsavel sobre os alertas e sobre 20 nomes confirmados em 30,
-contra 26 no controle. O coletor remove nomes por privacidade: ele confirma
-que havia uma identidade cadastrada, mas nao prova sozinho qual nome saiu.
+Conclusao: o ganho passou de 5% nas duas rodadas validas, mas a terceira exige
+uma fonte regulada de boa qualidade, capaz de manter `5,1 V / 2,5 A`. Em
+07/10/2026 o responsavel decidiu ligar o P5 para uso, mesmo com a rodada formal
+pendente. O coletor remove nomes por privacidade: ele confirma que havia uma
+identidade cadastrada, mas nao prova sozinho qual nome saiu.

@@ -193,13 +193,19 @@ Para conferir, rode em um segundo terminal durante a medicao, nao depois dela:
 while true; do echo "$(date +%T) $(vcgencmd get_throttled) $(vcgencmd measure_clock arm) $(vcgencmd measure_temp)"; sleep 5; done
 ```
 
+O Pi 3 B+ requer uma fonte micro-USB regulada de boa qualidade, capaz de manter
+`5,1 V / 2,5 A` sob carga. Nao aumente a tensao acima da especificacao. A
+alimentacao usada no projeto nao sustentou a carga completa do stream e deve
+ser substituida antes de novas medicoes de desempenho. Ver a
+[especificacao do Pi 3 B+](https://www.raspberrypi.com/products/raspberry-pi-3-model-b-plus/)
+e a [fonte micro-USB oficial](https://www.raspberrypi.com/products/micro-usb-power-supply/).
+
 Em `get_throttled`, o bit `0x8` indica o limite ativo naquele instante e o bit
 `0x80000` indica que ele ja foi atingido desde o boot. Terminada a rodada, o
 clock volta ao repouso de 600 MHz, entao uma leitura isolada nao mostra a queda.
 Para alimentacao, `0x1` indica subtensao atual e `0x10000`, subtensao desde o
-boot; `0x4` e `0x40000` registram throttling atual e historico. Um valor nao
-zero precisa ser decodificado: ele nao identifica sozinho se a causa e
-temperatura, tomada, cabo, fonte ou carga do software.
+boot; `0x4` e `0x40000` registram throttling atual e historico. Qualquer valor
+nao zero invalida uma medicao de desempenho ate a alimentacao estar estavel.
 
 Um dissipador com ventoinha mantem o chip abaixo do limite. A alternativa e
 subir `temp_soft_limit` em `/boot/firmware/config.txt`, ate 70 no 3 B+, com a
@@ -311,24 +317,23 @@ FACE_DETECTOR_PATH=~/.insightface/models/det_500m.onnx
 
 A API para na subida se o arquivo faltar ou se nao for um detector.
 
-`FACE_ASYNC_RECOGNITION=1`, desligado nos dois perfis, tira o reconhecimento
-do rosto do caminho do frame: a deteccao segue em todo frame, o frame volta
-quando o gesto termina, e o embedding roda numa thread propria, um por vez. Ate
-o nome sair, o rosto aparece como "verificando", sem evento. O rosto que andou
-ate 120 px leva o nome mais proximo e e reconhecido de novo; desde 06/10/2026,
-se ele e o unico rosto perto daquele nome, o nome segue confirmado, e com outro
-rosto por perto fica "verificando" ate o reconhecimento na posicao nova. Vale
-so com `FACE_PREFILTER=1`.
+`FACE_ASYNC_RECOGNITION=1` tira o reconhecimento do rosto do caminho do frame:
+a deteccao segue em todo frame, o frame volta quando o gesto termina, e o
+embedding roda numa thread propria, um por vez. Ate o nome sair, o rosto aparece
+como "verificando", sem evento. O rosto que andou ate 120 px leva o nome mais
+proximo e e reconhecido de novo; desde 06/10/2026, se ele e o unico rosto perto
+daquele nome, o nome segue confirmado, e com outro rosto por perto fica
+"verificando" ate o reconhecimento na posicao nova. Vale so com
+`FACE_PREFILTER=1`. O fallback do codigo e desligado; o `.env` do Pi liga a
+opcao por decisao do responsavel em 07/10/2026.
 
-A primeira rodada controlada no Pi, em 05/10/2026 (`0ac0bf0`), reduziu a media
-do frame em 30,263%, mas reconheceu o rosto cadastrado em apenas 2 de 30 frames,
-contra 26 de 30 no controle sincrono; 27 ficaram pendentes. O log teve 253 de
-253 leituras em `throttled=0x0`, portanto a perda nao veio da alimentacao nem de
-limite termico. O candidato foi reprovado e deve continuar desligado. Ver
-`resultados/pi3-0ac0bf0-video-async-tomada2/` e
-`docs/PLANO_OTIMIZACAO.md`. A regra de confirmacao de 06/10/2026 levou, no PC,
-o nome confirmado de 5 para 24 de 30 frames com o resultado 2 frames atrasado;
-falta medir no Pi.
+A regra inicial, medida no Pi em 05/10/2026 (`0ac0bf0`), reduziu a media do
+frame em 30,263%, mas confirmou o rosto cadastrado em apenas 2 de 30 frames,
+contra 26 de 30 no controle. A regra de 06/10/2026 passou para 20 de 30 em duas
+rodadas validas no Pi, sem desconhecidos, e reconheceu corretamente o nome no
+teste ao vivo de 07/10. A terceira rodada controlada segue pendente de uma
+alimentacao adequada; a opcao fica ativa por decisao operacional, nao como
+aceite final de desempenho. Ver `docs/PLANO_OTIMIZACAO.md`.
 
 `FACE_LEARN_FROM_STREAM`, ligado no perfil rpi3 desde 03/10/2026 e promovido
 ao padrao dos dois perfis em 05/10/2026, faz o sistema aprender com o stream:
@@ -452,23 +457,18 @@ ganho, sem outra mudanca na mesma rodada.
 Medido no Pi em 04/10/2026, com o video de carga:
 
 - A serie inicial com as 4 threads do padrao do ncnn observou frame 22% mais
-  rapido e os mesmos alertas, mas teve `0x50005`. Em 05/10/2026 a subtensao
-  apareceu tambem com o caminho facial sincrono e sumiu ao mudar somente a
-  tomada, com o mesmo Pi e a mesma fonte. Em 06/10/2026 voltou na mesma tomada,
-  nos dois modos, com a mesma fonte e o mesmo cabo: a causa nao esta isolada
-  entre tomada, fonte, cabo e contato. A serie de 4 threads fica como registro
-  bruto, nao como comparacao controlada nem evidencia contra o NCNN.
+  rapido e os mesmos alertas, mas a alimentacao usada nao sustentou a carga. A
+  serie fica como registro bruto, nao como comparacao controlada nem evidencia
+  contra o NCNN.
 - Com 2 threads, o frame ficou 40% mais rapido que com o `.pt`, com a mesma
   deteccao frame a frame e `throttled=0x0` em todas as leituras. O NCNN e o
   rosto somam 4 threads, uma por nucleo. Essa comparacao contra o `.pt` e
-  valida; a serie eletricamente invalida de 4 threads nao permite concluir que
-  duas threads corrigiram alimentacao.
+  valida; a serie eletricamente invalida de 4 threads nao compara consumo.
 
 `NCNN_NUM_THREADS` e 2 no perfil rpi3 desde entao; zero volta ao padrao do
 ncnn, uma thread por nucleo fisico. As convolucoes do ncnn fixam as threads ao
 carregar a rede, entao o servico a recarrega uma vez, no primeiro frame, ja
 com o valor. A metrica `ncnn_threads` mostra o valor usado em cada frame. Com o
 NCNN ligado, confira `vcgencmd get_throttled` de vez em quando: qualquer valor
-diferente de `0x0` pede decodificar os bits e repetir a medicao depois de
-isolar temperatura, tomada, cabo e fonte. Nao volte ao `.pt` nem atribua a
-causa ao NCNN sem um A/B na mesma condicao eletrica.
+diferente de `0x0` invalida a medicao. Use uma fonte micro-USB regulada de boa
+qualidade, com `5,1 V / 2,5 A` estaveis, antes de repetir os testes.
