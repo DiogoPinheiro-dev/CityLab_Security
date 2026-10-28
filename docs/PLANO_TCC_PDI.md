@@ -82,12 +82,9 @@ automatico (`App/settings.py:99-108`), com rosto e gesto rodando em paralelo.
 
 ### O que muda com o PC Windows
 
-PC conferido em 28/10/2026: Intel Core i5-10400F (6 nucleos, 12 threads),
-15,9 GB de RAM, NVIDIA GeForce GTX 1650 e Windows 11 Pro build 26300. O `.venv`
-tem Python 3.13.15, NumPy 2.2.6, MediaPipe 0.10.33, InsightFace 0.7.3, ONNX
-Runtime 1.23.2, Ultralytics 8.3.226, PyTorch 2.9.0, lapx 0.9.4 e psutil 7.1.3.
-A inferencia roda so na CPU: `torch.cuda.is_available()` e falso, e o ONNX
-Runtime so tem os provedores Azure e CPU.
+A configuracao do PC esta em "Ambiente de teste", abaixo. A inferencia roda so
+na CPU: `torch.cuda.is_available()` e falso, e o ONNX Runtime so tem os
+provedores Azure e CPU.
 
 - Nao ha arquivo de dependencias do PC; o repositorio so fixa o Pi.
 - Tres distribuicoes de OpenCV estao instaladas juntas: `opencv-python` e
@@ -113,6 +110,32 @@ Runtime so tem os provedores Azure e CPU.
 - O deploy so dispara com push na `main` (`.github/workflows/deploy.yml:4-6`).
   Um merge desta branch na `main` levaria tudo ao Pi.
 
+### Ambiente de teste
+
+Conferido no PC em 28/10/2026, para a secao 3.4.
+
+| Item | Configuracao |
+|---|---|
+| Processador | Intel Core i5-10400F, 2,90 GHz base, 6 nucleos e 12 threads, L2 de 1,5 MB e L3 de 12 MB |
+| Memoria | 16 GB (2 x 8 GB TeamGroup UD4-3200), operando a 2400 MT/s |
+| GPU | NVIDIA GeForce GTX 1650, driver 32.0.16.2101; a inferencia nao a usa |
+| Armazenamento | SSD NVMe Kingston SNV3S500G de 500 GB (C:, sistema) e disco externo USB de 1 TB (D:, repositorio e `.venv`) |
+| Sistema | Windows 11 Pro 64 bits, versao 10.0.26300; plano de energia Equilibrado |
+| Python | 3.13.15 |
+| Bibliotecas | NumPy 2.2.6; OpenCV 4.13.0 (carregado o `opencv-contrib-python` 4.13.0.92; `opencv-python` e `opencv-python-headless` 4.12.0.88 tambem instalados); MediaPipe 0.10.33; InsightFace 0.7.3; ONNX Runtime 1.23.2 (CPU); Ultralytics 8.3.226; PyTorch 2.9.0 (CPU); ncnn 1.0.20260526; lapx 0.9.4; psutil 7.1.3 |
+| Modelos | configuracao final do Pi: det_500m (buffalo_sc) e w600k_r50 (buffalo_l) no rosto, YOLOv8n-pose em NCNN 320 x 416 na pose, `gesture_recognizer.task` do MediaPipe nas maos |
+
+O que da para medir de recursos no PC, conferido no `.venv`:
+
+- CPU e memoria do processo, pelo psutil (`cpu_percent` e `memory_info`). Hoje
+  a memoria do processo ja sai por frame (`process_rss_mb`, com
+  `ENABLE_PERFORMANCE_METRICS=1`), e a CPU so vai para o log, medida no
+  sistema inteiro (`Server/system_monitor.py:52-74`).
+- Leitura e escrita em disco do processo (`io_counters`).
+- GPU: o `nvidia-smi` esta instalado, mas a inferencia roda so na CPU, entao o
+  uso da GPU nao reflete a tecnica.
+- Temperatura: o psutil nao a le no Windows.
+
 ### O que ainda nao existe para o protocolo do TCC
 
 - **Modulo de PDI.** Nenhuma das cinco tecnicas esta no codigo. O unico gancho,
@@ -137,29 +160,75 @@ Runtime so tem os provedores Azure e CPU.
   iluminacao, distancia e ruido nem pessoas nao cadastradas, como pede a secao
   3.6. O `.gitignore` nao cobre arquivos de video.
 
-## Decisoes em aberto
+## Decisoes do responsavel em 28/10/2026
 
-Para o responsavel e, quando mexer no texto, para o orientador:
+- **Plataforma.** O Raspberry Pi nao e usado neste TCC, que apresenta os
+  testes e o resultado feitos no PC. As partes do texto escritas para o Pi
+  precisam ser reescritas: titulo ("sistema embarcado"), resumo, problema,
+  objetivo geral e as secoes 1.3, 2.5, 3.1, 3.4, 3.8, 3.9 e 4.5. A secao 1.4.3
+  das diretrizes do TC pede que a mudanca em relacao ao tema do TC I
+  ("sistemas embarcados") seja justificada.
+- **Perfil.** O do Pi: `CITYLAB_PROFILE=rpi3`, com a configuracao final do Pi
+  (det_500m, pose NCNN 320 x 416, passada unica). Com ele vem ligado o
+  embedding no frame original, o reuso do nome do rosto por 15 s e o gate de
+  movimento.
+- **Onde aplicar o PDI.** No frame recebido, antes da reducao pela
+  `PROCESS_SCALE`: o frame original e o reduzido saem tratados, e o embedding
+  no frame original tambem ve a tecnica.
+- **PC no texto.** O PC e o ambiente de teste e aparece com a sua
+  configuracao ("Ambiente de teste", acima). O uso de recursos (CPU, memoria,
+  GPU e disco) entra como metrica, junto com o tempo por quadro e o tempo do
+  PDI. A temperatura fica fora do texto.
+- **Galeria.** Os cadastros que ja estao no MongoDB que o Pi usava, sem PDI,
+  iguais para todas as tecnicas e congelados durante a coleta: aprendizado
+  desligado e nenhum cadastro novo. Na ultima listagem registrada, em
+  04/10/2026, eram quatro pessoas, cada uma com um cadastro de uma foto
+  (`docs/PLANO_OTIMIZACAO.md:695-698`). Com uma foto so, o rosto cadastrado
+  ficou perto do limite de 0,52 em 02/10/2026 (README, "Reconhecimento perto
+  do limite"). A classe de rejeicao da secao 3.7 depende de aparecerem nos
+  videos rostos que nao estao na galeria.
+- **Banco.** O mesmo MongoDB que o Pi usava. Falta conferir se o `MONGO_DETAILS`
+  do `.env` do PC aponta para ele. Com o aprendizado desligado, a API nao
+  carrega as referencias aprendidas (`Server/main.py:214-215`).
+- **Caminho dos testes.** Executor offline: um script que carrega a mesma
+  cadeia e o mesmo perfil, le a galeria do banco do Pi uma vez, no comeco da
+  rodada, e nao grava nada nele. Ele le o video quadro a quadro, aplica o PDI,
+  usa a base de tempo escolhida e grava um registro por quadro em arquivo
+  local, sem servidor, WebSocket nem recompressao JPEG. Pela API, o servidor
+  gravaria no banco eventos com recorte do rosto (`Server/event_logger.py:162`).
+- **Imagens de rosto no texto.** So as do responsavel.
+- **Base de tempo.** Tempo do video no ritmo do Pi: o executor pega um quadro
+  a cada 1,7 s de video e passa a cadeia o instante dele no video. As regras
+  de gesto, o reuso do nome do rosto (15 s no `rpi3`), o aluno de perfil e o
+  teto do gate de movimento contam o tempo por esse instante, que hoje e o
+  relogio do PC (`App/frame_context.py:49`, `App/FaceRecon/service.py:253`,
+  `App/GestureRecon/service.py:182-183`). Assim o custo de cada tecnica nao
+  muda os alertas. As duracoes atuais (8 s na mao oculta, 4 s na mao fechada)
+  foram validadas de 1,0 a 3,4 s por quadro (`docs/PLANO_GESTOS.md`, "Decisao:
+  mao oculta 8 s, mao fechada 4 s"). Nesse ritmo a mao oculta confirma uns
+  8,5 s depois de comecar, entao os gestos gravados precisam durar mais que
+  isso.
 
-1. **Tema.** As diretrizes do TC (secao 1.4.3) mantem no TC II o tema do TC I,
-   salvo excecao justificada e autorizada. O TC I trata de "sistemas
-   embarcados", e o titulo do TC II v1 ainda diz "sistema embarcado". Rodar no
-   PC muda isso e as partes escritas para o Pi: titulo, resumo, problema,
-   objetivo geral e as secoes 1.3, 2.5, 3.1, 3.4, 3.8, 3.9 e 4.5.
-2. **Perfil e modelos no PC.** O `default` (det_10g, pose `.pt` em 640, pessoas
-   pelo `yolov8n.pt`) ou a configuracao final do Pi (det_500m, pose NCNN
-   320 x 416, passada unica).
-3. **Onde aplicar o PDI.** No frame recebido, antes da reducao: cobre todos os
-   modulos em qualquer perfil e custa 4 vezes os pixels. Ou no frame reduzido:
-   mais barato, mas so vale com `FACE_EMBED_FULL_FRAME=0`. A grade do CLAHE e
-   os nucleos do gaussiano e da mascara dependem da resolucao escolhida.
-4. **Base de tempo dos gestos.** Proposta: tempo do video, numa cadencia fixa
-   igual para todas as tecnicas, com o custo medido a parte. Hoje
-   `build_frame_context` sempre usa o relogio, entao isso pede um parametro
-   novo.
-5. **Galeria.** Fixa, cadastrada sem PDI, como no uso real, ou refeita por
-   tecnica.
-6. **Temperatura no PC.** Outra fonte ou tirar a metrica do texto.
-7. **Banco.** Um banco so do TCC ou o executor offline, sem banco.
-8. **Participantes.** Os videos sao dado biometrico, e o TCC nao fala de
-   consentimento.
+## Proposta de ordem de trabalho
+
+Cada passo e combinado antes, com testes e um commit proprio:
+
+1. **Tempo do quadro e ponto do PDI na cadeia.** `process_frame` passa a
+   aceitar o instante do quadro e uma etapa de PDI aplicada ao frame recebido,
+   antes de `build_frame_context`, com o tempo em `pdi_ms`. Sem os dois, nada
+   muda na API nem no Pi.
+2. **Modulo de PDI.** As cinco tecnicas e as combinacoes, com parametros
+   configuraveis e valores iniciais da literatura ate o ensaio piloto (secao
+   3.5): equalizacao, CLAHE e gama no canal de luminancia; gaussiano e mascara
+   de nitidez no quadro BGR.
+3. **Executor offline.** Galeria lida do banco; perfil do Pi com aprendizado e
+   reconhecimento em segundo plano desligados; um quadro a cada 1,7 s de
+   video, com o instante dele no video; registro por quadro com CPU, memoria
+   e disco do processo; cabecalho da rodada com commit, configuracao efetiva,
+   versoes, hardware e hash do video e dos modelos. A combinar neste passo: o
+   quadro inicial muda quais quadros entram, e os testes de gesto de outubro
+   rodaram todas as fases (17 por video a 1,7 s, `docs/PLANO_GESTOS.md:108-113`).
+4. **Anotacao e metricas.** Formato da anotacao (identidade por rosto,
+   intervalo por gesto) e o calculo de acuracia, precisao, revocacao e F1.
+5. **Ambiente do Windows.** Requirements do PC com versoes fixas e uma unica
+   distribuicao de OpenCV, e o `.env` do experimento.
