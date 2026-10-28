@@ -303,3 +303,29 @@ Cada passo e combinado antes, com testes e um commit proprio:
 - A combinar: a fase da amostragem (`--inicio`).
 - Testes: `tests/test_executor_pdi.py` (7), sem modelos nem banco. No PC, 174
   de 177 testes Python passam; as 3 falhas sao as do script de deploy do Pi.
+
+### Passo 4 em 28/10/2026
+
+- `tools/metricas_pdi.py RODADA.jsonl ANOTACAO.json`: compara uma rodada do
+  executor com a anotacao do video. O formato da anotacao esta no topo do
+  arquivo: pessoas com o nome do cadastro (ou `null`, nao cadastrada) e os
+  trechos, em segundos de video, em que o rosto aparece; gestos com classe,
+  inicio e fim.
+- Rosto, por quadro amostrado: nome esperado presente e TP, ausente e FN; nome
+  reconhecido sem par esperado e FP (aceitacao falsa, nome trocado ou deteccao
+  espuria); nao cadastrado com um `NAO ALUNO` para ele e TN. Rosto pendente
+  conta como `NAO ALUNO`. Saem acuracia, precisao, revocacao, F1 e as
+  contagens. O casamento e por nome, sem a caixa: a anotacao nao precisa de
+  caixas, mas duas pessoas trocadas no mesmo quadro nao se distinguem.
+- Gesto, por classe: trecho anotado com o alerta em algum quadro dentro dele,
+  ou ate `--tolerancia` s depois do fim (1,7 por padrao), e TP; sem o alerta, FN.
+  Cada sequencia de quadros seguidos com o alerta fora de todo trecho e um FP.
+  O trecho da ameaca vale tambem para braco estendido e mao fechada. A media
+  usa so as classes com trecho anotado; os alarmes das outras saem em
+  `alarmes_sem_trecho`. Classes comparadas sem acento e sem caixa.
+- Teste de ponta a ponta com a rodada do passo 3 e uma anotacao provisoria
+  (mao oculta no video inteiro), so para exercitar o caminho: rosto 18 de 18,
+  mao oculta 1 de 1, e a mao fechada de um quadro saiu como alarme sem trecho.
+  Nao e resultado: o video nao foi anotado.
+- Testes: `tests/test_metricas_pdi.py` (5). No PC, 179 de 182 testes Python
+  passam; as 3 falhas sao as do script de deploy do Pi.
