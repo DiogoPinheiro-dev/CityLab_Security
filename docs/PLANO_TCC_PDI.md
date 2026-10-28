@@ -270,3 +270,36 @@ Cada passo e combinado antes, com testes e um commit proprio:
   desconhecido para com `ValueError`.
 - Testes: `tests/test_preprocessing.py` (8). No PC, 167 de 170 testes Python e
   os 12 de Node passam; as 3 falhas sao as do script de deploy do Pi.
+
+### Passo 3 em 28/10/2026
+
+- `tools/executor_pdi.py VIDEO --pdi CONFIG --saida ARQUIVO.jsonl`: forca o
+  perfil `rpi3`, os dois servicos, `FACE_LEARN_FROM_STREAM=0`,
+  `FACE_ASYNC_RECOGNITION=0` e `YOLO_AUTOINSTALL=False`, com a pose NCNN e o
+  `det_500m` por padrao. Le os cadastros da colecao `alunos` uma vez, so
+  leitura, e nao grava nada no banco.
+- Pega um quadro a cada `--intervalo` segundos de video (1,7 por padrao), a
+  partir de `--inicio` (a fase), reduz a 640 px de largura mantendo a
+  proporcao, sem JPEG, e passa a cadeia o instante do quadro no video. Antes
+  da medicao, `--aquecimento` passadas no primeiro quadro, e depois historico
+  de gesto, nomes e rastreador zerados.
+- Saida em JSONL: cabecalho (rodada, commit, configuracao de PDI e efetiva,
+  video com sha256, galeria com contagem e sha256, hash dos modelos, versoes e
+  maquina), um registro por quadro (rostos com nome, caixa, semelhanca e
+  pendente; gestos com track e alertas; metricas da cadeia com `pdi_ms`; CPU,
+  memoria e disco do processo) e um resumo com media e desvio. A pasta
+  `resultados/tcc-pdi/` e os videos ficam fora do Git, porque tem nomes e
+  rostos.
+- Rodada de teste no PC com `mao_oculta_r1.avi` (30 s, 30 FPS, 640 x 480) e
+  CLAHE: 18 quadros, 4 cadastros na galeria (o mesmo numero da listagem do Pi
+  em 04/10), rosto conhecido em 18/18, mao oculta em 14 quadros, `pdi_ms` medio
+  2,4 ms e quadro medio de 80 ms. O reuso do nome venceu no quadro de 15,3 s,
+  pelo tempo do video. Quatro rodadas deram rostos e alertas identicos quadro
+  a quadro, com quadro medio de 79 a 81 ms.
+- Achado: no primeiro quadro, o InsightFace (pelo `skimage`) e a pose importam
+  o `scipy` cada um na sua thread, e o import circular derrubou uma rodada. O
+  executor importa os dois antes, na thread principal. A API tem o mesmo
+  arranjo de threads; nao foi visto la nem corrigido.
+- A combinar: a fase da amostragem (`--inicio`).
+- Testes: `tests/test_executor_pdi.py` (7), sem modelos nem banco. No PC, 174
+  de 177 testes Python passam; as 3 falhas sao as do script de deploy do Pi.

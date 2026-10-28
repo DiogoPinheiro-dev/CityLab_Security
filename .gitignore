@@ -31,6 +31,12 @@ env/
 
 # Saidas de execucao: logs e recortes de rosto nunca vao para o Git
 *.log
+# Rodadas do TCC de PDI: tem os nomes reconhecidos; videos de participantes
+resultados/tcc-pdi/
+*.avi
+*.mp4
+*.mov
+*.mkv
 App/FaceRecon/historico/
 Server/historico/
 App/**/*.png
