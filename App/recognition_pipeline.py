@@ -3,6 +3,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor, wait
 from typing import TYPE_CHECKING
 from typing import Any
+from typing import Callable
 from typing import Optional
 
 import numpy as np
@@ -67,8 +68,11 @@ class UnifiedRecognitionService:
         torch_threads: int = TORCH_NUM_THREADS,
         opencv_threads: int = OPENCV_NUM_THREADS,
         allow_partial_pipeline: bool = CITYLAB_ALLOW_PARTIAL_PIPELINE,
+        preprocessor: Optional[Callable[[np.ndarray], np.ndarray]] = None,
     ) -> None:
         self.allow_partial_pipeline = allow_partial_pipeline
+        # PDI do TCC (docs/PLANO_TCC_PDI.md): None deixa o frame como chegou.
+        self.preprocessor = preprocessor
         self.shared_person_pose = shared_person_pose
         self.face_service = face_service or self._create_face_service()
         self.gesture_service = gesture_service or self._create_gesture_service()
@@ -128,16 +132,28 @@ class UnifiedRecognitionService:
         detect_faces: bool = True,
         detect_persons: bool = True,
         detect_gestures: bool = True,
+        observed_at: Optional[float] = None,
     ) -> dict[str, Any]:
         import time
 
         started_at = time.perf_counter()
         metrics: dict[str, float] = {}
 
+        if self.preprocessor is not None:
+            # Uma vez, no frame recebido, antes da reducao: o frame original e o
+            # reduzido saem tratados, e todos os modelos veem a mesma imagem.
+            pdi_started_at = time.perf_counter()
+            treated = self.preprocessor(frame)
+            metrics["pdi_ms"] = (time.perf_counter() - pdi_started_at) * 1000.0
+            if treated.shape != frame.shape or treated.dtype != frame.dtype:
+                raise ValueError("O PDI deve devolver o frame no mesmo formato e tipo")
+            frame = treated
+
         frame_context = build_frame_context(
             frame,
             process_scale=self.process_scale,
             experimental_grayscale=self.experimental_grayscale,
+            observed_at=observed_at,
         )
 
         persons: list[dict[str, Any]] = []

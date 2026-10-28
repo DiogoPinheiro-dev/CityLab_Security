@@ -476,6 +476,17 @@ class FaceOptimizationTests(unittest.TestCase):
         frame(115.0, face)
         self.assertEqual(recognition.get.call_count, 2)
 
+    def test_reuse_window_counts_from_a_video_that_starts_at_zero(self):
+        service, recognition, frame = self.reuse_frames()
+        face = Vector([0, 0, 30, 30, .9])
+        # Com o tempo do video, o primeiro frame vem em 0 s; trocar o zero pelo
+        # relogio deixava a janela negativa, e o nome nunca vencia.
+        frame(0.0, face)
+        frame(4.0, face)
+        self.assertEqual(recognition.get.call_count, 1)
+        frame(15.0, face)
+        self.assertEqual(recognition.get.call_count, 2)
+
     def test_moved_or_new_face_is_recognized_and_the_others_keep_their_name(self):
         service, recognition, frame = self.reuse_frames()
         first, moved, new = (Vector([0, 0, 30, 30, .9]), Vector([40, 40, 70, 70, .9]),

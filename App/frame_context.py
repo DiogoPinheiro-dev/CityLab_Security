@@ -45,8 +45,12 @@ def build_frame_context(
     frame: np.ndarray,
     process_scale: float,
     experimental_grayscale: bool = False,
+    observed_at: float | None = None,
 ) -> FrameContext:
-    observed_at = time.monotonic()
+    # Instante do frame: o relogio, ou o tempo do video quando quem chama informa,
+    # para as regras de gesto e o reuso do rosto nao dependerem do processamento.
+    if observed_at is None:
+        observed_at = time.monotonic()
     frame_h, frame_w = frame.shape[:2]
     process_w = max(1, int(round(frame_w * process_scale)))
     process_h = max(1, int(round(frame_h * process_scale)))

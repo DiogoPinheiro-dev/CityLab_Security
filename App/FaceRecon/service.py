@@ -250,7 +250,10 @@ class FaceRecognitionService:
 
         # Rosto no mesmo lugar de um reconhecido ha menos de reuse_seconds herda
         # nome e semelhanca, sem embedding. So o prefiltro separa as duas etapas.
-        now = getattr(frame_context, "observed_at", None) or time.monotonic()
+        now = getattr(frame_context, "observed_at", None)
+        if now is None:
+            # Zero e instante valido: o primeiro frame de um video comeca em 0 s.
+            now = time.monotonic()
         generation = self._identity_generation
         reuse = self.prefilter and self.reuse_seconds > 0
         boxes = [bbox for _, bbox, _ in accepted]

@@ -232,3 +232,22 @@ Cada passo e combinado antes, com testes e um commit proprio:
    intervalo por gesto) e o calculo de acuracia, precisao, revocacao e F1.
 5. **Ambiente do Windows.** Requirements do PC com versoes fixas e uma unica
    distribuicao de OpenCV, e o `.env` do experimento.
+
+### Passo 1 em 28/10/2026
+
+- `build_frame_context` aceita `observed_at`; sem ele, segue o relogio
+  (`App/frame_context.py`).
+- `UnifiedRecognitionService` aceita um `preprocessor`, aplicado uma vez ao
+  frame recebido, antes da reducao, com o tempo em `pdi_ms`. Ele precisa
+  devolver o frame no mesmo formato e tipo; senao a cadeia para com
+  `ValueError`. `process_frame` aceita `observed_at`
+  (`App/recognition_pipeline.py`). Sem os dois, a API e o Pi seguem iguais:
+  o servidor chama `process_frame(frame)` (`Server/main.py:94`).
+- Correcao no rosto: o instante 0 virava o relogio do PC
+  (`App/FaceRecon/service.py`). Com o tempo do video, a janela do reuso ficava
+  negativa a partir do primeiro frame, e o nome nunca vencia. O teste novo
+  falha sem a correcao.
+- Testes: `tests/test_pdi_pipeline.py` (6) e um em
+  `tests/test_optimization_safety.py`. No PC, 159 de 162 testes Python e os 12
+  de Node passam; as 3 falhas sao as de antes, do script de deploy do Pi
+  (`tests/test_deploy_dependencies.py`).
