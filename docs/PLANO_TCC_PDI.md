@@ -329,3 +329,21 @@ Cada passo e combinado antes, com testes e um commit proprio:
   Nao e resultado: o video nao foi anotado.
 - Testes: `tests/test_metricas_pdi.py` (5). No PC, 179 de 182 testes Python
   passam; as 3 falhas sao as do script de deploy do Pi.
+
+### Passo 5 em 28/10/2026
+
+- `requirements-windows.txt`: as dependencias diretas com as versoes do
+  `.venv` do PC (conferidas uma a uma, nenhuma diferente) e um so OpenCV, o
+  `opencv-contrib-python` 4.13.0.92, que e o carregado hoje. O topo do arquivo
+  traz a instalacao: como o mediapipe pede o contrib e o ultralytics e o ncnn
+  pedem o `opencv-python`, depois do `pip install` se tira o `opencv-python` e o
+  `opencv-python-headless` e se reinstala o contrib. O `requirements-rpi-bookworm.txt`
+  nao mudou.
+- `.env` do experimento: o executor ja forca o perfil e as chaves do TCC sobre
+  o `.env`, que so precisa das chaves `MONGO_*` do banco do Pi. As tres chaves
+  `CITYLAB_*` que hoje desligam rosto e gesto no `.env` do PC nao afetam o
+  executor; afetam so a API.
+- O `.venv` atual segue com os tres OpenCV instalados; trocar o ambiente fica
+  a criterio do responsavel.
+- Testes: `tests/test_requirements_windows.py` (3). No PC, 182 de 185 testes
+  Python passam; as 3 falhas sao as do script de deploy do Pi.

@@ -1,0 +1,43 @@
+# PC Windows do TCC de PDI (docs/PLANO_TCC_PDI.md), Python 3.13, so CPU.
+# Versoes do .venv conferido em 28/10/2026 no ambiente de teste.
+#
+# O mediapipe pede opencv-contrib-python, e o ultralytics e o ncnn pedem
+# opencv-python: o pip instala os dois, e os dois fornecem o mesmo cv2. Depois
+# de instalar este arquivo, deixar so o contrib, que e o OpenCV do experimento:
+#   python -m venv .venv
+#   .venv\Scripts\python.exe -m pip install -r requirements-windows.txt
+#   .venv\Scripts\python.exe -m pip uninstall -y opencv-python opencv-python-headless
+#   .venv\Scripts\python.exe -m pip install --force-reinstall --no-deps opencv-contrib-python==4.13.0.92
+#
+# Modelos fora do Git: buffalo_l e buffalo_sc (det_500m) em ~/.insightface/models
+# e a pose NCNN em App/GestureRecon/yolov8n-pose_ncnn_model
+# (tools/export_pose_ncnn.py).
+
+# API e banco
+fastapi==0.121.0
+uvicorn==0.38.0
+websockets==15.0.1
+python-dotenv==1.2.1
+python-multipart==0.0.22
+aiofiles==25.1.0
+motor==3.6.1
+pymongo==4.9.2
+dnspython==2.8.0
+pillow==12.0.0
+qrcode[pil]==8.2
+requests==2.32.5
+psutil==7.1.3
+
+# Imagem e modelos
+numpy==2.2.6
+opencv-contrib-python==4.13.0.92
+scipy==1.16.3
+scikit-image==0.25.2
+mediapipe==0.10.33
+insightface==0.7.3
+onnxruntime==1.23.2
+torch==2.9.0
+torchvision==0.24.0
+ultralytics==8.3.226
+ncnn==1.0.20260526
+lapx==0.9.4
