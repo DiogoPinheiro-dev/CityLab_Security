@@ -251,3 +251,22 @@ Cada passo e combinado antes, com testes e um commit proprio:
   `tests/test_optimization_safety.py`. No PC, 159 de 162 testes Python e os 12
   de Node passam; as 3 falhas sao as de antes, do script de deploy do Pi
   (`tests/test_deploy_dependencies.py`).
+
+### Passo 2 em 28/10/2026
+
+- `App/preprocessing.py`: as tecnicas `nenhuma`, `equalizacao`, `clahe`,
+  `gama`, `gaussiano` e `nitidez`, e a classe `Preprocessor`, que aplica uma
+  sequencia na ordem dada e entra na cadeia como o `preprocessor` do passo 1.
+- Equalizacao, CLAHE e gama mexem so no Y do YCrCb; gaussiano e mascara de
+  nitidez agem no frame BGR. Cada tecnica devolve o frame no mesmo formato e
+  tipo.
+- Valores iniciais, a fixar no ensaio piloto (secao 3.5): CLAHE com limite 2,0
+  e grade 8 x 8; gama 0,8 (saida = 255 x (entrada/255)^gama, abaixo de 1
+  clareia); gaussiano 5 x 5 com sigma 1,0; mascara de nitidez com sigma 1,0 e
+  quantidade 0,5.
+- Uma configuracao se escreve como `clahe+gaussiano` ou
+  `gama:gamma=0.6+nitidez:amount=1.0`; `Preprocessor.config` devolve tecnicas,
+  parametros efetivos e ordem para o registro da rodada. Tecnica ou parametro
+  desconhecido para com `ValueError`.
+- Testes: `tests/test_preprocessing.py` (8). No PC, 167 de 170 testes Python e
+  os 12 de Node passam; as 3 falhas sao as do script de deploy do Pi.
